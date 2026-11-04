@@ -227,10 +227,12 @@ function keepScreenAwake() {
   const acquire = async () => {
     if (!active || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
     try {
-      lock = await navigator.wakeLock.request('screen');
+      const granted = await navigator.wakeLock.request('screen');
+      lock?.release().catch(() => {});
+      lock = granted;
       if (!active) lock.release().catch(() => {});
     } catch {
-      lock = null; // Not allowed right now; the screen just sleeps as usual.
+      // Not allowed right now; the screen just sleeps as usual.
     }
   };
   const onVisible = () => acquire();

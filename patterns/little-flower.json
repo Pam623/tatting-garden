@@ -1,0 +1,25 @@
+{
+  "id": "little-flower",
+  "title": "入门小花",
+  "craft": "梭编",
+  "difficulty": "入门",
+  "status": "checked",
+  "photo": "assets/little-flower.jpg",
+  "summary": "五个一样的环，首尾相接成一朵小花。只有环，没有桥。",
+  "layout": { "type": "flower", "startAngle": -50 },
+  "expect": { "stitchesPerRing": 22, "decoPerRing": 5 },
+  "rings": [
+    { "id": "A", "tokens": ["5", "p:first", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
+    { "id": "B", "tokens": ["5", "j:A.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
+    { "id": "C", "tokens": ["5", "j:B.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
+    { "id": "D", "tokens": ["5", "j:C.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
+    { "id": "E", "tokens": ["5", "j:D.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "j:A.first", "5"] }
+  ],
+  "finish": "把线头打结，藏好线尾",
+  "toConfirm": [
+    "五个环按顺时针依次编（A 右上，B 右下，然后一路转回左上）",
+    "最后一个环 E 接回 A 环的第一个耳，整朵花合上",
+    "全程不用翻面",
+    "收尾方式是线头打结"
+  ]
+}

@@ -1,138 +1,250 @@
 // Draws a chart from pattern data, so the picture and the numbers can't disagree.
 import { readElement } from './pattern.js';
 
-const LENGTH = 142;      // ring from base to tip
-const WIDTH = 118;       // ring width factor
-const BASE_RADIUS = 10;  // gap from flower centre to each ring's base
 const SAMPLES = 320;
 const PICOT_R = 5.5;
+const BASE_SCALE = 370;     // marks are designed at this viewBox width
+const MIN_TICK_SPACING = 5; // below this, at the base scale, ticks can't be counted
+const TEARDROP_PEAK = 0.7698; // the largest value of sin(t) * sin(t / 2)
 
-// Walks a teardrop clockwise: out along its left side, round the tip, back to the base.
-function ringOutline(angleDeg) {
-  const a = (angleDeg * Math.PI) / 180;
-  const axis = { x: Math.cos(a), y: Math.sin(a) };
+function escapeXml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+const n = (value) => value.toFixed(1);
+
+function ringPoints({ base, tip, width, dir }) {
+  const dx = tip[0] - base[0];
+  const dy = tip[1] - base[1];
+  const length = Math.hypot(dx, dy);
+  const axis = { x: dx / length, y: dy / length };
   const left = { x: axis.y, y: -axis.x };
-  const base = { x: axis.x * BASE_RADIUS, y: axis.y * BASE_RADIUS };
+  const side = dir === 'cw' ? 1 : -1;
   const points = [];
   for (let i = 0; i <= SAMPLES; i++) {
     const t = (i / SAMPLES) * 2 * Math.PI;
-    const u = (LENGTH * (1 - Math.cos(t))) / 2;
-    const v = WIDTH * Math.sin(t) * Math.sin(t / 2) * 0.5;
-    points.push({
-      x: base.x + axis.x * u + left.x * v,
-      y: base.y + axis.y * u + left.y * v,
-    });
+    const u = (length * (1 - Math.cos(t))) / 2;
+    const v = (side * (width / 2) * Math.sin(t) * Math.sin(t / 2)) / TEARDROP_PEAK;
+    points.push({ x: base[0] + axis.x * u + left.x * v, y: base[1] + axis.y * u + left.y * v });
   }
+  return { points, outSide: side };
+}
+
+function bridgePoints({ from, to, bulge }) {
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  const length = Math.hypot(dx, dy);
+  const left = { x: dy / length, y: -dx / length };
+  const control = { x: (from[0] + to[0]) / 2 + left.x * bulge, y: (from[1] + to[1]) / 2 + left.y * bulge };
+  const points = [];
+  for (let i = 0; i <= SAMPLES; i++) {
+    const t = i / SAMPLES;
+    const a = (1 - t) ** 2;
+    const b = 2 * (1 - t) * t;
+    const c = t ** 2;
+    points.push({ x: a * from[0] + b * control.x + c * to[0], y: a * from[1] + b * control.y + c * to[1] });
+  }
+  return { points, outSide: bulge < 0 ? -1 : 1 };
+}
+
+// The element's line, walked in working order. out is its outside, along its direction of travel.
+export function elementGeometry(element) {
+  const { points, outSide } = element.type === 'ring' ? ringPoints(element.place) : bridgePoints(element.place);
   const lengths = [0];
   for (let i = 1; i < points.length; i++) {
     lengths.push(lengths[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y));
   }
-  return { points, lengths, total: lengths[lengths.length - 1], axis, base };
+  const length = lengths[lengths.length - 1];
+
+  function pointAt(fraction) {
+    const target = Math.min(Math.max(fraction, 0), 1) * length;
+    let i = 1;
+    while (i < lengths.length - 1 && lengths[i] < target) i++;
+    const p0 = points[i - 1];
+    const p1 = points[i];
+    const span = lengths[i] - lengths[i - 1] || 1;
+    const f = (target - lengths[i - 1]) / span;
+    const along = { x: (p1.x - p0.x) / span, y: (p1.y - p0.y) / span };
+    return {
+      x: p0.x + (p1.x - p0.x) * f,
+      y: p0.y + (p1.y - p0.y) * f,
+      along,
+      out: { x: outSide * along.y, y: -outSide * along.x },
+    };
+  }
+
+  function subPath(from, to) {
+    const start = pointAt(from);
+    const end = pointAt(to);
+    const parts = [`M${n(start.x)} ${n(start.y)}`];
+    points.forEach((p, i) => {
+      const f = lengths[i] / length;
+      if (f > from && f < to) parts.push(`L${n(p.x)} ${n(p.y)}`);
+    });
+    parts.push(`L${n(end.x)} ${n(end.y)}`);
+    return parts.join('');
+  }
+
+  return { length, pointAt, subPath };
 }
 
-// Point on the outline at a fraction of its length, with the outward direction there.
-function pointAt(outline, fraction) {
-  const target = Math.min(Math.max(fraction, 0), 1) * outline.total;
-  let i = 1;
-  while (i < outline.lengths.length - 1 && outline.lengths[i] < target) i++;
-  const p0 = outline.points[i - 1];
-  const p1 = outline.points[i];
-  const span = outline.lengths[i] - outline.lengths[i - 1] || 1;
-  const f = (target - outline.lengths[i - 1]) / span;
-  const dx = (p1.x - p0.x) / span;
-  const dy = (p1.y - p0.y) / span;
-  return { x: p0.x + (p1.x - p0.x) * f, y: p0.y + (p1.y - p0.y) * f, out: { x: dy, y: -dx }, along: { x: dx, y: dy } };
+function numberText(item) {
+  if (item.source === 'inferred') return `${item.count}?`;
+  if (item.source === 'estimated') return item.error === undefined ? `≈${item.count}` : `≈${item.count}±${item.error}`;
+  return String(item.count);
 }
 
-function arcPath(outline, from, to) {
-  const start = pointAt(outline, from);
-  const end = pointAt(outline, to);
-  const parts = [`M${start.x.toFixed(2)} ${start.y.toFixed(2)}`];
-  outline.points.forEach((p, i) => {
-    const f = outline.lengths[i] / outline.total;
-    if (f > from && f < to) parts.push(`L${p.x.toFixed(2)} ${p.y.toFixed(2)}`);
-  });
-  parts.push(`L${end.x.toFixed(2)} ${end.y.toFixed(2)}`);
-  return parts.join('');
+function flipLabel(flip) {
+  if (flip.source === 'inferred') return '翻?';
+  if (flip.source === 'estimated') return '翻≈';
+  return '翻';
 }
 
-function picotCentre(outline, stitchAt, totalStitches) {
-  const p = pointAt(outline, stitchAt / totalStitches);
-  return { x: p.x + p.out.x * PICOT_R, y: p.y + p.out.y * PICOT_R, edge: p };
-}
+// Options, all optional:
+//   current      element id drawn solid; others not in done go faint
+//   done         element ids drawn full strength, as finished
+//   reached      stitches done on current, coloured along its line
+//   currentItem  index of the part in progress on current
+//   highlight    element ids to emphasise, others faint; current wins over it
+//   counts       'all', or element ids that show their numbers
+//   title        accessible name
+export function renderChart(pattern, options = {}) {
+  const {
+    current = null, done = [], reached = 0, currentItem = null, highlight = null, counts = [], title = '',
+  } = options;
+  const [minX, minY, width, height] = pattern.layout.viewBox;
+  const s = width / BASE_SCALE;
+  const elements = pattern.elements.map((element) => ({
+    ...readElement(element),
+    place: element.place,
+    flip: element.flip,
+    geometry: elementGeometry(element),
+  }));
 
-// options.step: the current step from buildSteps, or null to draw the finished piece.
-// options.labelRing: ring index that shows its stitch numbers.
-export function renderDiagram(pattern, { step = null, labelRing = null, title = '' } = {}) {
-  const rings = pattern.elements.filter((e) => e.type === 'ring').map(readElement);
-  const start = pattern.layout.startAngle;
-  const outlines = rings.map((_, i) => ringOutline(start + (i * 360) / rings.length));
-  const stateOf = (i) => {
-    if (!step) return 'done';
-    if (i < step.elementIndex) return 'done';
-    return i === step.elementIndex ? 'current' : 'todo';
+  const stateClass = (id) => {
+    if (current !== null) return id === current || done.includes(id) ? '' : ' is-faint';
+    if (highlight) return highlight.includes(id) ? '' : ' is-faint';
+    return '';
   };
-  // Picots named so joins can find them.
-  const named = new Map();
-  rings.forEach((ring, i) => {
-    ring.items.forEach((item) => {
-      if (item.kind === 'leave') named.set(`${ring.id}.${item.name}`, picotCentre(outlines[i], item.from, ring.stitches));
+  const fractionOf = (element, stitches) => stitches / element.stitches;
+  const showsCounts = (element) => counts === 'all' || (Array.isArray(counts) && counts.includes(element.id));
+
+  // Where each join picot was left, for drawing links to it.
+  const leftPicots = new Map();
+  elements.forEach((element) => {
+    element.items.filter((i) => i.kind === 'leave').forEach((item) => {
+      const p = element.geometry.pointAt(fractionOf(element, item.from));
+      leftPicots.set(`${element.id}.${item.name}`, { x: p.x + p.out.x * PICOT_R * s, y: p.y + p.out.y * PICOT_R * s, source: item.source });
     });
   });
 
-  let svg = '';
-  rings.forEach((ring, i) => {
-    const outline = outlines[i];
-    const state = stateOf(i);
-    if (state === 'current') {
-      const reached = step.at / step.total;
-      svg += `<path class="ring todo" d="${arcPath(outline, 0, 1)}"/>`;
-      if (reached > 0) svg += `<path class="ring active" d="${arcPath(outline, 0, reached)}"/>`;
-    } else {
-      svg += `<path class="ring ${state}" d="${arcPath(outline, 0, 1)}"/>`;
+  let edges = '';
+  let cores = '';
+  let marks = '';
+  let links = '';
+
+  elements.forEach((element, index) => {
+    const state = stateClass(element.id);
+    const { geometry } = element;
+    const attrs = `data-el="${element.id}"`;
+    const spacing = geometry.length / element.stitches / s;
+    const dense = spacing < MIN_TICK_SPACING;
+
+    element.items.filter((i) => i.kind === 'stitch').forEach((item) => {
+      const path = geometry.subPath(fractionOf(element, item.from), fractionOf(element, item.to));
+      const uncertain = item.source !== 'source' ? ' cord-uncertain' : '';
+      edges += `<path class="cord-edge${uncertain}${state}" ${attrs} d="${path}"/>`;
+      cores += `<path class="cord-core${state}" ${attrs} d="${path}"/>`;
+    });
+
+    if (element.id === current && reached > 0) {
+      cores += `<path class="cord-reached" ${attrs} d="${geometry.subPath(0, fractionOf(element, reached))}"/>`;
     }
 
-    const centre = pointAt(outline, 0.5);
-    const lx = (outline.base.x + centre.x) / 2 + outline.axis.x * 12;
-    const ly = (outline.base.y + centre.y) / 2 + outline.axis.y * 12;
-    svg += `<text class="letter ${state}" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}">${ring.id}</text>`;
-
-    ring.items.forEach((item, itemIndex) => {
-      const reachedHere = state === 'done' || (state === 'current' && itemIndex <= step.itemIndex);
-      const isNow = state === 'current' && itemIndex === step.itemIndex;
-      const fade = reachedHere ? '' : ' faint';
-      if (item.kind === 'deco' || item.kind === 'leave') {
-        const c = picotCentre(outline, item.from, ring.stitches);
-        const type = item.kind === 'deco' ? 'deco' : 'joinpicot';
-        svg += `<circle class="picot ${type}${fade}${isNow ? ' now' : ''}" cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${PICOT_R}"/>`;
+    element.items.forEach((item, itemIndex) => {
+      const now = element.id === current && itemIndex === currentItem ? ' now' : '';
+      if (item.kind === 'stitch') {
+        const uncertain = item.source !== 'source';
+        if (!dense && item.source !== 'estimated') {
+          for (let i = 0; i < item.count; i++) {
+            const p = geometry.pointAt(fractionOf(element, item.from + i + 0.5));
+            const half = 2.6 * s;
+            marks += `<line class="tick${state}" ${attrs} x1="${n(p.x - p.out.x * half)}" y1="${n(p.y - p.out.y * half)}" x2="${n(p.x + p.out.x * half)}" y2="${n(p.y + p.out.y * half)}"/>`;
+          }
+        }
+        if (uncertain || dense || showsCounts(element)) {
+          const mid = geometry.pointAt(fractionOf(element, (item.from + item.to) / 2));
+          const offset = (uncertain ? 16 : 13) * s;
+          marks += `<text class="count${now}${state}" ${attrs} x="${n(mid.x + mid.out.x * offset)}" y="${n(mid.y + mid.out.y * offset)}">${numberText(item)}</text>`;
+        }
+        return;
       }
-      if (item.kind === 'join') {
-        const c = picotCentre(outline, item.from, ring.stitches);
-        const target = named.get(`${item.element}.${item.name}`);
-        if (target) {
-          svg += `<line class="joinline${fade}${isNow ? ' now' : ''}" x1="${c.edge.x.toFixed(1)}" y1="${c.edge.y.toFixed(1)}" x2="${target.x.toFixed(1)}" y2="${target.y.toFixed(1)}"/>`;
+
+      const p = geometry.pointAt(fractionOf(element, item.from));
+      const cx = p.x + p.out.x * PICOT_R * s;
+      const cy = p.y + p.out.y * PICOT_R * s;
+      const uncertain = item.source !== 'source';
+      const question = uncertain
+        ? `<text class="mark-q${state}" ${attrs} x="${n(cx + p.out.x * 10 * s)}" y="${n(cy + p.out.y * 10 * s)}">?</text>`
+        : '';
+
+      if (item.kind === 'deco') {
+        marks += `<circle class="picot deco${uncertain ? ' uncertain' : ''}${now}${state}" ${attrs} cx="${n(cx)}" cy="${n(cy)}" r="${n(PICOT_R * s)}"/>${question}`;
+      }
+      if (item.kind === 'leave' || item.kind === 'join') {
+        if (uncertain) {
+          const r = 7.5 * s;
+          marks += `<path class="picot join-uncertain${now}${state}" ${attrs} d="M${n(cx)} ${n(cy - r)}L${n(cx + r)} ${n(cy)}L${n(cx)} ${n(cy + r)}L${n(cx - r)} ${n(cy)}Z"/>${question}`;
+        } else {
+          marks += `<circle class="picot join${now}${state}" ${attrs} cx="${n(cx)}" cy="${n(cy)}" r="${n(4.5 * s)}"/>`;
         }
       }
-      if (item.kind === 'stitch' && i === labelRing) {
-        const mid = pointAt(outline, (item.from + item.to) / 2 / ring.stitches);
-        const offset = 18;
-        const x = mid.x + mid.out.x * offset;
-        const y = mid.y + mid.out.y * offset;
-        svg += `<text class="count${isNow ? ' now' : ''}" x="${x.toFixed(1)}" y="${y.toFixed(1)}">${item.count}</text>`;
+      if (item.kind === 'join') {
+        const target = leftPicots.get(`${item.element}.${item.name}`);
+        if (target) {
+          const linkUncertain = uncertain || target.source !== 'source';
+          links += `<line class="link${linkUncertain ? ' uncertain' : ''}${state}" ${attrs} x1="${n(cx)}" y1="${n(cy)}" x2="${n(target.x)}" y2="${n(target.y)}"/>`;
+        }
       }
     });
 
-    // Start arrow beside the first ring, showing which way the work travels.
-    if (i === 0) {
-      const p = pointAt(outline, 0.045);
-      const inX = p.x - p.out.x * 15;
-      const inY = p.y - p.out.y * 15;
-      const tip = { x: inX + p.along.x * 12, y: inY + p.along.y * 12 };
-      const tail = { x: inX - p.along.x * 12, y: inY - p.along.y * 12 };
-      svg += `<g class="start-arrow"><line x1="${tail.x.toFixed(1)}" y1="${tail.y.toFixed(1)}" x2="${tip.x.toFixed(1)}" y2="${tip.y.toFixed(1)}"/>`
-        + `<path d="M${(tip.x - p.along.x * 7 + p.out.x * 4.5).toFixed(1)} ${(tip.y - p.along.y * 7 + p.out.y * 4.5).toFixed(1)}L${tip.x.toFixed(1)} ${tip.y.toFixed(1)}L${(tip.x - p.along.x * 7 - p.out.x * 4.5).toFixed(1)} ${(tip.y - p.along.y * 7 - p.out.y * 4.5).toFixed(1)}"/></g>`;
+    // Letter: inside a ring, on the inner side of a bridge.
+    if (element.type === 'ring') {
+      const tip = geometry.pointAt(0.5);
+      const [bx, by] = element.place.base;
+      marks += `<text class="letter${state}" ${attrs} x="${n(bx + (tip.x - bx) * 0.62)}" y="${n(by + (tip.y - by) * 0.62)}">${element.id}</text>`;
+    } else {
+      const mid = geometry.pointAt(0.5);
+      const offset = 20 * s;
+      marks += `<text class="letter${state}" ${attrs} x="${n(mid.x - mid.out.x * offset)}" y="${n(mid.y - mid.out.y * offset)}">${element.id}</text>`;
+    }
+
+    if (element.flip?.value === true) {
+      // Sits on the cord like a bead, so it adds no clutter beside crowded rings.
+      const p = geometry.pointAt(element.type === 'ring' ? 0.09 : 0.14);
+      const { x, y } = p;
+      const w = (element.flip.source === 'source' ? 13 : 18) * s;
+      const h = 12 * s;
+      const uncertain = element.flip.source !== 'source' ? ' uncertain' : '';
+      marks += `<g class="flip-mark${uncertain}${state}" ${attrs}><rect x="${n(x - w / 2)}" y="${n(y - h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(3 * s)}"/><text x="${n(x)}" y="${n(y)}">${flipLabel(element.flip)}</text></g>`;
+    }
+
+    // The start of the piece, and the direction of whichever element is being worked.
+    if (index === 0 || element.id === current) {
+      const p = geometry.pointAt(0.045);
+      const inX = p.x - p.out.x * 16 * s;
+      const inY = p.y - p.out.y * 16 * s;
+      const tipX = inX + p.along.x * 12 * s;
+      const tipY = inY + p.along.y * 12 * s;
+      const tailX = inX - p.along.x * 12 * s;
+      const tailY = inY - p.along.y * 12 * s;
+      const wing = (sign) => `${n(tipX - p.along.x * 7 * s + sign * p.out.x * 4.5 * s)} ${n(tipY - p.along.y * 7 * s + sign * p.out.y * 4.5 * s)}`;
+      marks += `<path class="start-arrow" d="M${n(tailX)} ${n(tailY)}L${n(tipX)} ${n(tipY)}M${wing(1)}L${n(tipX)} ${n(tipY)}L${wing(-1)}"/>`;
+      if (index === 0) {
+        marks += `<text class="start-label" x="${n(tailX - p.along.x * 12 * s)}" y="${n(tailY - p.along.y * 12 * s)}">起点</text>`;
+      }
     }
   });
 
-  return `<svg class="diagram" viewBox="-185 -185 370 370" role="img" aria-label="${title}">${svg}</svg>`;
+  return `<svg class="diagram" viewBox="${minX} ${minY} ${width} ${height}" style="--s:${s}" role="img" aria-label="${escapeXml(title)}">${edges}${cores}${links}${marks}</svg>`;
 }

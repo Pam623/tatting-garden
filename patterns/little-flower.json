@@ -5,16 +5,212 @@
   "craft": "梭编",
   "difficulty": "入门",
   "tier": "sorted",
-  "rights": { "kind": "original", "note": "创始人自己设计" },
+  "rights": {
+    "kind": "original",
+    "note": "创始人自己设计"
+  },
   "photo": "assets/little-flower.jpg",
   "summary": "五个一样的环，首尾相接成一朵小花。只有环，没有桥。",
-  "layout": { "type": "flower", "startAngle": -50 },
+  "layout": {
+    "viewBox": [
+      -185,
+      -185,
+      370,
+      370
+    ],
+    "closed": true
+  },
   "elements": [
-    { "id": "A", "type": "ring", "group": "petal", "flip": { "value": false, "source": "inferred" }, "parts": ["5", "p:first", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
-    { "id": "B", "type": "ring", "group": "petal", "flip": { "value": false, "source": "inferred" }, "parts": ["5", "j:A.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
-    { "id": "C", "type": "ring", "group": "petal", "flip": { "value": false, "source": "inferred" }, "parts": ["5", "j:B.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
-    { "id": "D", "type": "ring", "group": "petal", "flip": { "value": false, "source": "inferred" }, "parts": ["5", "j:C.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
-    { "id": "E", "type": "ring", "group": "petal", "flip": { "value": false, "source": "inferred" }, "parts": ["5", "j:D.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "j:A.first?", "5"] }
+    {
+      "id": "A",
+      "type": "ring",
+      "group": "petal",
+      "flip": {
+        "value": false,
+        "source": "inferred"
+      },
+      "parts": [
+        "5",
+        "p:first",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:last",
+        "5"
+      ],
+      "place": {
+        "base": [
+          6.4,
+          -7.7
+        ],
+        "tip": [
+          97.7,
+          -116.4
+        ],
+        "width": 91,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "B",
+      "type": "ring",
+      "group": "petal",
+      "flip": {
+        "value": false,
+        "source": "inferred"
+      },
+      "parts": [
+        "5",
+        "j:A.last",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:last",
+        "5"
+      ],
+      "place": {
+        "base": [
+          9.3,
+          3.7
+        ],
+        "tip": [
+          140.9,
+          56.9
+        ],
+        "width": 91,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "C",
+      "type": "ring",
+      "group": "petal",
+      "flip": {
+        "value": false,
+        "source": "inferred"
+      },
+      "parts": [
+        "5",
+        "j:B.last",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:last",
+        "5"
+      ],
+      "place": {
+        "base": [
+          -0.7,
+          10.0
+        ],
+        "tip": [
+          -10.6,
+          151.6
+        ],
+        "width": 91,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "D",
+      "type": "ring",
+      "group": "petal",
+      "flip": {
+        "value": false,
+        "source": "inferred"
+      },
+      "parts": [
+        "5",
+        "j:C.last",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:last",
+        "5"
+      ],
+      "place": {
+        "base": [
+          -9.7,
+          2.4
+        ],
+        "tip": [
+          -147.5,
+          36.8
+        ],
+        "width": 91,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "E",
+      "type": "ring",
+      "group": "petal",
+      "flip": {
+        "value": false,
+        "source": "inferred"
+      },
+      "parts": [
+        "5",
+        "j:D.last",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "j:A.first?",
+        "5"
+      ],
+      "place": {
+        "base": [
+          -5.3,
+          -8.5
+        ],
+        "tip": [
+          -80.5,
+          -128.9
+        ],
+        "width": 91,
+        "dir": "cw"
+      }
+    }
   ],
   "finish": "把线头打结，藏好线尾",
   "toConfirm": [

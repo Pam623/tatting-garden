@@ -176,24 +176,30 @@ thead th { font-size: 0.85rem; color: var(--muted); font-weight: 400; }
 .error { color: var(--bad); }
 
 /* Chart */
-.diagram { display: block; width: 100%; height: auto; font-family: var(--sans); }
-.ring { fill: none; stroke-width: 2.6; stroke-linecap: round; }
-.ring.done { stroke: var(--chart-ink); }
-.ring.todo { stroke: var(--chart-todo); stroke-width: 1.8; }
-.ring.active { stroke: var(--active); stroke-width: 4; }
-.letter { font-size: 20px; font-family: var(--serif); font-weight: 700; text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); }
-.letter.todo { fill: var(--chart-todo); }
-.picot { stroke-width: 2.2; }
-.picot.deco { fill: var(--note); stroke: var(--chart-ink); }
-.picot.joinpicot { fill: var(--join); stroke: var(--join); }
-.picot.faint { stroke: var(--chart-todo); fill: var(--note); }
-.picot.now { stroke: var(--active); stroke-width: 3.4; }
-.joinline { stroke: var(--join); stroke-width: 2.2; stroke-linecap: round; stroke-dasharray: 2 4; }
-.joinline.faint { stroke: var(--chart-todo); }
-.joinline.now { stroke-width: 3.4; }
-.count { font-size: 14px; text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 600; paint-order: stroke; stroke: var(--note); stroke-width: 5px; }
-.count.now { fill: var(--active); font-size: 18px; font-weight: 700; }
-.start-arrow line, .start-arrow path { stroke: var(--chart-ink); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.diagram { display: block; width: 100%; height: auto; font-family: var(--sans); --chart-paper: var(--note); }
+.cord-edge, .cord-core, .cord-reached { fill: none; stroke-linecap: round; }
+.cord-edge { stroke: var(--chart-ink); stroke-width: calc(6.4px * var(--s)); }
+.cord-core { stroke: var(--chart-paper); stroke-width: calc(3.8px * var(--s)); }
+.cord-uncertain { stroke-dasharray: calc(5px * var(--s)) calc(4px * var(--s)); }
+.cord-reached { stroke: var(--active); stroke-width: calc(3.8px * var(--s)); }
+.is-faint { opacity: 0.32; }
+.tick { stroke: var(--chart-ink); stroke-width: calc(0.8px * var(--s)); }
+.letter { font-size: calc(19px * var(--s)); font-family: var(--serif); font-weight: 700; text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); }
+.picot { stroke-width: calc(1.8px * var(--s)); stroke: var(--chart-ink); }
+.picot.deco { fill: var(--chart-paper); }
+.picot.join { fill: var(--join); stroke: var(--join); }
+.picot.uncertain { stroke-dasharray: calc(2px * var(--s)) calc(2px * var(--s)); }
+.picot.join-uncertain { fill: var(--chart-paper); stroke: var(--join); stroke-dasharray: calc(2px * var(--s)) calc(2px * var(--s)); }
+.picot.now { stroke: var(--active); stroke-width: calc(3px * var(--s)); }
+.link { stroke: var(--join); stroke-width: calc(1.8px * var(--s)); stroke-linecap: round; }
+.link.uncertain { stroke-dasharray: calc(3px * var(--s)) calc(3px * var(--s)); }
+.mark-q { font-size: calc(9px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 700; }
+.count { font-size: calc(13px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 600; paint-order: stroke; stroke: var(--chart-paper); stroke-width: calc(4px * var(--s)); }
+.count.now { fill: var(--active); font-size: calc(17px * var(--s)); }
+.flip-mark rect { fill: var(--chart-paper); stroke: var(--chart-ink); stroke-width: calc(1.2px * var(--s)); }
+.flip-mark.uncertain rect { stroke-dasharray: calc(2px * var(--s)) calc(2px * var(--s)); }
+.flip-mark text { font-size: calc(8.5px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 600; }
+.start-arrow { stroke: var(--chart-ink); stroke-width: calc(1.8px * var(--s)); fill: none; stroke-linecap: round; stroke-linejoin: round; }
 
 @media (max-width: 720px) {
   .page { padding-top: 20px; padding-bottom: 104px; }

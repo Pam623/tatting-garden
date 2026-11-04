@@ -7,16 +7,17 @@ import { test } from 'node:test';
 import {
   buildSteps, checkPattern, describeStep, elementFormula, formulaGroups, parseToken, readElement, structureProblems,
 } from '../js/pattern.js';
-import { renderDiagram } from '../js/diagram.js';
 
 const root = new URL('..', import.meta.url).pathname;
 const flower = JSON.parse(readFileSync(join(root, 'patterns/little-flower.json'), 'utf8'));
 const snapshot = JSON.parse(readFileSync(join(root, 'tests/fixtures/little-flower-v1.json'), 'utf8'));
 
 function pattern(elements, extra = {}) {
-  return { id: 'x', title: 'X', tier: 'sorted', rights: { kind: 'original' }, layout: { startAngle: 0 }, elements, ...extra };
+  return { id: 'x', title: 'X', tier: 'sorted', rights: { kind: 'original' }, layout: { viewBox: [0, 0, 100, 100] }, elements, ...extra };
 }
-const ring = (id, parts, extra = {}) => ({ id, type: 'ring', parts, ...extra });
+const place = { base: [0, 0], tip: [10, 0], width: 5, dir: 'cw' };
+const ring = (id, parts, extra = {}) => ({ id, type: 'ring', place, parts, ...extra });
+const bridgePlace = { from: [0, 0], to: [10, 0], bulge: 2 };
 const check = (p, label, options) => {
   const found = checkPattern(p, options).find((c) => c.label === label);
   assert.ok(found, `no check called ${label}`);
@@ -53,7 +54,7 @@ test('missing fields fail instead of crashing, and name the pattern', () => {
   assert.match(failed.detail, /信任等级/);
   assert.match(failed.detail, /版权/);
   assert.equal(check(pattern([]), '结构完整').ok, false);
-  assert.equal(check(pattern([{ id: 'A', type: 'ring' }]), '结构完整').ok, false);
+  assert.equal(check(pattern([{ id: 'A', type: 'ring', place }]), '结构完整').ok, false);
 });
 
 test('a malformed flip, a nameless element and a non-object element fail structure', () => {
@@ -76,10 +77,38 @@ test('an id that could carry markup or a missing layout cannot be drawn', () => 
   assert.match(structureProblems(pattern([ring('A', ['5'])], { layout: undefined })).join(), /布局/);
 });
 
+test('a pattern with no drawable place or stitch cannot be drawn', () => {
+  assert.equal(structureProblems(pattern([{ id: 'A', type: 'ring', parts: ['5'] }])).length, 1);
+  const bad = [
+    { ...place, dir: 'cc' }, { ...place, width: 0 }, { ...place, tip: place.base }, { base: [0], tip: [1, 1], width: 1, dir: 'cw' },
+  ];
+  bad.forEach((p) => assert.match(structureProblems(pattern([ring('A', ['5'], { place: p })])).join(), /A 的位置/));
+  assert.match(structureProblems(pattern([{ id: 'B', type: 'bridge', place: { from: [0, 0], to: [0, 0], bulge: 0 }, parts: ['5'] }])).join(), /B 的位置/);
+  assert.match(structureProblems(pattern([ring('A', ['o'])])).join(), /A 没有针数/);
+  assert.match(structureProblems(pattern([ring('A', ['5'])], { layout: { viewBox: [0, 0, 0, 10] } })).join(), /布局/);
+  assert.match(structureProblems(pattern([ring('A', ['5'])], { layout: { viewBox: [0, 0, 9, 9], closed: 'yes' } })).join(), /布局/);
+  assert.equal(check(pattern([ring('A', ['0', '5'])]), '每段针数都是正数').ok, false);
+});
+
+test('bridges must meet neighbouring ring bases; other neighbours are not compared', () => {
+  const r1 = ring('A', ['5'], { place: { ...place, base: [0, 0] } });
+  const r2 = ring('C', ['5'], { place: { ...place, base: [10, 0], tip: [20, 0] } });
+  const good = { id: 'B', type: 'bridge', place: bridgePlace, parts: ['5'] };
+  assert.equal(check(pattern([r1, good, r2]), '桥两端接上了').ok, true);
+  const off = { ...good, place: { ...bridgePlace, to: [15, 0] } };
+  assert.deepEqual(check(pattern([r1, off, r2]), '桥两端接上了').elements, ['B']);
+  assert.equal(check(pattern([good, good]), '桥两端接上了').ok, true);
+  const last = { ...good, place: { from: [0, 0], to: [50, 50], bulge: 0 } };
+  const open = pattern([r1, last]);
+  assert.equal(check(open, '桥两端接上了').ok, true);
+  const closed = { ...open, layout: { viewBox: [0, 0, 9, 9], closed: true } };
+  assert.deepEqual(check(closed, '桥两端接上了').elements, ['B']);
+});
+
 test('rejects duplicate ids and unknown types', () => {
   const failed = check(pattern([ring('A', ['5']), ring('A', ['5'])]), '结构完整');
   assert.deepEqual(failed.elements, ['A']);
-  const badType = check(pattern([{ id: 'B', type: 'knot', parts: ['5'] }]), '结构完整');
+  const badType = check(pattern([{ id: 'B', type: 'knot', place, parts: ['5'] }]), '结构完整');
   assert.deepEqual(badType.elements, ['B']);
 });
 
@@ -191,7 +220,7 @@ test('public patterns need open rights and cannot be reconstructions', () => {
 });
 
 test('bridges have no closing step; rings do', () => {
-  const mixed = pattern([ring('A', ['5']), { id: 'B', type: 'bridge', parts: ['10'] }]);
+  const mixed = pattern([ring('A', ['5']), { id: 'B', type: 'bridge', place: bridgePlace, parts: ['10'] }]);
   const steps = buildSteps(mixed);
   assert.deepEqual(steps.map((s) => s.item.kind), ['stitch', 'close', 'stitch']);
   assert.match(describeStep(mixed, steps[2]).detail, /这个桥/);
@@ -199,12 +228,12 @@ test('bridges have no closing step; rings do', () => {
 
 test('step text names bridges and picot names correctly', () => {
   const mixed = pattern([
-    { id: 'A', type: 'bridge', parts: ['5', 'p:mid', '5'] },
+    { id: 'A', type: 'bridge', place: bridgePlace, parts: ['5', 'p:mid', '5'] },
     ring('B', ['5', 'j:A.mid', '5']),
   ]);
   const steps = buildSteps(mixed);
   assert.match(describeStep(mixed, steps[1]).detail, /B 环/);
-  assert.deepEqual(describeStep(mixed, steps[4]), { title: '接到 A 桥', detail: '接在 A 桥的mid 耳上' });
+  assert.deepEqual(describeStep(mixed, steps[4]), { title: '接到 A 桥', detail: '接在 A 桥的接耳上' });
 });
 
 test('reads positions along an element', () => {
@@ -243,12 +272,10 @@ test('the flower keeps its unconfirmed points marked', () => {
   ]);
 });
 
-test('migration leaves step text, stitch table and chart unchanged', () => {
+test('migration leaves step text and stitch table unchanged', () => {
   const steps = buildSteps(flower);
   assert.deepEqual(steps.map((step) => describeStep(flower, step)), snapshot.steps);
   assert.deepEqual(formulaGroups(flower), snapshot.groups);
-  assert.equal(renderDiagram(flower, { title: 't' }), snapshot.diagramDone);
-  assert.equal(renderDiagram(flower, { step: steps[20], labelRing: steps[20].elementIndex, title: 't' }), snapshot.diagramStep20);
 });
 
 function runScript(files) {

@@ -1,5 +1,5 @@
 import { buildSteps, describeStep, checkPattern, formulaGroups, structureProblems } from './pattern.js';
-import { renderDiagram } from './diagram.js';
+import { renderChart } from './diagram.js';
 
 const app = document.getElementById('app');
 const TIER = {
@@ -53,7 +53,7 @@ async function showHome() {
       ${patterns.filter((p) => structureProblems(p).length === 0).map((p) => `
         <li>
           <a class="card" href="#/p/${escapeHtml(p.id)}">
-            <div class="note">${renderDiagram(p, { title: escapeHtml(p.title) })}</div>
+            <div class="note">${renderChart(p, { title: p.title })}</div>
             <div class="card-text">
               <h2>${escapeHtml(p.title)}</h2>
               <p>${escapeHtml(p.craft)} · ${escapeHtml(p.difficulty)}</p>
@@ -153,7 +153,14 @@ async function showPattern(id) {
   function draw() {
     const step = steps[index];
     const text = describeStep(pattern, step);
-    chart.innerHTML = renderDiagram(pattern, { step, labelRing: step.elementIndex, title: escapeHtml(`${pattern.title}图解，当前在 ${step.elementId} 环`) });
+    chart.innerHTML = renderChart(pattern, {
+      current: step.elementId,
+      done: pattern.elements.slice(0, step.elementIndex).map((e) => e.id),
+      reached: step.at,
+      currentItem: step.itemIndex,
+      counts: [step.elementId],
+      title: `${pattern.title}图解，当前在 ${step.elementId}`,
+    });
     where.textContent = `${step.elementId} 环 · 第 ${index + 1} 步，共 ${steps.length} 步`;
     title.textContent = text.title;
     detail.textContent = text.detail;

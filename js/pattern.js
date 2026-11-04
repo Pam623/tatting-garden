@@ -107,7 +107,7 @@ export function describeStep(pattern, step) {
     return { title: '留一个接耳', detail: joiner ? `等一下 ${joiner} ${unitOf(pattern, joiner)}会接到这里` : '后面要接到这里' };
   }
   if (item.kind === 'join') {
-    const which = { first: '第一个耳', last: '最后一个耳' }[item.name] ?? `${item.name} 耳`;
+    const which = { first: '第一个耳', last: '最后一个耳' }[item.name] ?? '接耳';
     const target = `${item.element} ${unitOf(pattern, item.element)}`;
     return { title: `接到 ${target}`, detail: `接在 ${target}的${which}上` };
   }
@@ -147,7 +147,27 @@ function readSafely(raw) {
       bad.push(String(token));
     }
   });
-  return { id: element.id, type: element.type, group: element.group, flip: element.flip, items, bad, missingParts: parts.length === 0 };
+  const stitches = items.filter((i) => i.kind === 'stitch').reduce((total, i) => total + i.count, 0);
+  return {
+    id: element.id, type: element.type, group: element.group, flip: element.flip, place: element.place, items, bad, stitches, missingParts: parts.length === 0,
+  };
+}
+
+const isPoint = (value) => Array.isArray(value) && value.length === 2 && value.every(Number.isFinite);
+const samePoint = (a, b) => a[0] === b[0] && a[1] === b[1];
+
+function placeIsValid(element) {
+  const { place, type } = element;
+  if (!place || typeof place !== 'object') return false;
+  if (type === 'ring') {
+    return isPoint(place.base) && isPoint(place.tip) && !samePoint(place.base, place.tip)
+      && Number.isFinite(place.width) && place.width > 0 && ['cw', 'ccw'].includes(place.dir);
+  }
+  return isPoint(place.from) && isPoint(place.to) && !samePoint(place.from, place.to) && Number.isFinite(place.bulge);
+}
+
+function viewBoxIsValid(viewBox) {
+  return Array.isArray(viewBox) && viewBox.length === 4 && viewBox.every(Number.isFinite) && viewBox[2] > 0 && viewBox[3] > 0;
 }
 
 function result(label, problems, okDetail) {
@@ -165,7 +185,8 @@ function checkStructure(pattern, read) {
   const name = pattern.title || pattern.id || '这个花样';
   const fail = (text, elements = []) => problems.push({ text, elements });
   if (!Array.isArray(pattern.elements) || pattern.elements.length === 0) fail(`${name} 没有任何元素`);
-  if (typeof pattern.layout?.startAngle !== 'number') fail(`${name} 的布局无效`);
+  if (!viewBoxIsValid(pattern.layout?.viewBox)) fail(`${name} 的布局无效`);
+  if (pattern.layout?.closed !== undefined && typeof pattern.layout.closed !== 'boolean') fail(`${name} 的布局无效`);
   if (!TIERS.includes(pattern.tier)) fail(`${name} 的信任等级无效：${pattern.tier}`);
   if (!RIGHTS.includes(pattern.rights?.kind)) fail(`${name} 的版权来源无效：${pattern.rights?.kind}`);
   const seen = new Set();
@@ -181,6 +202,8 @@ function checkStructure(pattern, read) {
     }
     if (!TYPES.includes(element.type)) fail(`${element.id} 的类型无效：${element.type}`, [element.id]);
     if (element.missingParts) fail(`${element.id} 没有内容`, [element.id]);
+    else if (element.stitches <= 0) fail(`${element.id} 没有针数`, [element.id]);
+    if (TYPES.includes(element.type) && !placeIsValid(element)) fail(`${element.id} 的位置无效`, [element.id]);
     element.bad.forEach((token) => fail(`${element.id} 有看不懂的写法：${token}`, [element.id]));
   });
   return result('结构完整', problems, `${read.length} 个元素都读得懂`);
@@ -285,6 +308,26 @@ function checkTier(pattern, read) {
   return result('信任等级和内容相符', problems, '没有发现矛盾');
 }
 
+// A bridge starts where the ring before it was based and ends at the next ring's base.
+function checkBridgeEnds(pattern, read) {
+  const problems = [];
+  const close = (a, b) => isPoint(a) && isPoint(b) && Math.hypot(a[0] - b[0], a[1] - b[1]) <= 1;
+  const count = read.length;
+  read.forEach((element, index) => {
+    if (element.type !== 'bridge' || !element.place) return;
+    const wrap = pattern.layout?.closed === true;
+    const before = index > 0 ? read[index - 1] : wrap ? read[count - 1] : null;
+    const after = index < count - 1 ? read[index + 1] : wrap ? read[0] : null;
+    if (before?.type === 'ring' && !close(element.place.from, before.place?.base)) {
+      problems.push({ text: `${element.id} 的起点没接到 ${before.id} 环`, elements: [element.id] });
+    }
+    if (after?.type === 'ring' && !close(element.place.to, after.place?.base)) {
+      problems.push({ text: `${element.id} 的终点没接到 ${after.id} 环`, elements: [element.id] });
+    }
+  });
+  return result('桥两端接上了', problems, '都接到相邻的环');
+}
+
 function checkPublic(pattern) {
   const problems = [];
   const name = pattern.title || pattern.id || '这个花样';
@@ -308,6 +351,7 @@ export function checkPattern(pattern, { public: isPublic = false } = {}) {
     checkStitches(read),
     checkJoins(read),
     checkGroups(read),
+    checkBridgeEnds(pattern, read),
     checkTier(pattern, read),
   ];
   if (isPublic) results.push(checkPublic(pattern));

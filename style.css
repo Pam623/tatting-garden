@@ -311,3 +311,14 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* Upload (private lab only) */
+.upload { max-width: 640px; margin: 0 auto; }
+.upload input[type="file"] { display: block; margin: 20px 0; max-width: 100%; }
+.upload .photo { display: block; max-width: 100%; max-height: 320px; margin-bottom: 16px; }
+.convert { min-height: 52px; padding: 0 24px; border-radius: 4px; font-size: 1.05rem; font-weight: 600; }
+.convert:disabled { opacity: 0.35; cursor: default; }
+.upload section { margin-top: 32px; }
+.upload-actions { display: flex; gap: 10px; margin: 28px 0 40px; }
+.upload-actions button, .publish { min-height: 48px; padding: 0 20px; border-radius: 4px; font-size: 1rem; font-weight: 600; }
+.publish { margin: -22px 0 36px; }

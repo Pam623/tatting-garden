@@ -37,3 +37,7 @@ The page is published as a private artifact, so the founder can open it on a pho
 ## Test plan
 
 Comparison: identical files match; a changed count, a missing element, a differing type, a changed join target, a reordered element, a flip difference; renamed picots still match; source marks alone don't count; malformed input exits 2. Bundler: output contains the patterns, has no fetches of local files in effect, and loads headless in a browser. Repo test: `git check-ignore lab/x.json` holds and `git ls-files lab` is empty.
+
+## Later correction
+
+The real run showed Kimi misreading four bridges as rings on the hand-drawn chart, so it no longer transcribes charts; it checks logic only. `docs/conversion.md` holds the current process.

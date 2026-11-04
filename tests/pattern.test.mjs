@@ -84,6 +84,7 @@ test('a pattern with no drawable place or stitch cannot be drawn', () => {
   ];
   bad.forEach((p) => assert.match(structureProblems(pattern([ring('A', ['5'], { place: p })])).join(), /A 的位置/));
   assert.match(structureProblems(pattern([{ id: 'B', type: 'bridge', place: { from: [0, 0], to: [0, 0], bulge: 0 }, parts: ['5'] }])).join(), /B 的位置/);
+  assert.match(structureProblems(pattern([{ id: 'B', type: 'bridge', place: { from: [0, 0], to: [1, 0], bulge: 'x' }, parts: ['5'] }])).join(), /B 的位置/);
   assert.match(structureProblems(pattern([ring('A', ['o'])])).join(), /A 没有针数/);
   assert.match(structureProblems(pattern([ring('A', ['5'])], { layout: { viewBox: [0, 0, 0, 10] } })).join(), /布局/);
   assert.match(structureProblems(pattern([ring('A', ['5'])], { layout: { viewBox: [0, 0, 9, 9], closed: 'yes' } })).join(), /布局/);
@@ -97,6 +98,10 @@ test('bridges must meet neighbouring ring bases; other neighbours are not compar
   assert.equal(check(pattern([r1, good, r2]), '桥两端接上了').ok, true);
   const off = { ...good, place: { ...bridgePlace, to: [15, 0] } };
   assert.deepEqual(check(pattern([r1, off, r2]), '桥两端接上了').elements, ['B']);
+  const offStart = { ...good, place: { ...bridgePlace, from: [5, 5] } };
+  assert.deepEqual(check(pattern([r1, offStart, r2]), '桥两端接上了').elements, ['B']);
+  const wrapStart = pattern([offStart, r2, r1], { layout: { viewBox: [0, 0, 9, 9], closed: true } });
+  assert.deepEqual(check(wrapStart, '桥两端接上了').elements, ['B']);
   assert.equal(check(pattern([good, good]), '桥两端接上了').ok, true);
   const last = { ...good, place: { from: [0, 0], to: [50, 50], bulge: 0 } };
   const open = pattern([r1, last]);

@@ -180,7 +180,7 @@ thead th { font-size: 0.85rem; color: var(--muted); font-weight: 400; }
 .cord-edge, .cord-core, .cord-reached { fill: none; stroke-linecap: round; }
 .cord-edge { stroke: var(--chart-ink); stroke-width: calc(6.4px * var(--s)); }
 .cord-core { stroke: var(--chart-paper); stroke-width: calc(3.8px * var(--s)); }
-.cord-uncertain { stroke-dasharray: calc(5px * var(--s)) calc(4px * var(--s)); }
+.cord-uncertain { stroke-linecap: butt; stroke-dasharray: calc(5px * var(--s)) calc(4px * var(--s)); }
 .cord-reached { stroke: var(--active); stroke-width: calc(3.8px * var(--s)); }
 .is-faint { opacity: 0.32; }
 .tick { stroke: var(--chart-ink); stroke-width: calc(0.8px * var(--s)); }
@@ -189,16 +189,17 @@ thead th { font-size: 0.85rem; color: var(--muted); font-weight: 400; }
 .picot.deco { fill: var(--chart-paper); }
 .picot.join { fill: var(--join); stroke: var(--join); }
 .picot.uncertain { stroke-dasharray: calc(2px * var(--s)) calc(2px * var(--s)); }
-.picot.join-uncertain { fill: var(--chart-paper); stroke: var(--join); stroke-dasharray: calc(2px * var(--s)) calc(2px * var(--s)); }
+.picot.join-uncertain { fill: var(--chart-paper); stroke: var(--join); stroke-width: calc(2.2px * var(--s)); stroke-dasharray: calc(2.5px * var(--s)) calc(1.5px * var(--s)); }
 .picot.now { stroke: var(--active); stroke-width: calc(3px * var(--s)); }
 .link { stroke: var(--join); stroke-width: calc(1.8px * var(--s)); stroke-linecap: round; }
-.link.uncertain { stroke-dasharray: calc(3px * var(--s)) calc(3px * var(--s)); }
+.link.uncertain { stroke-linecap: butt; stroke-dasharray: calc(3px * var(--s)) calc(3px * var(--s)); }
 .mark-q { font-size: calc(9px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 700; }
 .count { font-size: calc(13px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 600; paint-order: stroke; stroke: var(--chart-paper); stroke-width: calc(4px * var(--s)); }
 .count.now { fill: var(--active); font-size: calc(17px * var(--s)); }
 .flip-mark rect { fill: var(--chart-paper); stroke: var(--chart-ink); stroke-width: calc(1.2px * var(--s)); }
 .flip-mark.uncertain rect { stroke-dasharray: calc(2px * var(--s)) calc(2px * var(--s)); }
 .flip-mark text { font-size: calc(8.5px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 600; }
+.start-label { font-size: calc(10px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 700; paint-order: stroke; stroke: var(--chart-paper); stroke-width: calc(3px * var(--s)); }
 .start-arrow { stroke: var(--chart-ink); stroke-width: calc(1.8px * var(--s)); fill: none; stroke-linecap: round; stroke-linejoin: round; }
 
 @media (max-width: 720px) {

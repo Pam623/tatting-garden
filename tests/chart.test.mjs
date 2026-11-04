@@ -108,10 +108,12 @@ test('one tick per confirmed stitch, at stitch centres', () => {
   const element = ringEl(['5', 'o', '5']);
   const svg = renderChart(pattern([element]));
   assert.equal(count(svg, /class="tick/g), 10);
-  const first = svg.match(/class="tick[^"]*"[^>]*x1="([-\d.]+)" y1="([-\d.]+)" x2="([-\d.]+)" y2="([-\d.]+)"/);
-  const expected = elementGeometry(element).pointAt(0.5 / 10);
-  near((Number(first[1]) + Number(first[3])) / 2, expected.x);
-  near((Number(first[2]) + Number(first[4])) / 2, expected.y);
+  const ticks = [...svg.matchAll(/class="tick[^"]*"[^>]*x1="([-\d.]+)" y1="([-\d.]+)" x2="([-\d.]+)" y2="([-\d.]+)"/g)];
+  for (const [index, fraction] of [[0, 0.5 / 10], [9, 9.5 / 10]]) {
+    const expected = elementGeometry(element).pointAt(fraction);
+    near((Number(ticks[index][1]) + Number(ticks[index][3])) / 2, expected.x);
+    near((Number(ticks[index][2]) + Number(ticks[index][4])) / 2, expected.y);
+  }
 });
 
 test('an estimated segment has no ticks and always shows its number with the error', () => {
@@ -119,6 +121,7 @@ test('an estimated segment has no ticks and always shows its number with the err
   assert.equal(count(svg, /class="tick/g), 5);
   assert.match(svg, /≈16±3/);
   assert.match(svg, /cord-edge cord-uncertain/);
+  assert.match(svg, /<circle class="picot deco uncertain/);
 });
 
 test('an inferred segment is dashed and shows its mark without being asked', () => {
@@ -156,6 +159,12 @@ test('join picots, decorative picots and uncertain joins have different shapes',
   assert.match(unsure, />\?</);
 });
 
+test('a link is dashed if either end is uncertain', () => {
+  const left = ringEl(['5', 'p:x?', '5']);
+  const svg = renderChart(pattern([left, { ...ringEl(['5', 'j:A.x', '5']), id: 'B' }]));
+  assert.match(svg, /<line class="link uncertain/);
+});
+
 test('a join link connects the two picot positions', () => {
   const left = ringEl(['5', 'p:x', '5']);
   const right = { ...ringEl(['5', 'j:A.x', '5'], { base: [50, 100], tip: [150, 100] }), id: 'B' };
@@ -173,6 +182,8 @@ test('every uncertainty class has a dash rule, and confirmed links are solid', (
     assert.match(css, new RegExp(`${name} \\{[^}]*stroke-dasharray`), name);
   }
   assert.doesNotMatch(css, /\.link \{[^}]*stroke-dasharray/);
+  assert.match(css, /\.cord-uncertain \{[^}]*stroke-linecap: butt/, 'round caps would close the dashes');
+  assert.match(css, /\.link\.uncertain \{[^}]*stroke-linecap: butt/);
 });
 
 test('flip marks follow value and source', () => {
@@ -192,6 +203,13 @@ test('highlight and current fade the right elements', () => {
   const lit = renderChart(pattern(elements), { highlight: ['B'] });
   assert.equal(faint(lit, 'A'), true);
   assert.equal(faint(lit, 'B'), false);
+  const everything = renderChart(pattern([
+    ringEl(['5', 'p:x', '5', 'o', '5']),
+    { ...ringEl(['5', 'j:A.x', '5']), id: 'B', flip: { value: true, source: 'source' } },
+  ]), { highlight: ['Z'], counts: 'all' });
+  const marks = [...everything.matchAll(/<(?:path|line|circle|text|g) class="([^"]*)"[^>]*data-el="\w+"/g)];
+  assert.ok(marks.length > 10);
+  marks.forEach((mark) => assert.match(mark[1], /is-faint/, mark[0]));
   const working = renderChart(pattern(elements), { current: 'B', done: ['A'], highlight: ['C'] });
   assert.equal(faint(working, 'A'), false);
   assert.equal(faint(working, 'B'), false);
@@ -204,8 +222,13 @@ test('an uncertain element stays dashed while current', () => {
 });
 
 test('reached colours progress on the current element', () => {
-  const svg = renderChart(pattern([ringEl(['10'])]), { current: 'A', reached: 5 });
+  const element = ringEl(['10']);
+  const svg = renderChart(pattern([element]), { current: 'A', reached: 5 });
   assert.match(svg, /class="cord-reached"/);
+  const path = svg.match(/class="cord-reached"[^>]*d="([^"]+)"/)[1];
+  const [lastX, lastY] = path.split('L').at(-1).split(' ').map(Number);
+  near(lastX, elementGeometry(element).pointAt(0.5).x);
+  near(lastY, elementGeometry(element).pointAt(0.5).y);
   assert.doesNotMatch(renderChart(pattern([ringEl(['10'])]), { current: 'A' }), /cord-reached/);
 });
 
@@ -213,9 +236,24 @@ test('the title is escaped once', () => {
   assert.match(renderChart(pattern([ringEl(['5'])]), { title: 'a"<b' }), /aria-label="a&quot;&lt;b"/);
 });
 
+test('marks scale with the viewBox', () => {
+  const big = { ...pattern([ringEl(['5'])]), layout: { viewBox: [0, 0, 740, 740] } };
+  assert.match(renderChart(big), /--s:2"/);
+});
+
+test('a bridge letter sits on the opposite side from its outside', () => {
+  const element = bridgeEl(['5']);
+  const svg = renderChart(pattern([element]));
+  const y = Number(svg.match(/class="letter"[^>]*y="([-\d.]+)"/)[1]);
+  assert.ok(y > elementGeometry(element).pointAt(0.5).y);
+});
+
 test('the first element shows where to start', () => {
   const svg = renderChart(pattern([ringEl(['5']), { ...ringEl(['5']), id: 'B' }]));
   assert.equal(count(svg, /class="start-arrow"/g), 1);
+  assert.match(svg, />起点</);
+  const working = renderChart(pattern([ringEl(['5']), { ...ringEl(['5']), id: 'B' }]), { current: 'B' });
+  assert.equal(count(working, /class="start-arrow"/g), 2, 'the current element shows its direction too');
 });
 
 test('a motif with ten rings, six bridges and joins renders whole', () => {
@@ -225,10 +263,13 @@ test('a motif with ten rings, six bridges and joins renders whole', () => {
     const angle = (i / ids.length) * 2 * Math.PI;
     const point = [Math.cos(angle) * 100, Math.sin(angle) * 100];
     if (bridges.has(id)) return { id, type: 'bridge', parts: ['9'], place: { from: point, to: [point[0] + 20, point[1]], bulge: 10 } };
+    if (id === 'C') return { id, type: 'ring', parts: ['4', 'p:x', '4'], place: { base: point, tip: [point[0] * 1.5, point[1] * 1.5], width: 20, dir: 'cw' } };
+    if (id === 'E') return { id, type: 'ring', parts: ['4', 'j:C.x', '4'], place: { base: point, tip: [point[0] * 1.5, point[1] * 1.5], width: 20, dir: 'cw' } };
     return { id, type: 'ring', parts: ['4', 'o', '4'], place: { base: point, tip: [point[0] * 1.5, point[1] * 1.5], width: 20, dir: i % 2 ? 'cw' : 'ccw' } };
   });
   const svg = renderChart(pattern(elements), { counts: 'all' });
   assert.doesNotMatch(svg, /NaN/);
+  assert.equal(count(svg, /<line class="link"/g), 1);
   ids.forEach((id) => assert.match(svg, new RegExp(`>${id}</text>`)));
   assert.equal(new Set([...svg.matchAll(/cord-core[^"]*" data-el="(\w+)"/g)].map((m) => m[1])).size, 16);
 });

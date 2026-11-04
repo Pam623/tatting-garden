@@ -134,7 +134,7 @@ export function renderChart(pattern, options = {}) {
   elements.forEach((element) => {
     element.items.filter((i) => i.kind === 'leave').forEach((item) => {
       const p = element.geometry.pointAt(fractionOf(element, item.from));
-      leftPicots.set(`${element.id}.${item.name}`, { x: p.x + p.out.x * PICOT_R * s, y: p.y + p.out.y * PICOT_R * s });
+      leftPicots.set(`${element.id}.${item.name}`, { x: p.x + p.out.x * PICOT_R * s, y: p.y + p.out.y * PICOT_R * s, source: item.source });
     });
   });
 
@@ -174,7 +174,7 @@ export function renderChart(pattern, options = {}) {
         }
         if (uncertain || dense || showsCounts(element)) {
           const mid = geometry.pointAt(fractionOf(element, (item.from + item.to) / 2));
-          const offset = (uncertain ? 22 : 17) * s;
+          const offset = (uncertain ? 16 : 13) * s;
           marks += `<text class="count${now}${state}" ${attrs} x="${n(mid.x + mid.out.x * offset)}" y="${n(mid.y + mid.out.y * offset)}">${numberText(item)}</text>`;
         }
         return;
@@ -193,7 +193,7 @@ export function renderChart(pattern, options = {}) {
       }
       if (item.kind === 'leave' || item.kind === 'join') {
         if (uncertain) {
-          const r = PICOT_R * s;
+          const r = 7.5 * s;
           marks += `<path class="picot join-uncertain${now}${state}" ${attrs} d="M${n(cx)} ${n(cy - r)}L${n(cx + r)} ${n(cy)}L${n(cx)} ${n(cy + r)}L${n(cx - r)} ${n(cy)}Z"/>${question}`;
         } else {
           marks += `<circle class="picot join${now}${state}" ${attrs} cx="${n(cx)}" cy="${n(cy)}" r="${n(4.5 * s)}"/>`;
@@ -202,7 +202,8 @@ export function renderChart(pattern, options = {}) {
       if (item.kind === 'join') {
         const target = leftPicots.get(`${item.element}.${item.name}`);
         if (target) {
-          links += `<line class="link${uncertain ? ' uncertain' : ''}${state}" ${attrs} x1="${n(cx)}" y1="${n(cy)}" x2="${n(target.x)}" y2="${n(target.y)}"/>`;
+          const linkUncertain = uncertain || target.source !== 'source';
+          links += `<line class="link${linkUncertain ? ' uncertain' : ''}${state}" ${attrs} x1="${n(cx)}" y1="${n(cy)}" x2="${n(target.x)}" y2="${n(target.y)}"/>`;
         }
       }
     });
@@ -228,7 +229,8 @@ export function renderChart(pattern, options = {}) {
       marks += `<g class="flip-mark${uncertain}${state}" ${attrs}><rect x="${n(x - w / 2)}" y="${n(y - h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(3 * s)}"/><text x="${n(x)}" y="${n(y)}">${flipLabel(element.flip)}</text></g>`;
     }
 
-    if (index === 0) {
+    // The start of the piece, and the direction of whichever element is being worked.
+    if (index === 0 || element.id === current) {
       const p = geometry.pointAt(0.045);
       const inX = p.x - p.out.x * 16 * s;
       const inY = p.y - p.out.y * 16 * s;
@@ -238,6 +240,9 @@ export function renderChart(pattern, options = {}) {
       const tailY = inY - p.along.y * 12 * s;
       const wing = (sign) => `${n(tipX - p.along.x * 7 * s + sign * p.out.x * 4.5 * s)} ${n(tipY - p.along.y * 7 * s + sign * p.out.y * 4.5 * s)}`;
       marks += `<path class="start-arrow" d="M${n(tailX)} ${n(tailY)}L${n(tipX)} ${n(tipY)}M${wing(1)}L${n(tipX)} ${n(tipY)}L${wing(-1)}"/>`;
+      if (index === 0) {
+        marks += `<text class="start-label" x="${n(tailX - p.along.x * 12 * s)}" y="${n(tailY - p.along.y * 12 * s)}">起点</text>`;
+      }
     }
   });
 

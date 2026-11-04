@@ -67,7 +67,13 @@ function unitName(element) {
 async function showHome() {
   document.title = embedded ? '梭编实验室' : '梭编花园';
   const ids = await loadIndex();
-  const patterns = (await Promise.all(ids.map(loadPattern))).filter((p) => structureProblems(p).length === 0);
+  // One file that fails to load shouldn't hide the others.
+  const loaded = await Promise.allSettled(ids.map(loadPattern));
+  loaded.filter((r) => r.status === 'rejected').forEach((r) => console.error(r.reason));
+  const patterns = loaded
+    .filter((r) => r.status === 'fulfilled')
+    .map((r) => r.value)
+    .filter((p) => structureProblems(p).length === 0);
   app.innerHTML = `
     <div class="home">
       <header class="masthead">
@@ -465,7 +471,7 @@ async function route() {
   try {
     // Fetch first, so a page that finishes loading late can't draw over a newer one.
     if (match) await loadPattern(match[1]);
-    else await Promise.all((await loadIndex()).map(loadPattern));
+    else await Promise.allSettled((await loadIndex()).map(loadPattern));
     if (thisRoute !== routeCount) return;
     if (match?.[2]) await showWork(match[1]);
     else if (match) await showPattern(match[1]);

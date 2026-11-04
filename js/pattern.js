@@ -49,8 +49,6 @@ export function readElement(element) {
 }
 
 export function numberText(item) {
-  if (item.source === 'inferred') return `${item.count}?`;
-  if (item.source === 'estimated') return item.error === undefined ? `≈${item.count}` : `≈${item.count}±${item.error}`;
   return String(item.count);
 }
 
@@ -59,11 +57,10 @@ function unitOf(pattern, elementId) {
 }
 
 function picotText(item) {
-  const mark = item.kind === 'deco' ? '○' : ',';
-  return item.source === 'source' ? mark : `${mark}${item.source === 'inferred' ? '?' : '≈'}`;
+  return item.kind === 'deco' ? '·' : ',';
 }
 
-// The founder's notation: 2,4,3,4○2 where a comma is a join picot and ○ a decorative one.
+// The founder's notation: 2,4,3,4·2 where a comma is a join picot and · a decorative one.
 export function handFormula(element) {
   return readElement(element).items
     .map((item) => (item.kind === 'stitch' ? numberText(item) : picotText(item)))
@@ -72,12 +69,8 @@ export function handFormula(element) {
 
 function plainFormula(element) {
   return readElement(element).items
-    .map((item) => (item.kind === 'stitch' ? String(item.count) : item.kind === 'deco' ? '○' : ','))
+    .map((item) => (item.kind === 'stitch' ? String(item.count) : item.kind === 'deco' ? '·' : ','))
     .join('');
-}
-
-function hasUncertainty(element) {
-  return readElement(element).items.some((item) => item.source !== 'source');
 }
 
 // One row per type and formula, so identical elements read as one line of the stitch table.
@@ -88,11 +81,10 @@ export function formulaGroups(pattern) {
     const key = `${element.type}|${formula}`;
     if (!groups.has(key)) {
       groups.set(key, {
-        type: element.type, formula, members: [], stitches: readElement(element).stitches, estimated: false,
+        type: element.type, formula, members: [], stitches: readElement(element).stitches,
       });
     }
-    if (readElement(element).items.some((item) => item.source === 'estimated')) groups.get(key).estimated = true;
-    groups.get(key).members.push({ id: element.id, unsure: hasUncertainty(element) });
+    groups.get(key).members.push({ id: element.id });
   });
   return [...groups.values()];
 }
@@ -102,10 +94,7 @@ export function summarize(pattern) {
   const bridges = pattern.elements.filter((e) => e.type === 'bridge');
   const ringFormulas = new Set(rings.map(plainFormula));
   const parts = [`${rings.length} 环`, `${bridges.length} 桥`];
-  if (ringFormulas.size === 1) {
-    const estimated = rings.some((ring) => readElement(ring).items.some((item) => item.source === 'estimated'));
-    parts.push(`每环${estimated ? '约 ' : ' '}${readElement(rings[0]).stitches} 针`);
-  }
+  if (ringFormulas.size === 1) parts.push(`每环 ${readElement(rings[0]).stitches} 针`);
   return parts.join(' · ');
 }
 
@@ -125,29 +114,30 @@ function joinerOf(pattern, elementId, name) {
 }
 
 function wordsFor(pattern, item) {
-  if (item.kind === 'stitch') {
-    if (item.source === 'estimated') {
-      return item.error === undefined ? `大约编 ${item.count} 针（估算）` : `大约编 ${item.count} 针，上下差 ${item.error}（估算）`;
-    }
-    return item.source === 'inferred' ? `编 ${item.count} 针（推断）` : `编 ${item.count} 针`;
-  }
-  const note = item.source === 'source' ? '' : '（推测）';
-  if (item.kind === 'deco') return `留一个装饰耳${note}`;
+  if (item.kind === 'stitch') return `编 ${item.count} 针`;
+  if (item.kind === 'deco') return '留一个装饰耳';
   if (item.kind === 'join') {
     const ordinal = picotOrdinal(pattern, item.element, item.name);
-    return `接到 ${item.element} ${unitOf(pattern, item.element)}的${ordinal ? `第 ${ordinal} 个` : ''}接耳${note}`;
+    return `接到 ${item.element} ${unitOf(pattern, item.element)}的${ordinal ? `第 ${ordinal} 个` : ''}接耳`;
   }
   return null;
 }
 
 // Each part of an element, in the notation and in plain words.
-export function partsInWords(pattern, element) {
+// pass counts repeat passes; from the second pass on, the first join of a repeat
+// element names the ear it will meet again in the next group.
+export function partsInWords(pattern, element, { pass = 1 } = {}) {
+  const repeat = pattern.repeat?.elements ?? null;
+  let joinNoteDone = false;
   return readElement(element).items.map((item, index) => {
     let words = wordsFor(pattern, item);
+    if (item.kind === 'join' && repeat?.includes(element.id) && pass >= 2 && !joinNoteDone) {
+      joinNoteDone = true;
+      words += '，再来时接上一组对应的耳';
+    }
     if (item.kind === 'leave') {
       const joiner = joinerOf(pattern, element.id, item.name);
-      const note = item.source === 'source' ? '' : '（推测）';
-      words = joiner ? `留一个接耳，等下 ${joiner} ${unitOf(pattern, joiner)}接到这里${note}` : `留一个接耳${note}`;
+      words = joiner ? `留一个接耳，等下 ${joiner} ${unitOf(pattern, joiner)}接到这里` : '留一个接耳';
     }
     return {
       index,
@@ -260,7 +250,9 @@ function checkStitches(read) {
 }
 
 // Every join must land on a picot left earlier, and every left picot must be used.
-function checkJoins(read) {
+// Picots named in the pattern's repeat.open stay open on purpose: the next
+// repeat joins them, so being unused is not a problem.
+function checkJoins(read, open = []) {
   const left = new Map();
   const problems = [];
   read.forEach((element) => {
@@ -284,12 +276,14 @@ function checkJoins(read) {
     });
   });
   left.forEach((picot, key) => {
-    if (picot.uses === 0) problems.push({ text: `${key} 留了但没人接`, elements: [picot.owner] });
+    if (picot.uses === 0 && !open.includes(key)) problems.push({ text: `${key} 留了但没人接`, elements: [picot.owner] });
   });
   return result('每个接耳都接上了', problems, `一共 ${left.size} 处连接，没有多余也没有落空`);
 }
 
-function checkGroups(read) {
+// A repeat element may join the last group's open picot where the first pass has a
+// decorative one, so groups holding repeat elements are compared on total picots only.
+function checkGroups(read, repeat = []) {
   const groups = new Map();
   read.filter((e) => e.group).forEach((element) => {
     if (!groups.has(element.group)) groups.set(element.group, []);
@@ -300,7 +294,8 @@ function checkGroups(read) {
   const picots = (element) => element.items.filter((i) => i.kind !== 'stitch').length;
   const problems = [];
   groups.forEach((members, group) => {
-    [['针数', sum], ['装饰耳', decos], ['耳', picots]].forEach(([what, measure]) => {
+    const skipDecos = members.some((m) => repeat.includes(m.id));
+    [['针数', sum], ['装饰耳', decos], ['耳', picots]].filter(([what]) => !(skipDecos && what === '装饰耳')).forEach(([what, measure]) => {
       const values = new Set(members.map(measure));
       if (values.size > 1) {
         problems.push({
@@ -368,32 +363,20 @@ function checkBridgeEnds(pattern, read) {
   return result('桥两端接上了', problems, '都接到相邻的环');
 }
 
-function checkPublic(pattern) {
-  const problems = [];
-  const name = pattern.title || pattern.id || '这个花样';
-  if (!['original', 'public-domain'].includes(pattern.rights?.kind)) {
-    problems.push({ text: `${name} 不是原创或公版，不能放进公开目录`, elements: [] });
-  }
-  if (pattern.tier === 'reconstruction') problems.push({ text: `${name} 是复原稿，不能放进公开目录`, elements: [] });
-  return result('可以公开', problems, '原创或公版内容');
-}
-
 // Empty when the pattern can be drawn. Pages show these instead of a chart.
 export function structureProblems(pattern) {
   const structure = checkStructure(pattern, (Array.isArray(pattern.elements) ? pattern.elements : []).map(readSafely));
   return structure.ok ? [] : [structure.detail];
 }
 
-export function checkPattern(pattern, { public: isPublic = false } = {}) {
+export function checkPattern(pattern) {
   const read = (Array.isArray(pattern.elements) ? pattern.elements : []).map(readSafely);
-  const results = [
+  return [
     checkStructure(pattern, read),
     checkStitches(read),
-    checkJoins(read),
-    checkGroups(read),
+    checkJoins(read, pattern.repeat?.open ?? []),
+    checkGroups(read, pattern.repeat?.elements ?? []),
     checkBridgeEnds(pattern, read),
     checkTier(pattern, read),
   ];
-  if (isPublic) results.push(checkPublic(pattern));
-  return results;
 }

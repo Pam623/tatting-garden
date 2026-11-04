@@ -38,7 +38,7 @@ for (const id of files) {
     continue;
   }
   console.log(pattern.title ?? id);
-  for (const check of checkPattern(pattern, { public: true })) {
+  for (const check of checkPattern(pattern)) {
     console.log(`  ${check.ok ? 'ok ' : 'BAD'} ${check.label}: ${check.detail}`);
     if (!check.ok) failed = true;
   }

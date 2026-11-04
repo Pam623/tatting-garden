@@ -23,8 +23,8 @@ const patterns = readdirSync(lab)
     return pattern;
   });
 
-// The three modules become one script, so the page works as a single file.
-const code = ['js/pattern.js', 'js/diagram.js', 'js/app.js']
+// The four modules become one script, so the page works as a single file.
+const code = ['js/pattern.js', 'js/materials.js', 'js/diagram.js', 'js/app.js']
   .map(read)
   .join('\n')
   .replace(/^import [\s\S]*?;$/gm, '')

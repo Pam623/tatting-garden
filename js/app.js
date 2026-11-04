@@ -114,8 +114,8 @@ async function showPattern(id) {
           <tbody>${formulaRows(pattern)}</tbody>
         </table>
         <ul class="legend">
-          <li><span class="mark mark-join"></span>● 接耳</li>
-          <li><span class="mark mark-deco"></span>○ 装饰耳</li>
+          <li>● 接耳</li>
+          <li>○ 装饰耳</li>
         </ul>
       </section>
       <section>

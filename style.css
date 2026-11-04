@@ -156,13 +156,10 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--active); outlin
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
 thead th { font-size: 0.85rem; color: var(--muted); font-weight: 400; }
-.num { text-align: right; font-variant-numeric: tabular-nums; }
+.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .formula { font-variant-numeric: tabular-nums; }
 
 .legend { display: flex; gap: 16px; margin-top: 12px; font-size: 0.9rem; color: var(--muted); }
-.legend li { display: flex; align-items: center; gap: 6px; }
-.mark { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 2px solid currentColor; }
-.mark-join { background: var(--join); border-color: var(--join); }
 
 .checks li { padding: 8px 0; border-bottom: 1px solid var(--line); }
 .checks strong { display: block; font-weight: 600; }

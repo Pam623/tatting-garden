@@ -18,6 +18,15 @@ function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// The private lab page carries its patterns inside it; the site fetches them.
+const embedded = window.TATTING_PATTERNS ?? null;
+(embedded ?? []).forEach((pattern) => cache.set(pattern.id, pattern));
+
+async function loadIndex() {
+  if (embedded) return embedded.map((pattern) => pattern.id);
+  return (await fetch('patterns/index.json')).json();
+}
+
 async function loadPattern(id) {
   if (!cache.has(id)) {
     const response = await fetch(`patterns/${id}.json`);
@@ -56,14 +65,14 @@ function unitName(element) {
 }
 
 async function showHome() {
-  document.title = '梭编花园';
-  const ids = await (await fetch('patterns/index.json')).json();
+  document.title = embedded ? '梭编实验室' : '梭编花园';
+  const ids = await loadIndex();
   const patterns = (await Promise.all(ids.map(loadPattern))).filter((p) => structureProblems(p).length === 0);
   app.innerHTML = `
     <div class="home">
       <header class="masthead">
-        <h1>梭编花园</h1>
-        <p>少而精的梭编图解。每一张都说清楚哪里确定，哪里还是推测。</p>
+        <h1>${embedded ? '梭编实验室' : '梭编花园'}</h1>
+        <p>${embedded ? '只有你能打开。这里的花样还不能公开，或者还在验证。' : '少而精的梭编图解。每一张都说清楚哪里确定，哪里还是推测。'}</p>
       </header>
       <ul class="plates">
         ${patterns.map((p, i) => `
@@ -114,8 +123,8 @@ function tableRows(pattern, type) {
         <li>
           <button type="button" class="row" data-ids="${ids.join(',')}" aria-pressed="false">
             <span class="row-letters">${letters}</span>
-            <span class="row-formula">${group.formula}</span>
-            <span class="row-total">${group.stitches} 针</span>
+            <span class="row-formula">${group.estimated ? '≈ ' : ''}${group.formula}</span>
+            <span class="row-total">${group.estimated ? '约 ' : ''}${group.stitches} 针</span>
           </button>
         </li>`;
     }).join('');
@@ -456,7 +465,7 @@ async function route() {
   try {
     // Fetch first, so a page that finishes loading late can't draw over a newer one.
     if (match) await loadPattern(match[1]);
-    else await Promise.all((await (await fetch('patterns/index.json')).json()).map(loadPattern));
+    else await Promise.all((await loadIndex()).map(loadPattern));
     if (thisRoute !== routeCount) return;
     if (match?.[2]) await showWork(match[1]);
     else if (match) await showPattern(match[1]);

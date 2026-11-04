@@ -12,6 +12,7 @@
 const TIERS = ['reconstruction', 'sorted', 'checked', 'made'];
 const RIGHTS = ['original', 'public-domain', 'private'];
 const TYPES = ['ring', 'bridge'];
+const SOURCES = ['source', 'inferred', 'estimated'];
 
 function sourceOf(mark) {
   if (!mark) return 'source';
@@ -134,7 +135,8 @@ export function formulaGroups(pattern) {
 
 // Parts that don't parse are left out here and reported by the structure check,
 // so the other checks can still run on the rest.
-function readSafely(element) {
+function readSafely(raw) {
+  const element = raw && typeof raw === 'object' ? raw : { id: String(raw) };
   const bad = [];
   const items = [];
   const parts = Array.isArray(element.parts) ? element.parts : [];
@@ -166,9 +168,16 @@ function checkStructure(pattern, read) {
   if (!TIERS.includes(pattern.tier)) fail(`${name} 的信任等级无效：${pattern.tier}`);
   if (!RIGHTS.includes(pattern.rights?.kind)) fail(`${name} 的版权来源无效：${pattern.rights?.kind}`);
   const seen = new Set();
-  read.forEach((element) => {
+  read.forEach((element, index) => {
+    if (typeof element.id !== 'string' || element.id === '') {
+      fail(`第 ${index + 1} 个元素没有名字`);
+      return;
+    }
     if (seen.has(element.id)) fail(`${element.id} 重复了`, [element.id]);
     seen.add(element.id);
+    if (element.flip !== undefined && (typeof element.flip?.value !== 'boolean' || !SOURCES.includes(element.flip?.source))) {
+      fail(`${element.id} 的翻面写法无效`, [element.id]);
+    }
     if (!TYPES.includes(element.type)) fail(`${element.id} 的类型无效：${element.type}`, [element.id]);
     if (element.missingParts) fail(`${element.id} 没有内容`, [element.id]);
     element.bad.forEach((token) => fail(`${element.id} 有看不懂的写法：${token}`, [element.id]));
@@ -250,7 +259,8 @@ function checkTier(pattern, read) {
     marked('estimated').forEach((e) => problems.push({ text: `${e.id} 有估算数字，只有复原稿才可以`, elements: [e.id] }));
   }
   if (tier === 'checked' || tier === 'made') {
-    if (!Array.isArray(pattern.reviewedBy) || pattern.reviewedBy.length === 0) {
+    const reviews = Array.isArray(pattern.reviewedBy) ? pattern.reviewedBy : [];
+    if (!reviews.some((entry) => typeof entry === 'string' && entry.trim())) {
       problems.push({ text: `${name} 还没有独立复核记录`, elements: [] });
     }
   }

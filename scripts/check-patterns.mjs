@@ -13,7 +13,14 @@ const fail = (text) => {
   failed = true;
 };
 
-const listed = JSON.parse(readFileSync(join(dir, 'index.json'), 'utf8'));
+let listed = [];
+try {
+  listed = JSON.parse(readFileSync(join(dir, 'index.json'), 'utf8'));
+  if (!Array.isArray(listed)) throw new Error('not a list');
+} catch (error) {
+  fail(`index.json cannot be read: ${error.message}`);
+  listed = [];
+}
 const files = readdirSync(dir)
   .filter((name) => name.endsWith('.json') && name !== 'index.json')
   .map((name) => name.slice(0, -'.json'.length));
@@ -25,6 +32,7 @@ for (const id of files) {
   let pattern;
   try {
     pattern = JSON.parse(readFileSync(join(dir, `${id}.json`), 'utf8'));
+    if (pattern === null || typeof pattern !== 'object') throw new Error('not an object');
   } catch (error) {
     fail(`${id}.json cannot be read: ${error.message}`);
     continue;

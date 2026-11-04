@@ -56,6 +56,14 @@ test('missing fields fail instead of crashing, and name the pattern', () => {
   assert.equal(check(pattern([{ id: 'A', type: 'ring' }]), '结构完整').ok, false);
 });
 
+test('a malformed flip, a nameless element and a non-object element fail structure', () => {
+  for (const flip of [{ value: true, source: 'estimate' }, { value: true }, true]) {
+    assert.deepEqual(check(pattern([ring('A', ['5'], { flip })]), '结构完整').elements, ['A']);
+  }
+  assert.equal(check(pattern([{ type: 'ring', parts: ['5'] }]), '结构完整').ok, false);
+  assert.equal(check(pattern([null]), '结构完整').ok, false);
+});
+
 test('rejects duplicate ids and unknown types', () => {
   const failed = check(pattern([ring('A', ['5']), ring('A', ['5'])]), '结构完整');
   assert.deepEqual(failed.elements, ['A']);
@@ -106,8 +114,13 @@ test('duplicate picot names in one element fail', () => {
 test('group members must match on stitches, decorative picots and all picots', () => {
   const stitches = check(pattern([ring('A', ['5'], { group: 'g' }), ring('B', ['6'], { group: 'g' })]), '同组元素一致');
   assert.deepEqual(stitches.elements, ['A', 'B']);
-  const decos = check(pattern([ring('A', ['5', 'o'], { group: 'g' }), ring('B', ['5'], { group: 'g' })]), '同组元素一致');
+  const decos = check(pattern([
+    ring('L', ['5', 'p:x', '5']),
+    ring('A', ['5', 'o'], { group: 'g' }),
+    ring('B', ['5', 'j:L.x'], { group: 'g' }),
+  ]), '同组元素一致');
   assert.equal(decos.ok, false);
+  assert.match(decos.detail, /装饰耳/);
   const droppedJoin = check(pattern([
     ring('L', ['5', 'p:x', '5']),
     ring('A', ['5', 'j:L.x', '5'], { group: 'g' }),
@@ -132,6 +145,10 @@ test('checked and made need a review record', () => {
     assert.equal(check(pattern([ring('A', ['5'])], { tier }), '信任等级和内容相符').ok, false, tier);
     assert.equal(check(pattern([ring('A', ['5'])], { tier, reviewedBy: ['Kimi'] }), '信任等级和内容相符').ok, true, tier);
   }
+});
+
+test('a blank review entry does not count', () => {
+  assert.equal(check(pattern([ring('A', ['5'])], { tier: 'checked', reviewedBy: [' '] }), '信任等级和内容相符').ok, false);
 });
 
 test('made fails with anything still unconfirmed', () => {
@@ -240,6 +257,16 @@ test('the script fails an unlisted file and a missing file', () => {
   const missing = runScript({ 'index.json': '["y"]' });
   assert.equal(missing.status, 1);
   assert.match(missing.stdout, /y is listed/);
+});
+
+test('the script reports a bad index or a null pattern without crashing', () => {
+  const badIndex = runScript({ 'index.json': '{nope' });
+  assert.equal(badIndex.status, 1);
+  assert.match(badIndex.stdout, /index\.json cannot be read/);
+  assert.equal(badIndex.stderr, '');
+  const nullPattern = runScript({ 'index.json': '["x"]', 'x.json': 'null' });
+  assert.equal(nullPattern.status, 1);
+  assert.equal(nullPattern.stderr, '');
 });
 
 test('the script reports a bad part or bad JSON without crashing', () => {

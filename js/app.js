@@ -64,12 +64,13 @@ function unitName(element) {
   return element.type === 'ring' ? '环' : '桥';
 }
 
-async function showHome() {
-  document.title = embedded ? '梭编实验室' : '梭编花园';
+async function showHome(isCurrent) {
   const ids = await loadIndex();
   // One file that fails to load shouldn't hide the others.
   const loaded = await Promise.allSettled(ids.map(loadPattern));
   loaded.filter((r) => r.status === 'rejected').forEach((r) => console.error(r.reason));
+  if (!isCurrent()) return;
+  document.title = embedded ? '梭编实验室' : '梭编花园';
   if (loaded.length > 0 && loaded.every((r) => r.status === 'rejected')) throw new Error('No patterns could be loaded');
   const patterns = loaded
     .filter((r) => r.status === 'fulfilled')
@@ -478,7 +479,7 @@ async function route() {
     if (thisRoute !== routeCount) return;
     if (match?.[2]) await showWork(match[1]);
     else if (match) await showPattern(match[1]);
-    else await showHome();
+    else await showHome(() => thisRoute === routeCount);
   } catch (error) {
     console.error(error);
     if (thisRoute !== routeCount) return;

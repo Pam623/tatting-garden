@@ -137,6 +137,14 @@ test('the bundle holds every lab pattern, with no local fetches in effect', () =
   scripts.forEach((script) => new vm.Script(script));
 });
 
+test('the bundle stops if a pattern names a missing photo', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lab-'));
+  writeFileSync(join(dir, 'x.json'), JSON.stringify({ id: 'x', photo: 'gone.jpg', elements: [] }));
+  const run = spawnSync(process.execPath, [join(root, 'scripts/build-lab.mjs'), dir], { encoding: 'utf8' });
+  assert.notEqual(run.status, 0);
+  assert.match(run.stderr, /gone\.jpg/);
+});
+
 test('lab content stays out of the public repo', () => {
   const ignored = spawnSync('git', ['check-ignore', 'lab/x.json'], { cwd: root });
   assert.equal(ignored.status, 0);

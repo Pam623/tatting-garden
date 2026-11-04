@@ -14,7 +14,8 @@ const patterns = readdirSync(lab)
   .sort()
   .map((name) => {
     const pattern = JSON.parse(readFileSync(join(lab, name), 'utf8'));
-    if (pattern.photo && existsSync(join(lab, pattern.photo))) {
+    if (pattern.photo) {
+      if (!existsSync(join(lab, pattern.photo))) throw new Error(`${name} names a photo that isn't in the lab: ${pattern.photo}`);
       const type = IMAGE_TYPES[extname(pattern.photo).toLowerCase()];
       if (!type) throw new Error(`Unsupported photo type: ${pattern.photo}`);
       pattern.photo = `data:${type};base64,${readFileSync(join(lab, pattern.photo)).toString('base64')}`;

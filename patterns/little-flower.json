@@ -1,19 +1,20 @@
 {
+  "schema": 2,
   "id": "little-flower",
   "title": "入门小花",
   "craft": "梭编",
   "difficulty": "入门",
-  "status": "checked",
+  "tier": "sorted",
+  "rights": { "kind": "original", "note": "创始人自己设计" },
   "photo": "assets/little-flower.jpg",
   "summary": "五个一样的环，首尾相接成一朵小花。只有环，没有桥。",
   "layout": { "type": "flower", "startAngle": -50 },
-  "expect": { "stitchesPerRing": 22, "decoPerRing": 5 },
-  "rings": [
-    { "id": "A", "tokens": ["5", "p:first", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
-    { "id": "B", "tokens": ["5", "j:A.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
-    { "id": "C", "tokens": ["5", "j:B.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
-    { "id": "D", "tokens": ["5", "j:C.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
-    { "id": "E", "tokens": ["5", "j:D.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "j:A.first", "5"] }
+  "elements": [
+    { "id": "A", "type": "ring", "group": "petal", "flip": { "value": false, "source": "inferred" }, "parts": ["5", "p:first", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
+    { "id": "B", "type": "ring", "group": "petal", "flip": { "value": false, "source": "inferred" }, "parts": ["5", "j:A.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
+    { "id": "C", "type": "ring", "group": "petal", "flip": { "value": false, "source": "inferred" }, "parts": ["5", "j:B.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
+    { "id": "D", "type": "ring", "group": "petal", "flip": { "value": false, "source": "inferred" }, "parts": ["5", "j:C.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "p:last", "5"] },
+    { "id": "E", "type": "ring", "group": "petal", "flip": { "value": false, "source": "inferred" }, "parts": ["5", "j:D.last", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "j:A.first?", "5"] }
   ],
   "finish": "把线头打结，藏好线尾",
   "toConfirm": [

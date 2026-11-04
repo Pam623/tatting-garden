@@ -1,5 +1,5 @@
 // Draws a chart from pattern data, so the picture and the numbers can't disagree.
-import { readRing } from './pattern.js';
+import { readElement } from './pattern.js';
 
 const LENGTH = 142;      // ring from base to tip
 const WIDTH = 118;       // ring width factor
@@ -64,13 +64,13 @@ function picotCentre(outline, stitchAt, totalStitches) {
 // options.step: the current step from buildSteps, or null to draw the finished piece.
 // options.labelRing: ring index that shows its stitch numbers.
 export function renderDiagram(pattern, { step = null, labelRing = null, title = '' } = {}) {
-  const rings = pattern.rings.map(readRing);
+  const rings = pattern.elements.filter((e) => e.type === 'ring').map(readElement);
   const start = pattern.layout.startAngle;
   const outlines = rings.map((_, i) => ringOutline(start + (i * 360) / rings.length));
   const stateOf = (i) => {
     if (!step) return 'done';
-    if (i < step.ringIndex) return 'done';
-    return i === step.ringIndex ? 'current' : 'todo';
+    if (i < step.elementIndex) return 'done';
+    return i === step.elementIndex ? 'current' : 'todo';
   };
   // Picots named so joins can find them.
   const named = new Map();
@@ -108,7 +108,7 @@ export function renderDiagram(pattern, { step = null, labelRing = null, title = 
       }
       if (item.kind === 'join') {
         const c = picotCentre(outline, item.from, ring.stitches);
-        const target = named.get(`${item.ring}.${item.name}`);
+        const target = named.get(`${item.element}.${item.name}`);
         if (target) {
           svg += `<line class="joinline${fade}${isNow ? ' now' : ''}" x1="${c.edge.x.toFixed(1)}" y1="${c.edge.y.toFixed(1)}" x2="${target.x.toFixed(1)}" y2="${target.y.toFixed(1)}"/>`;
         }

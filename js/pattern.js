@@ -374,8 +374,8 @@ export function checkPattern(pattern) {
   return [
     checkStructure(pattern, read),
     checkStitches(read),
-    checkJoins(read, pattern.repeat?.open ?? []),
-    checkGroups(read, pattern.repeat?.elements ?? []),
+    checkJoins(read, Array.isArray(pattern.repeat?.open) ? pattern.repeat.open : []),
+    checkGroups(read, Array.isArray(pattern.repeat?.elements) ? pattern.repeat.elements : []),
     checkBridgeEnds(pattern, read),
     checkTier(pattern, read),
   ];

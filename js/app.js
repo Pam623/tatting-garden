@@ -582,7 +582,7 @@ async function showWork(id) {
       pass += 1;
       go(repeatFirst);
     });
-    next.textContent = '收尾';
+    next.textContent = state.index === elements.length - 1 ? '收尾' : '接着往下编';
     prev.disabled = false;
   }
 

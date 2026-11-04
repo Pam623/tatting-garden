@@ -375,3 +375,9 @@ test('the script reports a bad part or bad JSON without crashing', () => {
   assert.match(badJson.stdout, /cannot be read/);
   assert.equal(badJson.stderr, '');
 });
+
+test('a malformed repeat cannot make the checks throw', () => {
+  for (const repeat of [{ elements: 5, open: 5 }, { elements: 'EF', open: 'x' }]) {
+    assert.doesNotThrow(() => checkPattern(pattern([ring('A', ['5'])], { repeat })));
+  }
+});

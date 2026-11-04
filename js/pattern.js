@@ -294,6 +294,12 @@ function checkPublic(pattern) {
   return result('可以公开', problems, '原创或公版内容');
 }
 
+// Empty when the pattern can be drawn. Pages show these instead of a chart.
+export function structureProblems(pattern) {
+  const structure = checkStructure(pattern, (Array.isArray(pattern.elements) ? pattern.elements : []).map(readSafely));
+  return structure.ok ? [] : [structure.detail];
+}
+
 export function checkPattern(pattern, { public: isPublic = false } = {}) {
   const read = (Array.isArray(pattern.elements) ? pattern.elements : []).map(readSafely);
   const results = [

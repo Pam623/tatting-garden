@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import {
-  buildSteps, checkPattern, describeStep, elementFormula, formulaGroups, parseToken, readElement,
+  buildSteps, checkPattern, describeStep, elementFormula, formulaGroups, parseToken, readElement, structureProblems,
 } from '../js/pattern.js';
 import { renderDiagram } from '../js/diagram.js';
 
@@ -62,6 +62,13 @@ test('a malformed flip, a nameless element and a non-object element fail structu
   }
   assert.equal(check(pattern([{ type: 'ring', parts: ['5'] }]), '结构完整').ok, false);
   assert.equal(check(pattern([null]), '结构完整').ok, false);
+});
+
+test('pages can tell a pattern cannot be drawn before they try', () => {
+  assert.deepEqual(structureProblems(flower), []);
+  assert.match(structureProblems(pattern([ring('A', ['5', 'zz'])])).join(), /zz/);
+  assert.equal(structureProblems({ title: '旧文件' }).length, 1);
+  assert.equal(structureProblems(pattern([null])).length, 1);
 });
 
 test('rejects duplicate ids and unknown types', () => {

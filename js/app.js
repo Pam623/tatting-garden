@@ -1,4 +1,4 @@
-import { buildSteps, describeStep, checkPattern, formulaGroups } from './pattern.js';
+import { buildSteps, describeStep, checkPattern, formulaGroups, structureProblems } from './pattern.js';
 import { renderDiagram } from './diagram.js';
 
 const app = document.getElementById('app');
@@ -50,10 +50,10 @@ async function showHome() {
       <p>少而精，每一个都能跟着编。</p>
     </header>
     <ul class="gallery">
-      ${patterns.map((p) => `
+      ${patterns.filter((p) => structureProblems(p).length === 0).map((p) => `
         <li>
           <a class="card" href="#/p/${escapeHtml(p.id)}">
-            <div class="note">${renderDiagram(p, { title: p.title })}</div>
+            <div class="note">${renderDiagram(p, { title: escapeHtml(p.title) })}</div>
             <div class="card-text">
               <h2>${escapeHtml(p.title)}</h2>
               <p>${escapeHtml(p.craft)} · ${escapeHtml(p.difficulty)}</p>
@@ -67,7 +67,7 @@ async function showHome() {
 function formulaRows(pattern) {
   return formulaGroups(pattern).map((group) => `
     <tr>
-      <th scope="row">${group.ids.join('、')}</th>
+      <th scope="row">${escapeHtml(group.ids.join('、'))}</th>
       <td class="formula">${group.formula}</td>
       <td class="num">${group.stitches}</td>
     </tr>`).join('');
@@ -75,6 +75,15 @@ function formulaRows(pattern) {
 
 async function showPattern(id) {
   const pattern = await loadPattern(id);
+  const problems = structureProblems(pattern);
+  if (problems.length) {
+    document.title = `${pattern.title ?? id} · 梭编花园`;
+    app.innerHTML = `
+      <a class="back" href="#/">← 全部花样</a>
+      <h1>${escapeHtml(pattern.title ?? id)}</h1>
+      <p class="error">这个花样的数据有问题，暂时画不出来：${escapeHtml(problems.join('；'))}</p>`;
+    return;
+  }
   const steps = buildSteps(pattern);
   let index = Math.min(readProgress(id), steps.length - 1);
   document.title = `${pattern.title} · 梭编花园`;
@@ -93,7 +102,7 @@ async function showPattern(id) {
         <h2 id="step-title" aria-live="polite"></h2>
         <p class="detail" id="step-detail"></p>
         <div class="rings-nav" id="rings-nav">
-          ${pattern.elements.map((element, i) => `<button type="button" data-ring="${i}" aria-label="跳到 ${element.id} 环">${element.id}</button>`).join('')}
+          ${pattern.elements.map((element, i) => `<button type="button" data-ring="${i}" aria-label="跳到 ${escapeHtml(element.id)} 环">${escapeHtml(element.id)}</button>`).join('')}
         </div>
         <div class="controls">
           <button type="button" id="prev" class="ghost">上一步</button>
@@ -144,7 +153,7 @@ async function showPattern(id) {
   function draw() {
     const step = steps[index];
     const text = describeStep(pattern, step);
-    chart.innerHTML = renderDiagram(pattern, { step, labelRing: step.elementIndex, title: `${pattern.title}图解，当前在 ${step.elementId} 环` });
+    chart.innerHTML = renderDiagram(pattern, { step, labelRing: step.elementIndex, title: escapeHtml(`${pattern.title}图解，当前在 ${step.elementId} 环`) });
     where.textContent = `${step.elementId} 环 · 第 ${index + 1} 步，共 ${steps.length} 步`;
     title.textContent = text.title;
     detail.textContent = text.detail;

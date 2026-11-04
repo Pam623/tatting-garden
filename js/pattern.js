@@ -165,12 +165,13 @@ function checkStructure(pattern, read) {
   const name = pattern.title || pattern.id || '这个花样';
   const fail = (text, elements = []) => problems.push({ text, elements });
   if (!Array.isArray(pattern.elements) || pattern.elements.length === 0) fail(`${name} 没有任何元素`);
+  if (typeof pattern.layout?.startAngle !== 'number') fail(`${name} 的布局无效`);
   if (!TIERS.includes(pattern.tier)) fail(`${name} 的信任等级无效：${pattern.tier}`);
   if (!RIGHTS.includes(pattern.rights?.kind)) fail(`${name} 的版权来源无效：${pattern.rights?.kind}`);
   const seen = new Set();
   read.forEach((element, index) => {
-    if (typeof element.id !== 'string' || element.id === '') {
-      fail(`第 ${index + 1} 个元素没有名字`);
+    if (typeof element.id !== 'string' || !/^[A-Za-z0-9]+$/.test(element.id)) {
+      fail(`第 ${index + 1} 个元素的名字无效`);
       return;
     }
     if (seen.has(element.id)) fail(`${element.id} 重复了`, [element.id]);

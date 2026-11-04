@@ -14,7 +14,7 @@ const flower = JSON.parse(readFileSync(join(root, 'patterns/little-flower.json')
 const snapshot = JSON.parse(readFileSync(join(root, 'tests/fixtures/little-flower-v1.json'), 'utf8'));
 
 function pattern(elements, extra = {}) {
-  return { id: 'x', title: 'X', tier: 'sorted', rights: { kind: 'original' }, elements, ...extra };
+  return { id: 'x', title: 'X', tier: 'sorted', rights: { kind: 'original' }, layout: { startAngle: 0 }, elements, ...extra };
 }
 const ring = (id, parts, extra = {}) => ({ id, type: 'ring', parts, ...extra });
 const check = (p, label, options) => {
@@ -69,6 +69,11 @@ test('pages can tell a pattern cannot be drawn before they try', () => {
   assert.match(structureProblems(pattern([ring('A', ['5', 'zz'])])).join(), /zz/);
   assert.equal(structureProblems({ title: '旧文件' }).length, 1);
   assert.equal(structureProblems(pattern([null])).length, 1);
+});
+
+test('an id that could carry markup or a missing layout cannot be drawn', () => {
+  assert.equal(structureProblems(pattern([ring('<img src=x onerror=alert(1)>', ['5'])])).length, 1);
+  assert.match(structureProblems(pattern([ring('A', ['5'])], { layout: undefined })).join(), /布局/);
 });
 
 test('rejects duplicate ids and unknown types', () => {

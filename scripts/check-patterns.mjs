@@ -1,19 +1,38 @@
-// Checks every pattern's numbers before publishing:  node scripts/check-patterns.mjs
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+// Checks every public pattern before publishing:  node scripts/check-patterns.mjs [folder]
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildSteps, checkPattern } from '../js/pattern.js';
+import { checkPattern } from '../js/pattern.js';
 
-const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'patterns');
-const ids = JSON.parse(readFileSync(join(dir, 'index.json'), 'utf8'));
+const dir = process.argv[2]
+  ? resolve(process.argv[2])
+  : join(dirname(fileURLToPath(import.meta.url)), '..', 'patterns');
 let failed = false;
+const fail = (text) => {
+  console.log(`BAD ${text}`);
+  failed = true;
+};
 
-for (const id of ids) {
-  const pattern = JSON.parse(readFileSync(join(dir, `${id}.json`), 'utf8'));
-  console.log(`${pattern.title} (${buildSteps(pattern).length} steps)`);
-  for (const result of checkPattern(pattern)) {
-    console.log(`  ${result.ok ? 'ok ' : 'BAD'} ${result.label}: ${result.detail}`);
-    if (!result.ok) failed = true;
+const listed = JSON.parse(readFileSync(join(dir, 'index.json'), 'utf8'));
+const files = readdirSync(dir)
+  .filter((name) => name.endsWith('.json') && name !== 'index.json')
+  .map((name) => name.slice(0, -'.json'.length));
+
+files.filter((id) => !listed.includes(id)).forEach((id) => fail(`${id}.json is not listed in index.json`));
+listed.filter((id) => !files.includes(id)).forEach((id) => fail(`${id} is listed in index.json but has no file`));
+
+for (const id of files) {
+  let pattern;
+  try {
+    pattern = JSON.parse(readFileSync(join(dir, `${id}.json`), 'utf8'));
+  } catch (error) {
+    fail(`${id}.json cannot be read: ${error.message}`);
+    continue;
+  }
+  console.log(pattern.title ?? id);
+  for (const check of checkPattern(pattern, { public: true })) {
+    console.log(`  ${check.ok ? 'ok ' : 'BAD'} ${check.label}: ${check.detail}`);
+    if (!check.ok) failed = true;
   }
 }
 

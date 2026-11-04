@@ -5,12 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import {
-  buildSteps, checkPattern, describeStep, elementFormula, formulaGroups, parseToken, readElement, structureProblems,
+  checkPattern, clampProgress, formulaGroups, handFormula, parseToken, partsInWords, readElement, structureProblems, summarize,
 } from '../js/pattern.js';
 
 const root = new URL('..', import.meta.url).pathname;
 const flower = JSON.parse(readFileSync(join(root, 'patterns/little-flower.json'), 'utf8'));
-const snapshot = JSON.parse(readFileSync(join(root, 'tests/fixtures/little-flower-v1.json'), 'utf8'));
 
 function pattern(elements, extra = {}) {
   return { id: 'x', title: 'X', tier: 'sorted', rights: { kind: 'original' }, layout: { viewBox: [0, 0, 100, 100] }, elements, ...extra };
@@ -224,28 +223,68 @@ test('public patterns need open rights and cannot be reconstructions', () => {
   assert.equal(checkPattern(pattern([ring('A', ['5'])])).some((c) => c.label === '可以公开'), false);
 });
 
-test('bridges have no closing step; rings do', () => {
-  const mixed = pattern([ring('A', ['5']), { id: 'B', type: 'bridge', place: bridgePlace, parts: ['10'] }]);
-  const steps = buildSteps(mixed);
-  assert.deepEqual(steps.map((s) => s.item.kind), ['stitch', 'close', 'stitch']);
-  assert.match(describeStep(mixed, steps[2]).detail, /这个桥/);
+test('the notation follows the founder: comma for join, circle for decorative', () => {
+  assert.equal(handFormula(flower.elements[0]), '5,2○2○2○2○2○2,5');
+  assert.equal(handFormula(ring('A', ['2', 'p:n', '4', 'o', '2'])), '2,4○2');
+  assert.equal(handFormula(ring('A', ['12'])), '12');
+  assert.equal(handFormula(ring('A', ['5?', 'o?', '16~3', 'p:x~', '4~'])), '5?○?≈16±3,≈≈4');
 });
 
-test('step text names bridges and picot names correctly', () => {
+test('table rows group by type and plain formula, marking unsure letters', () => {
+  const rows = formulaGroups(flower);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].formula, '5,2○2○2○2○2○2,5');
+  assert.equal(rows[0].stitches, 22);
+  assert.deepEqual(rows[0].members.map((m) => m.id), ['A', 'B', 'C', 'D', 'E']);
   const mixed = pattern([
-    { id: 'A', type: 'bridge', place: bridgePlace, parts: ['5', 'p:mid', '5'] },
-    ring('B', ['5', 'j:A.mid', '5']),
+    ring('A', ['5']), ring('C', ['5?']),
+    { id: 'B', type: 'bridge', place: bridgePlace, parts: ['5'] },
   ]);
-  const steps = buildSteps(mixed);
-  assert.match(describeStep(mixed, steps[1]).detail, /B 环/);
-  assert.deepEqual(describeStep(mixed, steps[4]), { title: '接到 A 桥', detail: '接在 A 桥的接耳上' });
+  const mixedRows = formulaGroups(mixed);
+  assert.equal(mixedRows.length, 2);
+  assert.deepEqual(mixedRows[0].members, [{ id: 'A', unsure: false }, { id: 'C', unsure: true }]);
+  assert.equal(mixedRows[1].type, 'bridge');
+});
+
+test('the summary gives ring stitches only when the rings all match', () => {
+  assert.equal(summarize(flower), '5 环 · 0 桥 · 每环 22 针');
+  const mixed = pattern([ring('A', ['5']), ring('C', ['6']), { id: 'B', type: 'bridge', place: bridgePlace, parts: ['5'] }]);
+  assert.equal(summarize(mixed), '2 环 · 1 桥');
+});
+
+test('words name which picot to join and who joins here', () => {
+  const left = ring('A', ['2', 'p:n', '4', 'p:k', '3']);
+  const later = ring('B', ['5', 'j:A.k', '5']);
+  const later2 = ring('C', ['5', 'j:A.n?', '5']);
+  const all = pattern([left, later, later2]);
+  const a = partsInWords(all, left);
+  assert.equal(a[0].words, '编 2 针');
+  assert.equal(a[1].words, '留一个接耳，等下 C 环接到这里');
+  assert.equal(a[3].words, '留一个接耳，等下 B 环接到这里');
+  assert.equal(partsInWords(all, later)[1].words, '接到 A 环的第 2 个接耳');
+  assert.equal(partsInWords(all, later)[1].target, 'A');
+  assert.equal(partsInWords(all, later2)[1].words, '接到 A 环的第 1 个接耳（推测）');
+  assert.equal(partsInWords(all, ring('Z', ['16~3', 'o', '5?', 'o~']))[0].words, '大约编 16 针，上下差 3（估算）');
+  assert.equal(partsInWords(all, ring('Z', ['16~3', 'o', '5?', 'o~']))[1].words, '留一个装饰耳');
+  assert.equal(partsInWords(all, ring('Z', ['16~3', 'o', '5?', 'o~']))[2].words, '编 5 针（推断）');
+  assert.equal(partsInWords(all, ring('Z', ['16~3', 'o', '5?', 'o~']))[3].words, '留一个装饰耳（推测）');
+});
+
+test('a saved position outside the pattern is ignored', () => {
+  const blank = { index: 0, part: null, finished: false };
+  assert.deepEqual(clampProgress(null, 5), blank);
+  assert.deepEqual(clampProgress('3', 5), blank);
+  assert.deepEqual(clampProgress({ index: 5 }, 5), blank);
+  assert.deepEqual(clampProgress({ index: -1 }, 5), blank);
+  assert.deepEqual(clampProgress({ index: 1.5 }, 5), blank);
+  assert.deepEqual(clampProgress({ index: 2, part: 1, finished: true }, 5), { index: 2, part: 1, finished: true });
+  assert.deepEqual(clampProgress({ index: 2, part: -1 }, 5), { index: 2, part: null, finished: false });
 });
 
 test('reads positions along an element', () => {
   const read = readElement(ring('A', ['5', 'o', '2']));
   assert.equal(read.stitches, 7);
   assert.equal(read.items[1].from, 5);
-  assert.equal(elementFormula(ring('A', ['5', 'p:x', '2', 'o', '3'])), '5 ● 2 ○ 3');
 });
 
 test('the flower passes every check as a public pattern', () => {
@@ -275,12 +314,6 @@ test('the flower keeps its unconfirmed points marked', () => {
     '全程不用翻面',
     '收尾方式是线头打结',
   ]);
-});
-
-test('migration leaves step text and stitch table unchanged', () => {
-  const steps = buildSteps(flower);
-  assert.deepEqual(steps.map((step) => describeStep(flower, step)), snapshot.steps);
-  assert.deepEqual(formulaGroups(flower), snapshot.groups);
 });
 
 function runScript(files) {

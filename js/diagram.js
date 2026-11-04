@@ -1,5 +1,5 @@
 // Draws a chart from pattern data, so the picture and the numbers can't disagree.
-import { readElement } from './pattern.js';
+import { numberText, readElement } from './pattern.js';
 
 const SAMPLES = 320;
 const PICOT_R = 5.5;
@@ -88,10 +88,17 @@ export function elementGeometry(element) {
   return { length, pointAt, subPath };
 }
 
-function numberText(item) {
-  if (item.source === 'inferred') return `${item.count}?`;
-  if (item.source === 'estimated') return item.error === undefined ? `≈${item.count}` : `≈${item.count}±${item.error}`;
-  return String(item.count);
+// A view framing these elements, keeping marks readable around them.
+export function focusBox(pattern, ids, padding = 34) {
+  const points = pattern.elements.filter((e) => ids.includes(e.id)).flatMap((element) => {
+    const geometry = elementGeometry(element);
+    return Array.from({ length: 41 }, (_, i) => geometry.pointAt(i / 40));
+  });
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const minX = Math.min(...xs) - padding;
+  const minY = Math.min(...ys) - padding;
+  return [minX, minY, Math.max(...xs) + padding - minX, Math.max(...ys) + padding - minY];
 }
 
 function flipLabel(flip) {
@@ -107,12 +114,13 @@ function flipLabel(flip) {
 //   currentItem  index of the part in progress on current
 //   highlight    element ids to emphasise, others faint; current wins over it
 //   counts       'all', or element ids that show their numbers
+//   viewBox      [x, y, width, height] to show instead of the pattern's own
 //   title        accessible name
 export function renderChart(pattern, options = {}) {
   const {
-    current = null, done = [], reached = 0, currentItem = null, highlight = null, counts = [], title = '',
+    current = null, done = [], reached = 0, currentItem = null, highlight = null, counts = [], title = '', viewBox = null,
   } = options;
-  const [minX, minY, width, height] = pattern.layout.viewBox;
+  const [minX, minY, width, height] = viewBox ?? pattern.layout.viewBox;
   const s = width / BASE_SCALE;
   const elements = pattern.elements.map((element) => ({
     ...readElement(element),
@@ -153,7 +161,8 @@ export function renderChart(pattern, options = {}) {
     element.items.filter((i) => i.kind === 'stitch').forEach((item) => {
       const path = geometry.subPath(fractionOf(element, item.from), fractionOf(element, item.to));
       const uncertain = item.source !== 'source' ? ' cord-uncertain' : '';
-      edges += `<path class="cord-edge${uncertain}${state}" ${attrs} d="${path}"/>`;
+      const isCurrent = element.id === current ? ' is-current' : '';
+      edges += `<path class="cord-edge${uncertain}${isCurrent}${state}" ${attrs} d="${path}"/>`;
       cores += `<path class="cord-core${state}" ${attrs} d="${path}"/>`;
     });
 
@@ -241,7 +250,7 @@ export function renderChart(pattern, options = {}) {
       const wing = (sign) => `${n(tipX - p.along.x * 7 * s + sign * p.out.x * 4.5 * s)} ${n(tipY - p.along.y * 7 * s + sign * p.out.y * 4.5 * s)}`;
       marks += `<path class="start-arrow" d="M${n(tailX)} ${n(tailY)}L${n(tipX)} ${n(tipY)}M${wing(1)}L${n(tipX)} ${n(tipY)}L${wing(-1)}"/>`;
       if (index === 0) {
-        marks += `<text class="start-label" x="${n(tailX - p.along.x * 12 * s)}" y="${n(tailY - p.along.y * 12 * s)}">起点</text>`;
+        marks += `<text class="start-label" x="${n(inX - p.out.x * 17 * s)}" y="${n(inY - p.out.y * 17 * s)}">起点</text>`;
       }
     }
   });

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { elementGeometry, renderChart } from '../js/diagram.js';
+import { elementGeometry, focusBox, renderChart } from '../js/diagram.js';
 import { checkPattern, readElement } from '../js/pattern.js';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -230,6 +230,24 @@ test('reached colours progress on the current element', () => {
   near(lastX, elementGeometry(element).pointAt(0.5).x);
   near(lastY, elementGeometry(element).pointAt(0.5).y);
   assert.doesNotMatch(renderChart(pattern([ringEl(['10'])]), { current: 'A' }), /cord-reached/);
+});
+
+test('the current element is always marked, before any part is chosen', () => {
+  const svg = renderChart(pattern([ringEl(['5']), { ...ringEl(['5']), id: 'B' }]), { current: 'A', done: ['B'] });
+  assert.match(svg, /cord-edge is-current" data-el="A"/);
+  assert.doesNotMatch(svg, /is-current" data-el="B"/);
+  assert.match(css, /\.cord-edge\.is-current \{[^}]*--mark-current/);
+});
+
+test('a view can frame chosen elements, and marks scale to it', () => {
+  const far = { ...ringEl(['5'], { base: [500, 500], tip: [600, 500] }), id: 'Z' };
+  const all = pattern([ringEl(['5']), far]);
+  const box = focusBox(all, ['A']);
+  near(box[0], -34, 1);
+  assert.ok(box[0] + box[2] < 200, 'the far element is left out');
+  const svg = renderChart(all, { viewBox: [0, 0, 185, 185] });
+  assert.match(svg, /viewBox="0 0 185 185"/);
+  assert.match(svg, /--s:0\.5"/);
 });
 
 test('the title is escaped once', () => {

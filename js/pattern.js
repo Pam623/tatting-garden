@@ -48,89 +48,121 @@ export function readElement(element) {
   return { id: element.id, type: element.type, group: element.group, items, stitches: at };
 }
 
-export function buildSteps(pattern) {
-  const elements = pattern.elements.map(readElement);
-  const steps = [];
-  elements.forEach((element, elementIndex) => {
-    element.items.forEach((item, itemIndex) => {
-      steps.push({ elementIndex, elementId: element.id, item, itemIndex, at: item.to, total: element.stitches });
-    });
-    if (element.type === 'ring') {
-      steps.push({
-        elementIndex,
-        elementId: element.id,
-        item: { kind: 'close' },
-        itemIndex: element.items.length,
-        at: element.stitches,
-        total: element.stitches,
-      });
-    }
-  });
-  if (pattern.finish) {
-    const last = elements[elements.length - 1];
-    steps.push({
-      elementIndex: elements.length - 1,
-      elementId: last.id,
-      item: { kind: 'finish', text: pattern.finish },
-      itemIndex: last.items.length + 1,
-      at: last.stitches,
-      total: last.stitches,
-    });
-  }
-  return steps;
-}
-
-// Which element joins to this left picot, if any.
-export function findJoiner(pattern, elementId, name) {
-  for (const element of pattern.elements.map(readElement)) {
-    if (element.items.some((i) => i.kind === 'join' && i.element === elementId && i.name === name)) return element.id;
-  }
-  return null;
+export function numberText(item) {
+  if (item.source === 'inferred') return `${item.count}?`;
+  if (item.source === 'estimated') return item.error === undefined ? `≈${item.count}` : `≈${item.count}±${item.error}`;
+  return String(item.count);
 }
 
 function unitOf(pattern, elementId) {
   return pattern.elements.find((e) => e.id === elementId)?.type === 'bridge' ? '桥' : '环';
 }
 
-export function describeStep(pattern, step) {
-  const { item } = step;
-  const unit = unitOf(pattern, step.elementId);
-  if (item.kind === 'stitch') return { title: `编 ${item.count} 针`, detail: `这个${unit}编到第 ${step.at} 针，共 ${step.total} 针` };
-  if (item.kind === 'deco') {
-    const { items } = readElement(pattern.elements[step.elementIndex]);
-    const decos = items.filter((i) => i.kind === 'deco');
-    const nth = items.slice(0, step.itemIndex + 1).filter((i) => i.kind === 'deco').length;
-    return { title: '留一个装饰耳', detail: `这个${unit}的第 ${nth} 个装饰耳，共 ${decos.length} 个` };
-  }
-  if (item.kind === 'leave') {
-    const joiner = findJoiner(pattern, step.elementId, item.name);
-    return { title: '留一个接耳', detail: joiner ? `等一下 ${joiner} ${unitOf(pattern, joiner)}会接到这里` : '后面要接到这里' };
-  }
-  if (item.kind === 'join') {
-    const which = { first: '第一个耳', last: '最后一个耳' }[item.name] ?? '接耳';
-    const target = `${item.element} ${unitOf(pattern, item.element)}`;
-    return { title: `接到 ${target}`, detail: `接在 ${target}的${which}上` };
-  }
-  if (item.kind === 'close') return { title: `闭合 ${step.elementId} 环`, detail: `拉紧成环，这个环一共 ${step.total} 针` };
-  return { title: '收尾', detail: item.text };
+function picotText(item) {
+  const mark = item.kind === 'deco' ? '○' : ',';
+  return item.source === 'source' ? mark : `${mark}${item.source === 'inferred' ? '?' : '≈'}`;
 }
 
-// Readable formula for one element, in the same marks as the hand-drawn charts.
-export function elementFormula(element) {
+// The founder's notation: 2,4,3,4○2 where a comma is a join picot and ○ a decorative one.
+export function handFormula(element) {
   return readElement(element).items
-    .map((i) => (i.kind === 'stitch' ? String(i.count) : i.kind === 'deco' ? '○' : '●'))
-    .join(' ');
+    .map((item) => (item.kind === 'stitch' ? numberText(item) : picotText(item)))
+    .join('');
 }
 
-// One row per distinct formula, so identical elements read as one line of the stitch table.
+function plainFormula(element) {
+  return readElement(element).items
+    .map((item) => (item.kind === 'stitch' ? String(item.count) : item.kind === 'deco' ? '○' : ','))
+    .join('');
+}
+
+function hasUncertainty(element) {
+  return readElement(element).items.some((item) => item.source !== 'source');
+}
+
+// One row per type and formula, so identical elements read as one line of the stitch table.
 export function formulaGroups(pattern) {
   const groups = new Map();
   pattern.elements.forEach((element) => {
-    const formula = elementFormula(element);
-    if (!groups.has(formula)) groups.set(formula, { formula, ids: [], stitches: readElement(element).stitches });
-    groups.get(formula).ids.push(element.id);
+    const formula = plainFormula(element);
+    const key = `${element.type}|${formula}`;
+    if (!groups.has(key)) {
+      groups.set(key, { type: element.type, formula, members: [], stitches: readElement(element).stitches });
+    }
+    groups.get(key).members.push({ id: element.id, unsure: hasUncertainty(element) });
   });
   return [...groups.values()];
+}
+
+export function summarize(pattern) {
+  const rings = pattern.elements.filter((e) => e.type === 'ring');
+  const bridges = pattern.elements.filter((e) => e.type === 'bridge');
+  const ringFormulas = new Set(rings.map(plainFormula));
+  const parts = [`${rings.length} 环`, `${bridges.length} 桥`];
+  if (ringFormulas.size === 1) parts.push(`每环 ${readElement(rings[0]).stitches} 针`);
+  return parts.join(' · ');
+}
+
+// The ordinal of a join picot among those its element left, counted the way it was worked.
+function picotOrdinal(pattern, elementId, name) {
+  const element = pattern.elements.find((e) => e.id === elementId);
+  const left = readElement(element).items.filter((i) => i.kind === 'leave');
+  return left.findIndex((i) => i.name === name) + 1;
+}
+
+function joinerOf(pattern, elementId, name) {
+  const joiner = pattern.elements.map(readElement).find((element) => (
+    element.items.some((i) => i.kind === 'join' && i.element === elementId && i.name === name)
+  ));
+  return joiner?.id ?? null;
+}
+
+function wordsFor(pattern, item) {
+  if (item.kind === 'stitch') {
+    if (item.source === 'estimated') {
+      return item.error === undefined ? `大约编 ${item.count} 针（估算）` : `大约编 ${item.count} 针，上下差 ${item.error}（估算）`;
+    }
+    return item.source === 'inferred' ? `编 ${item.count} 针（推断）` : `编 ${item.count} 针`;
+  }
+  const note = item.source === 'source' ? '' : '（推测）';
+  if (item.kind === 'deco') return `留一个装饰耳${note}`;
+  if (item.kind === 'join') {
+    return `接到 ${item.element} ${unitOf(pattern, item.element)}的第 ${picotOrdinal(pattern, item.element, item.name)} 个接耳${note}`;
+  }
+  return null;
+}
+
+// Each part of an element, in the notation and in plain words.
+export function partsInWords(pattern, element) {
+  return readElement(element).items.map((item, index) => {
+    let words = wordsFor(pattern, item);
+    if (item.kind === 'leave') {
+      const joiner = joinerOf(pattern, element.id, item.name);
+      const note = item.source === 'source' ? '' : '（推测）';
+      words = joiner ? `留一个接耳，等下 ${joiner} ${unitOf(pattern, joiner)}接到这里${note}` : `留一个接耳${note}`;
+    }
+    return {
+      index,
+      kind: item.kind,
+      source: item.source,
+      to: item.to,
+      text: item.kind === 'stitch' ? numberText(item) : picotText(item),
+      words,
+      target: item.kind === 'join' ? item.element : null,
+    };
+  });
+}
+
+// A saved position is only trusted if it still fits the pattern.
+export function clampProgress(saved, count) {
+  const blank = { index: 0, part: null, finished: false };
+  if (!saved || typeof saved !== 'object') return blank;
+  if (!Number.isInteger(saved.index) || saved.index < 0 || saved.index >= count) return blank;
+  return {
+    index: saved.index,
+    part: Number.isInteger(saved.part) && saved.part >= 0 ? saved.part : null,
+    finished: saved.finished === true,
+  };
 }
 
 // Parts that don't parse are left out here and reported by the structure check,

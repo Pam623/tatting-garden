@@ -270,6 +270,15 @@ test('words name which picot to join and who joins here', () => {
   assert.equal(partsInWords(all, ring('Z', ['16~3', 'o', '5?', 'o~']))[3].words, '留一个装饰耳（推测）');
 });
 
+test('words name bridges, and a join with no target does not throw', () => {
+  const span = { id: 'A', type: 'bridge', place: bridgePlace, parts: ['5', 'p:mid', '5'] };
+  const joiner = ring('B', ['5', 'j:A.mid', '5']);
+  const all = pattern([span, joiner]);
+  assert.equal(partsInWords(all, span)[1].words, '留一个接耳，等下 B 环接到这里');
+  assert.equal(partsInWords(all, joiner)[1].words, '接到 A 桥的第 1 个接耳');
+  assert.equal(partsInWords(all, ring('C', ['5', 'j:Z.x', '5']))[1].words, '接到 Z 环的接耳');
+});
+
 test('a saved position outside the pattern is ignored', () => {
   const blank = { index: 0, part: null, finished: false };
   assert.deepEqual(clampProgress(null, 5), blank);

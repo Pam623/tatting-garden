@@ -148,9 +148,9 @@ async function showPattern(id) {
   const checks = checkPattern(pattern);
   const failed = checks.some((c) => !c.ok);
   document.title = `${pattern.title} · 梭编花园`;
-  const startLabel = hasStarted(progress) && !progress.finished
-    ? `继续编 · 第 ${progress.index + 1} 个`
-    : '开始编';
+  let startLabel = '开始编';
+  if (progress.finished) startLabel = '重新开始编';
+  else if (hasStarted(progress)) startLabel = `继续编 · 第 ${progress.index + 1} 个`;
 
   app.innerHTML = `
     <div class="pattern">
@@ -165,7 +165,7 @@ async function showPattern(id) {
           <p class="summary">${summarize(pattern)}</p>
           <p class="lede">${escapeHtml(pattern.summary ?? '')}</p>
         </header>
-        <a class="start" href="#/p/${escapeHtml(pattern.id)}/work">${startLabel}</a>
+        <a class="start" id="start" href="#/p/${escapeHtml(pattern.id)}/work">${startLabel}</a>
         <section>
           <h2>针数</h2>
           <p class="hint">点一行，图上对应的部分会亮起来。</p>
@@ -196,6 +196,11 @@ async function showPattern(id) {
       </div>
     </div>`;
 
+  if (progress.finished) {
+    document.getElementById('start').addEventListener('click', () => {
+      saveProgress(pattern, clampProgress(null, pattern.elements.length));
+    });
+  }
   const chart = document.getElementById('chart');
   const rows = [...document.querySelectorAll('.row')];
   const draw = (ids) => {
@@ -223,6 +228,7 @@ function keepScreenAwake() {
     if (!active || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
     try {
       lock = await navigator.wakeLock.request('screen');
+      if (!active) lock.release().catch(() => {});
     } catch {
       lock = null; // Not allowed right now; the screen just sleeps as usual.
     }
@@ -267,7 +273,12 @@ async function showWork(id) {
           ${stamp(pattern.tier)}
         </div>
         <div class="bar" aria-hidden="true"><span id="bar"></span></div>
-        <div id="content" aria-live="polite"></div>
+        <div class="work-content" id="content">
+          <div id="announce" aria-live="polite"></div>
+          <div class="formula" id="formula" role="group"></div>
+          <p class="words" id="words" aria-live="polite"></p>
+          <p class="total" id="total"></p>
+        </div>
         <div class="work-nav">
           <button type="button" id="prev" class="ghost">上一个</button>
           <button type="button" id="next" class="primary"></button>
@@ -276,7 +287,10 @@ async function showWork(id) {
     </div>`;
 
   const chart = document.getElementById('chart');
-  const content = document.getElementById('content');
+  const announce = document.getElementById('announce');
+  const formula = document.getElementById('formula');
+  const words = document.getElementById('words');
+  const total = document.getElementById('total');
   const position = document.getElementById('position');
   const bar = document.getElementById('bar');
   const prev = document.getElementById('prev');
@@ -318,21 +332,34 @@ async function showWork(id) {
     toggle.textContent = wholeView ? '看局部' : '看全图';
   }
 
+  function drawWords(element) {
+    const parts = partsInWords(pattern, element);
+    const selected = state.part === null ? null : parts[state.part] ?? null;
+    words.textContent = selected ? selected.words : '点数字可以逐段看。';
+    formula.querySelectorAll('[data-part]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(Number(button.dataset.part) === selected?.index));
+    });
+  }
+
+  function drawFinish() {
+    position.textContent = `全部 ${elements.length} 个都编完了`;
+    bar.style.width = '100%';
+    announce.innerHTML = '<h2 class="element-name">收尾</h2>';
+    formula.innerHTML = '';
+    formula.hidden = true;
+    words.textContent = pattern.finish ?? '把线头收好。';
+    total.innerHTML = '<button type="button" class="again" id="again">重新开始</button>';
+    document.getElementById('again').addEventListener('click', () => go(0));
+    next.textContent = '回到花样';
+    prev.disabled = false;
+  }
+
   function drawPanel(element) {
     if (state.finished) {
-      position.textContent = `全部 ${elements.length} 个都编完了`;
-      bar.style.width = '100%';
-      content.innerHTML = `
-        <h2 class="element-name">收尾</h2>
-        <p class="words">${escapeHtml(pattern.finish ?? '把线头收好。')}</p>
-        <button type="button" class="again" id="again">重新开始</button>`;
-      document.getElementById('again').addEventListener('click', () => go(0));
-      next.textContent = '回到花样';
-      prev.disabled = false;
+      drawFinish();
       return;
     }
     const parts = partsInWords(pattern, element);
-    const selected = state.part === null ? null : parts[state.part] ?? null;
     const read = readElement(element);
     const join = read.items.filter((i) => i.kind === 'leave' || i.kind === 'join').length;
     const deco = read.items.filter((i) => i.kind === 'deco').length;
@@ -340,20 +367,21 @@ async function showWork(id) {
 
     position.textContent = `第 ${state.index + 1} 个，共 ${elements.length} 个`;
     bar.style.width = `${(state.index / elements.length) * 100}%`;
-    content.innerHTML = `
-      ${flipLine(element)}
-      <h2 class="element-name"><b>${element.id}</b> ${unitName(element)}</h2>
-      <div class="formula" role="group" aria-label="${element.id} ${unitName(element)}的针数，${escapeHtml(handFormula(element))}">
-        ${parts.map((p) => `<button type="button" class="part part-${p.kind}${p.source === 'source' ? '' : ' part-unsure'}" data-part="${p.index}" aria-pressed="${p.index === state.part}" aria-label="${escapeHtml(p.words)}">${p.text}</button>`).join('')}
-      </div>
-      <p class="words">${escapeHtml(selected ? selected.words : `${counts}。点数字可以逐段看。${element.type === 'ring' ? '编完拉紧成环。' : ''}`)}</p>`;
-    content.querySelectorAll('[data-part]').forEach((button) => {
+    announce.innerHTML = `${flipLine(element)}<h2 class="element-name"><b>${element.id}</b> ${unitName(element)}</h2>`;
+    formula.hidden = false;
+    formula.setAttribute('aria-label', `${element.id} ${unitName(element)}的针数，${handFormula(element)}`);
+    formula.innerHTML = parts.map((p) => `<button type="button" class="part part-${p.kind}${p.source === 'source' ? '' : ' part-unsure'}" data-part="${p.index}" aria-pressed="false" aria-label="${escapeHtml(p.words)}">${p.text}</button>`).join('');
+    formula.querySelectorAll('[data-part]').forEach((button) => {
       button.addEventListener('click', () => {
         const part = Number(button.dataset.part);
         state.part = state.part === part ? null : part;
-        draw();
+        drawChart(element);
+        drawWords(element);
+        saveProgress(pattern, state);
       });
     });
+    drawWords(element);
+    total.textContent = `${counts}。${element.type === 'ring' ? '编完拉紧成环。' : ''}`;
     prev.disabled = state.index === 0;
     const following = elements[state.index + 1];
     next.textContent = following ? `下一个 · ${following.id} ${unitName(following)}` : '收尾';
@@ -413,7 +441,11 @@ async function showWork(id) {
   draw();
 }
 
+let routeCount = 0;
+
 async function route() {
+  routeCount += 1;
+  const thisRoute = routeCount;
   if (cleanup) {
     cleanup();
     cleanup = null;
@@ -422,11 +454,16 @@ async function route() {
   const match = location.hash.match(/^#\/p\/([\w-]+)(\/work)?$/);
   document.body.classList.toggle('in-work', Boolean(match?.[2]));
   try {
+    // Fetch first, so a page that finishes loading late can't draw over a newer one.
+    if (match) await loadPattern(match[1]);
+    else await Promise.all((await (await fetch('patterns/index.json')).json()).map(loadPattern));
+    if (thisRoute !== routeCount) return;
     if (match?.[2]) await showWork(match[1]);
     else if (match) await showPattern(match[1]);
     else await showHome();
   } catch (error) {
     console.error(error);
+    if (thisRoute !== routeCount) return;
     app.innerHTML = '<p class="error">这一页没打开，<a href="#/">回到全部花样</a>。</p>';
   }
 }

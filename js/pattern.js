@@ -1,4 +1,4 @@
-// Reads a pattern file: turns part tokens into ordered steps, and checks the numbers agree.
+// Reads a pattern file: turns part tokens into items, and checks the numbers agree.
 //
 // Parts:  "5"         work 5 stitches
 //         "o"         decorative picot
@@ -106,6 +106,7 @@ export function summarize(pattern) {
 // The ordinal of a join picot among those its element left, counted the way it was worked.
 function picotOrdinal(pattern, elementId, name) {
   const element = pattern.elements.find((e) => e.id === elementId);
+  if (!element) return 0;
   const left = readElement(element).items.filter((i) => i.kind === 'leave');
   return left.findIndex((i) => i.name === name) + 1;
 }
@@ -127,7 +128,8 @@ function wordsFor(pattern, item) {
   const note = item.source === 'source' ? '' : '（推测）';
   if (item.kind === 'deco') return `留一个装饰耳${note}`;
   if (item.kind === 'join') {
-    return `接到 ${item.element} ${unitOf(pattern, item.element)}的第 ${picotOrdinal(pattern, item.element, item.name)} 个接耳${note}`;
+    const ordinal = picotOrdinal(pattern, item.element, item.name);
+    return `接到 ${item.element} ${unitOf(pattern, item.element)}的${ordinal ? `第 ${ordinal} 个` : ''}接耳${note}`;
   }
   return null;
 }

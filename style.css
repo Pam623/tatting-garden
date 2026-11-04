@@ -227,7 +227,6 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   padding: 16px 24px calc(16px + env(safe-area-inset-bottom));
   background: var(--paper);
   border-left: 1px solid var(--line);
-  overflow-y: auto;
 }
 .work-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .jump { position: relative; }
@@ -250,7 +249,9 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .jump-list button { width: 42px; height: 42px; background: none; border: 1px solid var(--line); border-radius: 50%; font-family: var(--serif); font-weight: 700; }
 .bar { height: 3px; background: var(--line); margin-bottom: 18px; flex: none; }
 .bar span { display: block; height: 100%; background: var(--mark-current); transition: width 0.2s ease; }
-#content { flex: 1; }
+.work-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.formula[hidden] { display: none; }
+.total { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
 .flip { margin-bottom: 12px; padding: 8px 12px; border: 2px solid var(--ink); border-radius: 2px; font-family: var(--serif); font-size: 1.2rem; font-weight: 700; text-align: center; }
 .flip-unsure { border: 2px dashed var(--mark-unsure); color: var(--mark-unsure); }
 .flip-quiet { margin-bottom: 8px; color: var(--muted); font-size: 0.88rem; }
@@ -271,7 +272,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 }
 .part-unsure { border: 1.5px dashed var(--mark-unsure); color: var(--mark-unsure); }
 .part[aria-pressed="true"] { background: var(--mark-current); border-color: var(--mark-current); color: var(--paper); }
-.words { font-size: 1.05rem; min-height: 3.3em; }
+.words { font-size: 1.05rem; min-height: 1.7em; }
 .again { margin-top: 18px; min-height: 48px; padding: 0 20px; background: none; border: 1px solid var(--ink); border-radius: 4px; }
 .work-nav { display: grid; grid-template-columns: 1fr 2.4fr; gap: 10px; margin-top: 16px; flex: none; }
 .work-nav button { min-height: 60px; border-radius: 4px; font-size: 1.08rem; font-weight: 600; }
@@ -320,7 +321,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   .work-chart { padding: 8px 8px 0; }
   .work-chart .paper { padding: 6px; }
   .view-toggle { top: 18px; right: 18px; }
-  .work-panel { max-height: 52dvh; padding: 2px 16px calc(10px + env(safe-area-inset-bottom)); border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+  .work-panel { max-height: 58dvh; padding: 2px 16px calc(10px + env(safe-area-inset-bottom)); border-left: 0; border-top: 1px solid var(--line); }
   .bar { margin-bottom: 8px; }
   .flip { margin-bottom: 6px; padding: 3px 10px; font-size: 1.02rem; }
   .flip-quiet { margin-bottom: 2px; }
@@ -328,9 +329,17 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   .element-name { font-size: 1.05rem; }
   .formula { gap: 3px; margin: 4px 0 6px; }
   .part { flex: 1 1 0; font-size: 1.1rem; min-width: 30px; min-height: 44px; padding: 0 2px; }
-  .words { font-size: 0.95rem; min-height: 2.9em; line-height: 1.45; }
+  .words { font-size: 0.95rem; min-height: 1.5em; line-height: 1.45; }
+  .total { font-size: 0.82rem; margin-top: 0; }
   .work-nav { margin-top: 6px; }
   .work-nav button { min-height: 52px; font-size: 1rem; }
+}
+
+@media (max-width: 950px) and (orientation: landscape) {
+  .work { grid-template-columns: minmax(0, 1fr) minmax(300px, 1.1fr); grid-template-rows: minmax(0, 1fr); }
+  .work-chart { padding: 6px; }
+  .work-panel { max-height: 100dvh; border-top: 0; border-left: 1px solid var(--line); }
+  .pattern-plate .diagram { height: 60dvh; max-height: 60dvh; }
 }
 
 @media (prefers-reduced-motion: reduce) {

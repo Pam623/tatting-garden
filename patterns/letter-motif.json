@@ -1,0 +1,392 @@
+{
+  "schema": 2,
+  "id": "letter-motif",
+  "title": "字母花片",
+  "craft": "梭编",
+  "difficulty": "进阶",
+  "tier": "sorted",
+  "rights": {
+    "kind": "public-domain",
+    "note": "创始人决定非盈利公开"
+  },
+  "summary": "十个环和六段桥，A 到 P 依次编，两头各一组三叶。",
+  "layout": {
+    "viewBox": [
+      -175,
+      -240,
+      350,
+      480
+    ],
+    "closed": true
+  },
+  "elements": [
+    {
+      "id": "A",
+      "type": "ring",
+      "group": "big",
+      "place": {
+        "base": [
+          107.5,
+          -72.5
+        ],
+        "tip": [
+          12.5,
+          -25
+        ],
+        "width": 85,
+        "dir": "ccw"
+      },
+      "parts": [
+        "2",
+        "p:n",
+        "4",
+        "p:k",
+        "3",
+        "p:c",
+        "4",
+        "o",
+        "2"
+      ]
+    },
+    {
+      "id": "B",
+      "type": "bridge",
+      "group": "long",
+      "place": {
+        "from": [
+          107.5,
+          -72.5
+        ],
+        "to": [
+          92.5,
+          102.5
+        ],
+        "bulge": 100
+      },
+      "parts": [
+        "15"
+      ],
+      "flip": {
+        "value": true,
+        "source": "source"
+      }
+    },
+    {
+      "id": "C",
+      "type": "ring",
+      "group": "big",
+      "place": {
+        "base": [
+          92.5,
+          102.5
+        ],
+        "tip": [
+          -12.5,
+          35
+        ],
+        "width": 75,
+        "dir": "cw"
+      },
+      "parts": [
+        "2",
+        "p:e",
+        "4",
+        "p:i",
+        "3",
+        "j:A.c",
+        "4",
+        "o",
+        "2"
+      ]
+    },
+    {
+      "id": "D",
+      "type": "bridge",
+      "group": "short",
+      "place": {
+        "from": [
+          92.5,
+          102.5
+        ],
+        "to": [
+          -12.5,
+          140
+        ],
+        "bulge": 125
+      },
+      "parts": [
+        "10"
+      ]
+    },
+    {
+      "id": "E",
+      "type": "ring",
+      "group": "side",
+      "place": {
+        "base": [
+          -12.5,
+          140
+        ],
+        "tip": [
+          47.5,
+          100
+        ],
+        "width": 42,
+        "dir": "cw"
+      },
+      "parts": [
+        "6",
+        "j:C.e",
+        "6"
+      ]
+    },
+    {
+      "id": "F",
+      "type": "ring",
+      "group": "side",
+      "place": {
+        "base": [
+          -12.5,
+          140
+        ],
+        "tip": [
+          -75,
+          97.5
+        ],
+        "width": 42,
+        "dir": "cw"
+      },
+      "parts": [
+        "6",
+        "p:i",
+        "6"
+      ]
+    },
+    {
+      "id": "G",
+      "type": "ring",
+      "group": "tip",
+      "place": {
+        "base": [
+          -12.5,
+          140
+        ],
+        "tip": [
+          -27.5,
+          222.5
+        ],
+        "width": 34,
+        "dir": "cw"
+      },
+      "parts": [
+        "12"
+      ]
+    },
+    {
+      "id": "H",
+      "type": "bridge",
+      "group": "short",
+      "place": {
+        "from": [
+          -12.5,
+          140
+        ],
+        "to": [
+          -125,
+          80
+        ],
+        "bulge": 115
+      },
+      "parts": [
+        "10"
+      ]
+    },
+    {
+      "id": "I",
+      "type": "ring",
+      "group": "big",
+      "place": {
+        "base": [
+          -125,
+          80
+        ],
+        "tip": [
+          -15,
+          35
+        ],
+        "width": 75,
+        "dir": "ccw"
+      },
+      "parts": [
+        "2",
+        "j:F.i",
+        "4",
+        "j:C.i",
+        "3",
+        "p:k",
+        "4",
+        "o",
+        "2"
+      ],
+      "flip": {
+        "value": true,
+        "source": "source"
+      }
+    },
+    {
+      "id": "J",
+      "type": "bridge",
+      "group": "long",
+      "place": {
+        "from": [
+          -125,
+          80
+        ],
+        "to": [
+          -102.5,
+          -95
+        ],
+        "bulge": 75
+      },
+      "parts": [
+        "15"
+      ],
+      "flip": {
+        "value": true,
+        "source": "source"
+      }
+    },
+    {
+      "id": "K",
+      "type": "ring",
+      "group": "big",
+      "place": {
+        "base": [
+          -102.5,
+          -95
+        ],
+        "tip": [
+          -35,
+          -10
+        ],
+        "width": 75,
+        "dir": "cw"
+      },
+      "parts": [
+        "2",
+        "p:m",
+        "4",
+        "j:A.k",
+        "3",
+        "j:I.k",
+        "4",
+        "o",
+        "2"
+      ]
+    },
+    {
+      "id": "L",
+      "type": "bridge",
+      "group": "short",
+      "place": {
+        "from": [
+          -102.5,
+          -95
+        ],
+        "to": [
+          15,
+          -145
+        ],
+        "bulge": 110
+      },
+      "parts": [
+        "10"
+      ]
+    },
+    {
+      "id": "M",
+      "type": "ring",
+      "group": "side",
+      "place": {
+        "base": [
+          15,
+          -145
+        ],
+        "tip": [
+          -62.5,
+          -105
+        ],
+        "width": 42,
+        "dir": "cw"
+      },
+      "parts": [
+        "6",
+        "j:K.m",
+        "6"
+      ]
+    },
+    {
+      "id": "N",
+      "type": "ring",
+      "group": "side",
+      "place": {
+        "base": [
+          15,
+          -145
+        ],
+        "tip": [
+          60,
+          -87.5
+        ],
+        "width": 42,
+        "dir": "cw"
+      },
+      "parts": [
+        "6",
+        "j:A.n",
+        "6"
+      ]
+    },
+    {
+      "id": "O",
+      "type": "ring",
+      "group": "tip",
+      "place": {
+        "base": [
+          15,
+          -145
+        ],
+        "tip": [
+          25,
+          -220
+        ],
+        "width": 50,
+        "dir": "cw"
+      },
+      "parts": [
+        "12"
+      ]
+    },
+    {
+      "id": "P",
+      "type": "bridge",
+      "group": "short",
+      "place": {
+        "from": [
+          15,
+          -145
+        ],
+        "to": [
+          107.5,
+          -72.5
+        ],
+        "bulge": 130
+      },
+      "parts": [
+        "10"
+      ]
+    }
+  ],
+  "finish": "最后翻面，接回 A 环的起点，线头打结",
+  "closingFlip": true
+}

@@ -87,8 +87,11 @@ export function formulaGroups(pattern) {
     const formula = plainFormula(element);
     const key = `${element.type}|${formula}`;
     if (!groups.has(key)) {
-      groups.set(key, { type: element.type, formula, members: [], stitches: readElement(element).stitches });
+      groups.set(key, {
+        type: element.type, formula, members: [], stitches: readElement(element).stitches, estimated: false,
+      });
     }
+    if (readElement(element).items.some((item) => item.source === 'estimated')) groups.get(key).estimated = true;
     groups.get(key).members.push({ id: element.id, unsure: hasUncertainty(element) });
   });
   return [...groups.values()];
@@ -99,7 +102,10 @@ export function summarize(pattern) {
   const bridges = pattern.elements.filter((e) => e.type === 'bridge');
   const ringFormulas = new Set(rings.map(plainFormula));
   const parts = [`${rings.length} 环`, `${bridges.length} 桥`];
-  if (ringFormulas.size === 1) parts.push(`每环 ${readElement(rings[0]).stitches} 针`);
+  if (ringFormulas.size === 1) {
+    const estimated = rings.some((ring) => readElement(ring).items.some((item) => item.source === 'estimated'));
+    parts.push(`每环${estimated ? '约 ' : ' '}${readElement(rings[0]).stitches} 针`);
+  }
   return parts.join(' · ');
 }
 

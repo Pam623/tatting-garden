@@ -1,0 +1,251 @@
+{
+  "schema": 2,
+  "id": "leaf-braid",
+  "title": "叶子花边",
+  "craft": "梭编",
+  "difficulty": "入门",
+  "tier": "sorted",
+  "rights": {
+    "kind": "public-domain",
+    "note": "创始人决定非盈利公开"
+  },
+  "source": "The Pattern Collection，第 18 页 Leaf Braid",
+  "summary": "两环一组，上下交替，每环 16 针。可以一直编下去做花边。20 号线宽约 2 厘米。",
+  "layout": {
+    "viewBox": [
+      0,
+      0,
+      500,
+      380
+    ]
+  },
+  "repeat": {
+    "elements": [
+      "E",
+      "F",
+      "G",
+      "H"
+    ],
+    "defaultTimes": 5,
+    "open": [
+      "F.tip",
+      "H.tip"
+    ]
+  },
+  "threadNote": "每次翻面前留一点点线，越短越好。",
+  "elements": [
+    {
+      "id": "A",
+      "type": "ring",
+      "group": "long",
+      "place": {
+        "base": [
+          96.7,
+          166.7
+        ],
+        "tip": [
+          88.3,
+          43.3
+        ],
+        "width": 63.3,
+        "dir": "cw"
+      },
+      "parts": [
+        "4",
+        "o",
+        "4",
+        "o",
+        "4",
+        "p:right",
+        "4"
+      ]
+    },
+    {
+      "id": "B",
+      "type": "ring",
+      "group": "leaf",
+      "place": {
+        "base": [
+          96.7,
+          166.7
+        ],
+        "tip": [
+          203.3,
+          96.7
+        ],
+        "width": 46.7,
+        "dir": "cw"
+      },
+      "parts": [
+        "4",
+        "j:A.right",
+        "4",
+        "p:tip",
+        "8"
+      ]
+    },
+    {
+      "id": "C",
+      "type": "ring",
+      "group": "long",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "base": [
+          168.3,
+          211.7
+        ],
+        "tip": [
+          170.0,
+          335.0
+        ],
+        "width": 63.3,
+        "dir": "ccw"
+      },
+      "parts": [
+        "4",
+        "o",
+        "4",
+        "o",
+        "4",
+        "p:right",
+        "4"
+      ]
+    },
+    {
+      "id": "D",
+      "type": "ring",
+      "group": "leaf",
+      "place": {
+        "base": [
+          168.3,
+          211.7
+        ],
+        "tip": [
+          281.7,
+          278.3
+        ],
+        "width": 46.7,
+        "dir": "ccw"
+      },
+      "parts": [
+        "4",
+        "j:C.right",
+        "4",
+        "p:tip",
+        "8"
+      ]
+    },
+    {
+      "id": "E",
+      "type": "ring",
+      "group": "long",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "base": [
+          253.3,
+          170.0
+        ],
+        "tip": [
+          250.0,
+          43.3
+        ],
+        "width": 63.3,
+        "dir": "cw"
+      },
+      "parts": [
+        "4",
+        "j:B.tip",
+        "4",
+        "o",
+        "4",
+        "p:right",
+        "4"
+      ]
+    },
+    {
+      "id": "F",
+      "type": "ring",
+      "group": "leaf",
+      "place": {
+        "base": [
+          253.3,
+          170.0
+        ],
+        "tip": [
+          370.0,
+          103.3
+        ],
+        "width": 46.7,
+        "dir": "cw"
+      },
+      "parts": [
+        "4",
+        "j:E.right",
+        "4",
+        "p:tip",
+        "8"
+      ]
+    },
+    {
+      "id": "G",
+      "type": "ring",
+      "group": "long",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "base": [
+          328.3,
+          215.0
+        ],
+        "tip": [
+          326.7,
+          336.7
+        ],
+        "width": 63.3,
+        "dir": "ccw"
+      },
+      "parts": [
+        "4",
+        "j:D.tip",
+        "4",
+        "o",
+        "4",
+        "p:right",
+        "4"
+      ]
+    },
+    {
+      "id": "H",
+      "type": "ring",
+      "group": "leaf",
+      "place": {
+        "base": [
+          328.3,
+          215.0
+        ],
+        "tip": [
+          446.7,
+          266.7
+        ],
+        "width": 46.7,
+        "dir": "ccw"
+      },
+      "parts": [
+        "4",
+        "j:G.right",
+        "4",
+        "p:tip",
+        "8"
+      ]
+    }
+  ],
+  "finish": "编到想要的长度，把线头打结藏好"
+}

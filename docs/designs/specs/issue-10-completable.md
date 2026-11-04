@@ -1,0 +1,24 @@
+# Issue 10: charts people can finish: single line, thread length, repeats
+
+The founder's direction overrides earlier documents: the goal is a chart that can be tatted. Remove everything that hedges. Patterns may be public regardless of rights.
+
+## Frozen contract
+
+1. Drawing: a single pen line, not a double cord. No per-stitch ticks. Stroke about 1.8px at base scale. Picots are small narrow loops (like a petal, not a circle), about half today's visual weight, drawn as a small teardrop path pointing outward, not as filled or heavy circles. A join is a short thin line between the two cords with a small solid dot at the picot. Letters stay.
+2. Numbers: on a chart with no highlight, show numbers only on the first element of each `group` (or every element with no group), so one of each kind is labelled.
+3. Remove from the interface: tier stamps, tier explanations, the 怎么算可信 section, the 还不确定的地方 section, the 自动核对 section, and rendering of uncertainty (dashes, diamonds, `?` marks, 翻?, 翻≈, 不翻面（推测）, `<i>?</i>` on letters, `part-unsure`). A flip with `value:true` shows as 翻 on the chart and 先翻面 in working mode. Checks stay in `npm test`. Keep parsing `?` and `~` in tokens, and keep tier and rights checks working in `checkPattern`, but public no longer rejects any rights kind; the 可以公开 check is removed.
+4. Notation: decorative picots in formulas use `·` (middle dot) rather than `○`, in the stitch table, working mode part buttons and legend. Comma stays for join picots. `5,2·2·2·2·2·2,5`. Part buttons for the two picot kinds use small marks.
+5. Thread connectors: when an element is a ring and the previous element is a ring with a different base, and neither is a bridge, draw a thin dashed line between the two bases, meaning thread passes here with a small gap.
+6. Repeats: `pattern.repeat = { elements: [ids], defaultTimes, open: ["F.tip"] }`. `checkJoins` allows left picots named in `open` to be unused, since the next repeat joins them. The pattern page says `重复 E–H` beside the table, with a number stepper 重复次数 (minimum 1, default `defaultTimes`, remembered per pattern in localStorage inside try/catch). Working mode: after the last element of the repeat, next goes to a panel 再编一组？ offering 再来一组 (back to the first repeat element) or 收尾. Join words stay correct for the first pass; for repeat elements add 再来时接上一组对应的耳 in the words of the first join only when in a second or later pass. Keep this simple; no separate drawing for repeats.
+7. Materials panel on the pattern page, above the table, plain facts: `需要`, `1 个梭子` for rings only; `1 个梭子 + 1 团线（或 2 个梭子）` when there are bridges. Thread size selector 20 / 40 / 80 号 (default 20, remembered). `梭子线约 1.7 米`, plus `线团约 x 米` when there are bridges. If `threadNote` is present, show it. Show `source` as a small line at the bottom when present.
+8. New module `js/materials.js`, exporting `estimateThread(pattern, { size = 20, repeats })` returning `{ shuttleCm, ballCm, shuttles, ballNeeded, totalStitches, picots }`. Rules, per double stitch at size 20: 1.0 cm, from a measured 4 inches for 10 stitches. Size factor: 20 → 1.0, 40 → 0.7, 80 → 0.5. Ring stitch: all from the shuttle. Bridge stitch: 1.0 from the ball plus 0.1 from the shuttle as core. Picot (`o`, `p:`) adds 0.6 cm at size 20, scaled by the factor, from the shuttle on a ring and from the ball on a bridge. Joins add nothing. Elements in `repeat.elements` count `repeats` times (default `defaultTimes`); others once. Each thread: multiply by 1.15, add 20 cm for tails, then round up to the next 10 cm. `shuttles` is 1 always; `ballNeeded` is true when any bridge exists. Throw on an unknown size.
+   Pinned values at size 20: flower 110 stitches, 30 picots, shuttleCm 170, ballCm 0.
+9. Chart for letter-motif: `patterns/letter-motif.json` is already corrected; `closingFlip` means show 最后翻面 in the finish panel, which its `finish` text already says, so ignore that field in code. `patterns/leaf-braid.json` and the flower are also already correct. Do not change pattern files.
+10. Colours: keep linen, paper and ink. Madder only marks the current position. Remove token uses that no longer exist. Working mode stays as it is otherwise, including wake lock, jump list and pinned nav.
+11. The private-lab bundle `scripts/build-lab.mjs` keeps working.
+
+Non-goals: upload (issue 11).
+
+## Tests
+
+Update tests to match: delete tests of removed behaviour. Add: single cord path per stitch segment and no ticks; picot rendered as `path` of class `picot deco`; numbers on first of group only; dashed thread between separated ring bases and none for shared bases; `open` picots pass `checkJoins`, others still fail; `estimateThread` pinned for the flower, a bridge case by hand, a repeat case, size scaling, unknown size throw; rows use `·`. The golden picot test may be removed since the picot shape changes, but keep a test that picots sit a fixed offset from `pointAt`. `npm test` must pass.

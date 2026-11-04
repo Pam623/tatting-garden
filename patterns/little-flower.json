@@ -4,7 +4,7 @@
   "title": "入门小花",
   "craft": "梭编",
   "difficulty": "入门",
-  "tier": "sorted",
+  "tier": "made",
   "rights": {
     "kind": "original",
     "note": "创始人自己设计"
@@ -25,10 +25,6 @@
       "id": "A",
       "type": "ring",
       "group": "petal",
-      "flip": {
-        "value": false,
-        "source": "inferred"
-      },
       "parts": [
         "5",
         "p:first",
@@ -63,10 +59,6 @@
       "id": "B",
       "type": "ring",
       "group": "petal",
-      "flip": {
-        "value": false,
-        "source": "inferred"
-      },
       "parts": [
         "5",
         "j:A.last",
@@ -101,10 +93,6 @@
       "id": "C",
       "type": "ring",
       "group": "petal",
-      "flip": {
-        "value": false,
-        "source": "inferred"
-      },
       "parts": [
         "5",
         "j:B.last",
@@ -139,10 +127,6 @@
       "id": "D",
       "type": "ring",
       "group": "petal",
-      "flip": {
-        "value": false,
-        "source": "inferred"
-      },
       "parts": [
         "5",
         "j:C.last",
@@ -177,10 +161,6 @@
       "id": "E",
       "type": "ring",
       "group": "petal",
-      "flip": {
-        "value": false,
-        "source": "inferred"
-      },
       "parts": [
         "5",
         "j:D.last",
@@ -195,7 +175,7 @@
         "2",
         "o",
         "2",
-        "j:A.first?",
+        "j:A.first",
         "5"
       ],
       "place": {
@@ -213,10 +193,7 @@
     }
   ],
   "finish": "把线头打结，藏好线尾",
-  "toConfirm": [
-    "五个环按顺时针依次编（A 右上，B 右下，然后一路转回左上）",
-    "最后一个环 E 接回 A 环的第一个耳，整朵花合上",
-    "全程不用翻面",
-    "收尾方式是线头打结"
+  "reviewedBy": [
+    "创始人 2026-11-04 照图解编成并确认"
   ]
 }

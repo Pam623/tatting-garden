@@ -212,28 +212,42 @@ test('a reconstruction marks everything and states its errors', () => {
   assert.equal(check(pattern([ring('A', ['5?', 'o~'], { flip: { value: true, source: 'estimated' } })], tier), '信任等级和内容相符').ok, true);
 });
 
-test('public patterns need open rights and cannot be reconstructions', () => {
-  const options = { public: true };
-  assert.equal(check(pattern([ring('A', ['5'])]), '可以公开', options).ok, true);
-  assert.equal(check(pattern([ring('A', ['5'])], { rights: { kind: 'public-domain' } }), '可以公开', options).ok, true);
-  const privateOne = check(pattern([ring('A', ['5'])], { rights: { kind: 'private' } }), '可以公开', options);
-  assert.equal(privateOne.ok, false);
-  assert.match(privateOne.detail, /X/);
-  assert.equal(check(pattern([ring('A', ['5~1'])], { tier: 'reconstruction' }), '可以公开', options).ok, false);
-  assert.equal(checkPattern(pattern([ring('A', ['5'])])).some((c) => c.label === '可以公开'), false);
+test('the public check is gone, and no rights kind is rejected', () => {
+  const labels = checkPattern(pattern([ring('A', ['5'])], { rights: { kind: 'private' } })).map((c) => c.label);
+  assert.equal(labels.includes('可以公开'), false);
+  assert.equal(checkPattern(pattern([ring('A', ['5'])], { rights: { kind: 'private' } })).every((c) => c.ok), true);
+  assert.equal(check(pattern([ring('A', ['5'])], { rights: { kind: 'odd' } }), '结构完整').ok, false);
 });
 
-test('the notation follows the founder: comma for join, circle for decorative', () => {
-  assert.equal(handFormula(flower.elements[0]), '5,2○2○2○2○2○2,5');
-  assert.equal(handFormula(ring('A', ['2', 'p:n', '4', 'o', '2'])), '2,4○2');
+test('a group with repeat elements may trade a decorative picot for a join', () => {
+  const elements = [
+    ring('L', ['5', 'p:x', '5']),
+    ring('A', ['5', 'o', '5'], { group: 'g' }),
+    ring('B', ['5', 'j:L.x', '5'], { group: 'g' }),
+  ];
+  assert.equal(check(pattern(elements), '同组元素一致').ok, false);
+  assert.equal(check(pattern(elements, { repeat: { elements: ['B'], defaultTimes: 2, open: [] } }), '同组元素一致').ok, true);
+});
+
+test('left picots named in repeat.open may stay unused; others still fail', () => {
+  const elements = [ring('F', ['5', 'p:tip', '5']), ring('G', ['5', 'p:other', '5'])];
+  const open = check(pattern(elements, { repeat: { elements: ['F', 'G'], defaultTimes: 2, open: ['F.tip'] } }), '每个接耳都接上了');
+  assert.equal(open.ok, false);
+  assert.deepEqual(open.elements, ['G']);
+  assert.equal(check(pattern(elements, { repeat: { elements: ['F', 'G'], defaultTimes: 2, open: ['F.tip', 'G.other'] } }), '每个接耳都接上了').ok, true);
+  assert.equal(check(pattern(elements), '每个接耳都接上了').ok, false);
+});
+
+test('the notation follows the founder: comma for join, middle dot for decorative', () => {
+  assert.equal(handFormula(flower.elements[0]), '5,2·2·2·2·2·2,5');
+  assert.equal(handFormula(ring('A', ['2', 'p:n', '4', 'o', '2'])), '2,4·2');
   assert.equal(handFormula(ring('A', ['12'])), '12');
-  assert.equal(handFormula(ring('A', ['5?', 'o?', '16~3', 'p:x~', '4~'])), '5?○?≈16±3,≈≈4');
 });
 
-test('table rows group by type and plain formula, marking unsure letters', () => {
+test('table rows group by type and plain formula', () => {
   const rows = formulaGroups(flower);
   assert.equal(rows.length, 1);
-  assert.equal(rows[0].formula, '5,2○2○2○2○2○2,5');
+  assert.equal(rows[0].formula, '5,2·2·2·2·2·2,5');
   assert.equal(rows[0].stitches, 22);
   assert.deepEqual(rows[0].members.map((m) => m.id), ['A', 'B', 'C', 'D', 'E']);
   const mixed = pattern([
@@ -242,7 +256,7 @@ test('table rows group by type and plain formula, marking unsure letters', () =>
   ]);
   const mixedRows = formulaGroups(mixed);
   assert.equal(mixedRows.length, 2);
-  assert.deepEqual(mixedRows[0].members, [{ id: 'A', unsure: false }, { id: 'C', unsure: true }]);
+  assert.deepEqual(mixedRows[0].members, [{ id: 'A' }, { id: 'C' }]);
   assert.equal(mixedRows[1].type, 'bridge');
 });
 
@@ -252,19 +266,10 @@ test('the summary gives ring stitches only when the rings all match', () => {
   assert.equal(summarize(mixed), '2 环 · 1 桥');
 });
 
-test('estimates never read as exact counts', () => {
-  const guess = pattern([ring('A', ['7~3', 'o~', '3~1'])], { tier: 'reconstruction' });
-  assert.equal(summarize(guess), '1 环 · 0 桥 · 每环约 10 针');
-  const mixedGuess = pattern([ring('A', ['7', 'o', '3']), ring('C', ['7~1', 'o', '3'])], { tier: 'reconstruction' });
-  assert.match(summarize(mixedGuess), /约/);
-  assert.equal(formulaGroups(guess)[0].estimated, true);
-  assert.equal(formulaGroups(flower)[0].estimated, false);
-});
-
 test('words name which picot to join and who joins here', () => {
   const left = ring('A', ['2', 'p:n', '4', 'p:k', '3']);
   const later = ring('B', ['5', 'j:A.k', '5']);
-  const later2 = ring('C', ['5', 'j:A.n?', '5']);
+  const later2 = ring('C', ['5', 'j:A.n', '5']);
   const all = pattern([left, later, later2]);
   const a = partsInWords(all, left);
   assert.equal(a[0].words, '编 2 针');
@@ -272,11 +277,20 @@ test('words name which picot to join and who joins here', () => {
   assert.equal(a[3].words, '留一个接耳，等下 B 环接到这里');
   assert.equal(partsInWords(all, later)[1].words, '接到 A 环的第 2 个接耳');
   assert.equal(partsInWords(all, later)[1].target, 'A');
-  assert.equal(partsInWords(all, later2)[1].words, '接到 A 环的第 1 个接耳（推测）');
-  assert.equal(partsInWords(all, ring('Z', ['16~3', 'o', '5?', 'o~']))[0].words, '大约编 16 针，上下差 3（估算）');
-  assert.equal(partsInWords(all, ring('Z', ['16~3', 'o', '5?', 'o~']))[1].words, '留一个装饰耳');
-  assert.equal(partsInWords(all, ring('Z', ['16~3', 'o', '5?', 'o~']))[2].words, '编 5 针（推断）');
-  assert.equal(partsInWords(all, ring('Z', ['16~3', 'o', '5?', 'o~']))[3].words, '留一个装饰耳（推测）');
+  assert.equal(partsInWords(all, later2)[1].words, '接到 A 环的第 1 个接耳');
+  assert.equal(partsInWords(all, ring('Z', ['3', 'o']))[1].words, '留一个装饰耳');
+});
+
+test('later passes of a repeat name the first join only', () => {
+  const left = ring('A', ['5', 'p:x', '5']);
+  const first = ring('B', ['5', 'j:A.x', '5', 'j:A.x', '5']);
+  const all = pattern([left, first], { repeat: { elements: ['B'], defaultTimes: 2, open: [] } });
+  const note = '，再来时接上一组对应的耳';
+  assert.doesNotMatch(partsInWords(all, first)[1].words, /再来时/);
+  const second = partsInWords(all, first, { pass: 2 });
+  assert.equal(second[1].words, `接到 A 环的第 1 个接耳${note}`);
+  assert.doesNotMatch(second[3].words, /再来时/);
+  assert.doesNotMatch(partsInWords(all, left, { pass: 2 }).map((p) => p.words).join(''), /再来时/);
 });
 
 test('words name bridges, and a join with no target does not throw', () => {
@@ -305,33 +319,20 @@ test('reads positions along an element', () => {
   assert.equal(read.items[1].from, 5);
 });
 
-test('the flower passes every check as a public pattern', () => {
-  for (const result of checkPattern(flower, { public: true })) {
+test('the flower passes every check', () => {
+  for (const result of checkPattern(flower)) {
     assert.equal(result.ok, true, `${result.label}: ${result.detail}`);
   }
 });
 
 test('the flower has the numbers read from the chart', () => {
   assert.equal(flower.schema, 2);
-  assert.equal(flower.tier, 'sorted');
   const read = flower.elements.map(readElement);
   assert.deepEqual(read.map((e) => e.id), ['A', 'B', 'C', 'D', 'E']);
   read.forEach((element) => {
     assert.equal(element.stitches, 22);
     assert.equal(element.items.filter((i) => i.kind === 'deco').length, 5);
   });
-});
-
-test('the flower keeps its unconfirmed points marked', () => {
-  const closing = readElement(flower.elements[4]).items.find((i) => i.kind === 'join' && i.element === 'A');
-  assert.equal(closing.source, 'inferred');
-  flower.elements.forEach((element) => assert.deepEqual(element.flip, { value: false, source: 'inferred' }));
-  assert.deepEqual(flower.toConfirm, [
-    '五个环按顺时针依次编（A 右上，B 右下，然后一路转回左上）',
-    '最后一个环 E 接回 A 环的第一个耳，整朵花合上',
-    '全程不用翻面',
-    '收尾方式是线头打结',
-  ]);
 });
 
 function runScript(files) {
@@ -373,4 +374,10 @@ test('the script reports a bad part or bad JSON without crashing', () => {
   assert.equal(badJson.status, 1);
   assert.match(badJson.stdout, /cannot be read/);
   assert.equal(badJson.stderr, '');
+});
+
+test('a malformed repeat cannot make the checks throw', () => {
+  for (const repeat of [{ elements: 5, open: 5 }, { elements: 'EF', open: 'x' }]) {
+    assert.doesNotThrow(() => checkPattern(pattern([ring('A', ['5'])], { repeat })));
+  }
 });

@@ -4,7 +4,8 @@ import { numberText, readElement } from './pattern.js';
 const SAMPLES = 320;
 const PICOT_R = 5.5;
 const BASE_SCALE = 370;     // marks are designed at this viewBox width
-const MIN_TICK_SPACING = 5; // below this, at the base scale, ticks can't be counted
+const PICOT_LENGTH = 11;
+const PICOT_WIDTH = 6;
 const TEARDROP_PEAK = 0.7698; // the largest value of sin(t) * sin(t / 2)
 
 function escapeXml(text) {
@@ -101,24 +102,19 @@ export function focusBox(pattern, ids, padding = 34) {
   return [minX, minY, Math.max(...xs) + padding - minX, Math.max(...ys) + padding - minY];
 }
 
-function flipLabel(flip) {
-  if (flip.source === 'inferred') return '翻?';
-  if (flip.source === 'estimated') return '翻≈';
-  return '翻';
-}
-
 // Options, all optional:
 //   current      element id drawn solid; others not in done go faint
 //   done         element ids drawn full strength, as finished
 //   reached      stitches done on current, coloured along its line
 //   currentItem  index of the part in progress on current
 //   highlight    element ids to emphasise, others faint; current wins over it
-//   counts       'all', or element ids that show their numbers
+//   counts       'all', or element ids that show their numbers; by default, with no
+//                current or highlight, the first element of each group (or ungrouped)
 //   viewBox      [x, y, width, height] to show instead of the pattern's own
 //   title        accessible name
 export function renderChart(pattern, options = {}) {
   const {
-    current = null, done = [], reached = 0, currentItem = null, highlight = null, counts = [], title = '', viewBox = null,
+    current = null, done = [], reached = 0, currentItem = null, highlight = null, counts = null, title = '', viewBox = null,
   } = options;
   const [minX, minY, width, height] = viewBox ?? pattern.layout.viewBox;
   const s = width / BASE_SCALE;
@@ -135,19 +131,32 @@ export function renderChart(pattern, options = {}) {
     return '';
   };
   const fractionOf = (element, stitches) => stitches / element.stitches;
-  const showsCounts = (element) => counts === 'all' || (Array.isArray(counts) && counts.includes(element.id));
+  const firstOfGroup = new Set();
+  const seenGroups = new Set();
+  elements.forEach((element) => {
+    if (element.group === undefined) firstOfGroup.add(element.id);
+    else if (!seenGroups.has(element.group)) {
+      seenGroups.add(element.group);
+      firstOfGroup.add(element.id);
+    }
+  });
+  const showsCounts = (element) => {
+    if (counts === 'all') return true;
+    if (Array.isArray(counts)) return counts.includes(element.id);
+    return current === null && !highlight && firstOfGroup.has(element.id);
+  };
 
   // Where each join picot was left, for drawing links to it.
   const leftPicots = new Map();
   elements.forEach((element) => {
     element.items.filter((i) => i.kind === 'leave').forEach((item) => {
       const p = element.geometry.pointAt(fractionOf(element, item.from));
-      leftPicots.set(`${element.id}.${item.name}`, { x: p.x + p.out.x * PICOT_R * s, y: p.y + p.out.y * PICOT_R * s, source: item.source });
+      leftPicots.set(`${element.id}.${item.name}`, { x: p.x + p.out.x * PICOT_R * s, y: p.y + p.out.y * PICOT_R * s });
     });
   });
 
-  let edges = '';
-  let cores = '';
+  let cords = '';
+  let threads = '';
   let marks = '';
   let links = '';
 
@@ -155,64 +164,51 @@ export function renderChart(pattern, options = {}) {
     const state = stateClass(element.id);
     const { geometry } = element;
     const attrs = `data-el="${element.id}"`;
-    const spacing = geometry.length / element.stitches / s;
-    const dense = spacing < MIN_TICK_SPACING;
+    const before = elements[index - 1];
+    if (element.type === 'ring' && before?.type === 'ring') {
+      const [bx, by] = element.place.base;
+      const [px, py] = before.place.base;
+      if (Math.hypot(bx - px, by - py) > 1) {
+        threads += `<line class="thread${state}" ${attrs} x1="${n(px)}" y1="${n(py)}" x2="${n(bx)}" y2="${n(by)}"/>`;
+      }
+    }
 
     element.items.filter((i) => i.kind === 'stitch').forEach((item) => {
       const path = geometry.subPath(fractionOf(element, item.from), fractionOf(element, item.to));
-      const uncertain = item.source !== 'source' ? ' cord-uncertain' : '';
       const isCurrent = element.id === current ? ' is-current' : '';
-      edges += `<path class="cord-edge${uncertain}${isCurrent}${state}" ${attrs} d="${path}"/>`;
-      cores += `<path class="cord-core${state}" ${attrs} d="${path}"/>`;
+      cords += `<path class="cord${isCurrent}${state}" ${attrs} d="${path}"/>`;
     });
 
     if (element.id === current && reached > 0) {
-      cores += `<path class="cord-reached" ${attrs} d="${geometry.subPath(0, fractionOf(element, reached))}"/>`;
+      cords += `<path class="cord-reached" ${attrs} d="${geometry.subPath(0, fractionOf(element, reached))}"/>`;
     }
 
     element.items.forEach((item, itemIndex) => {
       const now = element.id === current && itemIndex === currentItem ? ' now' : '';
       if (item.kind === 'stitch') {
-        const uncertain = item.source !== 'source';
-        if (!dense && item.source !== 'estimated') {
-          for (let i = 0; i < item.count; i++) {
-            const p = geometry.pointAt(fractionOf(element, item.from + i + 0.5));
-            const half = 2.6 * s;
-            marks += `<line class="tick${state}" ${attrs} x1="${n(p.x - p.out.x * half)}" y1="${n(p.y - p.out.y * half)}" x2="${n(p.x + p.out.x * half)}" y2="${n(p.y + p.out.y * half)}"/>`;
-          }
-        }
-        if (uncertain || dense || showsCounts(element)) {
+        if (showsCounts(element)) {
           const mid = geometry.pointAt(fractionOf(element, (item.from + item.to) / 2));
-          const offset = (uncertain ? 16 : 13) * s;
+          const offset = 13 * s;
           marks += `<text class="count${now}${state}" ${attrs} x="${n(mid.x + mid.out.x * offset)}" y="${n(mid.y + mid.out.y * offset)}">${numberText(item)}</text>`;
         }
         return;
       }
 
       const p = geometry.pointAt(fractionOf(element, item.from));
+      if (item.kind === 'deco') {
+        const at = (along, out) => `${n(p.x + p.along.x * along * s + p.out.x * out * s)} ${n(p.y + p.along.y * along * s + p.out.y * out * s)}`;
+        const w = PICOT_WIDTH;
+        const l = PICOT_LENGTH;
+        marks += `<path class="picot deco${now}${state}" ${attrs} d="M${n(p.x)} ${n(p.y)}C${at(w, l * 0.1)} ${at(w * 0.6, l * 0.8)} ${at(0, l)}C${at(-w * 0.6, l * 0.8)} ${at(-w, l * 0.1)} ${n(p.x)} ${n(p.y)}Z"/>`;
+        return;
+      }
       const cx = p.x + p.out.x * PICOT_R * s;
       const cy = p.y + p.out.y * PICOT_R * s;
-      const uncertain = item.source !== 'source';
-      const question = uncertain
-        ? `<text class="mark-q${state}" ${attrs} x="${n(cx + p.out.x * 10 * s)}" y="${n(cy + p.out.y * 10 * s)}">?</text>`
-        : '';
-
-      if (item.kind === 'deco') {
-        marks += `<circle class="picot deco${uncertain ? ' uncertain' : ''}${now}${state}" ${attrs} cx="${n(cx)}" cy="${n(cy)}" r="${n(PICOT_R * s)}"/>${question}`;
-      }
-      if (item.kind === 'leave' || item.kind === 'join') {
-        if (uncertain) {
-          const r = 7.5 * s;
-          marks += `<path class="picot join-uncertain${now}${state}" ${attrs} d="M${n(cx)} ${n(cy - r)}L${n(cx + r)} ${n(cy)}L${n(cx)} ${n(cy + r)}L${n(cx - r)} ${n(cy)}Z"/>${question}`;
-        } else {
-          marks += `<circle class="picot join${now}${state}" ${attrs} cx="${n(cx)}" cy="${n(cy)}" r="${n(4.5 * s)}"/>`;
-        }
-      }
+      marks += `<circle class="picot join${now}${state}" ${attrs} cx="${n(cx)}" cy="${n(cy)}" r="${n(3 * s)}"/>`;
       if (item.kind === 'join') {
         const target = leftPicots.get(`${item.element}.${item.name}`);
         if (target) {
-          const linkUncertain = uncertain || target.source !== 'source';
-          links += `<line class="link${linkUncertain ? ' uncertain' : ''}${state}" ${attrs} x1="${n(cx)}" y1="${n(cy)}" x2="${n(target.x)}" y2="${n(target.y)}"/>`;
+          links += `<line class="link${state}" ${attrs} x1="${n(cx)}" y1="${n(cy)}" x2="${n(target.x)}" y2="${n(target.y)}"/>`;
         }
       }
     });
@@ -232,17 +228,20 @@ export function renderChart(pattern, options = {}) {
       // Sits on the cord like a bead, so it adds no clutter beside crowded rings.
       const p = geometry.pointAt(element.type === 'ring' ? 0.09 : 0.14);
       const { x, y } = p;
-      const w = (element.flip.source === 'source' ? 14 : 20) * s;
+      const w = 14 * s;
       const h = 13 * s;
-      const uncertain = element.flip.source !== 'source' ? ' uncertain' : '';
-      marks += `<g class="flip-mark${uncertain}${state}" ${attrs}><rect x="${n(x - w / 2)}" y="${n(y - h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(3 * s)}"/><text x="${n(x)}" y="${n(y)}">${flipLabel(element.flip)}</text></g>`;
+      marks += `<g class="flip-mark${state}" ${attrs}><rect x="${n(x - w / 2)}" y="${n(y - h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(3 * s)}"/><text x="${n(x)}" y="${n(y)}">翻</text></g>`;
     }
 
     // The start of the piece, and the direction of whichever element is being worked.
     if (index === 0 || element.id === current) {
       const p = geometry.pointAt(0.045);
-      const inX = p.x - p.out.x * 16 * s;
-      const inY = p.y - p.out.y * 16 * s;
+      // Inside the ring, unless another ring shares this base and would collide.
+      const sharesBase = element.type === 'ring' && elements.some((other) => other !== element
+        && other.place?.base?.[0] === element.place.base[0] && other.place?.base?.[1] === element.place.base[1]);
+      const side = sharesBase ? 1 : -1;
+      const inX = p.x + side * p.out.x * 16 * s;
+      const inY = p.y + side * p.out.y * 16 * s;
       const tipX = inX + p.along.x * 12 * s;
       const tipY = inY + p.along.y * 12 * s;
       const tailX = inX - p.along.x * 12 * s;
@@ -250,10 +249,10 @@ export function renderChart(pattern, options = {}) {
       const wing = (sign) => `${n(tipX - p.along.x * 7 * s + sign * p.out.x * 4.5 * s)} ${n(tipY - p.along.y * 7 * s + sign * p.out.y * 4.5 * s)}`;
       marks += `<path class="start-arrow" d="M${n(tailX)} ${n(tailY)}L${n(tipX)} ${n(tipY)}M${wing(1)}L${n(tipX)} ${n(tipY)}L${wing(-1)}"/>`;
       if (index === 0) {
-        marks += `<text class="start-label" x="${n(inX - p.out.x * 17 * s)}" y="${n(inY - p.out.y * 17 * s)}">起点</text>`;
+        marks += `<text class="start-label" x="${n(inX + side * p.out.x * 17 * s)}" y="${n(inY + side * p.out.y * 17 * s)}">起点</text>`;
       }
     }
   });
 
-  return `<svg class="diagram" viewBox="${minX} ${minY} ${width} ${height}" style="--s:${s}" role="img" aria-label="${escapeXml(title)}">${edges}${cores}${links}${marks}</svg>`;
+  return `<svg class="diagram" viewBox="${minX} ${minY} ${width} ${height}" style="--s:${s}" role="img" aria-label="${escapeXml(title)}">${threads}${cords}${links}${marks}</svg>`;
 }

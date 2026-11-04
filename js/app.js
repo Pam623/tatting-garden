@@ -1,15 +1,11 @@
 import {
-  checkPattern, clampProgress, formulaGroups, handFormula, partsInWords, readElement, structureProblems, summarize,
+  clampProgress, formulaGroups, handFormula, partsInWords, readElement, structureProblems, summarize,
 } from './pattern.js';
 import { focusBox, renderChart } from './diagram.js';
+import { estimateThread, THREAD_SIZES } from './materials.js';
+import { convertImage } from './convert.js';
 
 const app = document.getElementById('app');
-const TIER = {
-  reconstruction: { name: '复原稿', meaning: '从成品照片推测的，针数不可靠，编之前要先打样。' },
-  sorted: { name: '已整理', meaning: '从图解转录，还没有人独立复核。' },
-  checked: { name: '已核对', meaning: '独立复核过，数字也彼此一致，但还没有人照着编过。' },
-  made: { name: '已试编', meaning: '有人照着编成功了。' },
-};
 const LOCAL_VIEW_ABOVE = 8;
 const cache = new Map();
 let cleanup = null;
@@ -22,8 +18,45 @@ function escapeHtml(text) {
 const embedded = window.TATTING_PATTERNS ?? null;
 (embedded ?? []).forEach((pattern) => cache.set(pattern.id, pattern));
 
+// Only the private lab page, running as an artifact, has `claude`. The public site never does.
+let sample = null;
+let db = null;
+const savedIds = new Set();
+
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
+}
+
+async function loadSaved() {
+  try {
+    const snap = await withTimeout(db.collection('studio').get(), 10000);
+    (snap?.docs ?? []).forEach((doc) => {
+      const row = doc.data?.();
+      if (!row?.pattern?.id || cache.has(row.pattern.id)) return;
+      cache.set(row.pattern.id, row.pattern);
+      savedIds.add(row.pattern.id);
+    });
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function startStudio() {
+  if (!embedded || typeof window.claude?.use !== 'function') return;
+  try {
+    sample = await withTimeout(window.claude.use('sample'), 10000);
+    db = await withTimeout(window.claude.use('db'), 10000);
+  } catch {
+    sample = sample ?? null;
+    db = null;
+  }
+  if (db) await loadSaved();
+}
+
+const studioReady = startStudio();
+
 async function loadIndex() {
-  if (embedded) return embedded.map((pattern) => pattern.id);
+  if (embedded) return [...embedded.map((pattern) => pattern.id), ...savedIds];
   return (await fetch('patterns/index.json')).json();
 }
 
@@ -52,12 +85,45 @@ function saveProgress(pattern, progress) {
   }
 }
 
-function hasStarted(progress) {
-  return progress.index > 0 || progress.part !== null || progress.finished;
+function readSetting(key, fallback) {
+  try {
+    const value = Number(localStorage.getItem(key));
+    return Number.isInteger(value) && value > 0 ? value : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-function stamp(tier) {
-  return `<span class="stamp stamp-${tier}">${TIER[tier].name}</span>`;
+function saveSetting(key, value) {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    // The choice just won't be remembered in this browser.
+  }
+}
+
+function repeatRange(pattern) {
+  const ids = pattern.repeat?.elements;
+  return ids?.length ? `${ids[0]}–${ids.at(-1)}` : '';
+}
+
+function materialsPanel(pattern, size, repeats) {
+  const thread = estimateThread(pattern, { size, repeats });
+  const metres = (cm) => (cm / 100).toFixed(1);
+  const sizes = THREAD_SIZES.map((value) => `
+    <label><input type="radio" name="size" value="${value}"${value === size ? ' checked' : ''}><span>${value} 号</span></label>`).join('');
+  return `
+    <h2>需要</h2>
+    <ul>
+      <li>${thread.ballNeeded ? '1 个梭子 + 1 团线（或 2 个梭子）' : '1 个梭子'}</li>
+      <li>梭子线约 ${metres(thread.shuttleCm)} 米${thread.ballNeeded ? `，线团约 ${metres(thread.ballCm)} 米` : ''}</li>
+      ${pattern.threadNote ? `<li>${escapeHtml(pattern.threadNote)}</li>` : ''}
+    </ul>
+    <div class="size-pick" role="radiogroup" aria-label="线的粗细">${sizes}</div>`;
+}
+
+function hasStarted(progress) {
+  return progress.index > 0 || progress.part !== null || progress.finished;
 }
 
 function unitName(element) {
@@ -80,44 +146,35 @@ async function showHome(isCurrent) {
     <div class="home">
       <header class="masthead">
         <h1>${embedded ? '梭编实验室' : '梭编花园'}</h1>
-        <p>${embedded ? '只有你能打开。这里的花样还不能公开，或者还在验证。' : '少而精的梭编图解。每一张都说清楚哪里确定，哪里还是推测。'}</p>
+        <p>${embedded ? '只有你能打开。这里的花样还不能公开，或者还在验证。' : '少而精的梭编图解。每一张都能照着编完。'}</p>
+        ${sample ? '<a class="start" href="#/upload">上传图片，转成图解</a>' : ''}
       </header>
       <ul class="plates">
         ${patterns.map((p, i) => `
           <li>
             <a class="plate-card" href="#/p/${escapeHtml(p.id)}">
               <figure class="paper">
-                ${renderChart(p, { title: `${p.title}图解` })}
+                ${renderChart(p, { counts: [], title: `${p.title}图解` })}
                 ${p.photo ? `<img class="inset" src="${escapeHtml(p.photo)}" alt="" loading="lazy">` : ''}
               </figure>
               <div class="plate-caption">
                 <span class="plate-no">图版 ${String(i + 1).padStart(2, '0')}</span>
                 <h2>${escapeHtml(p.title)}</h2>
                 <p>${escapeHtml(p.craft)} · ${escapeHtml(p.difficulty)} · ${summarize(p)}</p>
-                ${stamp(p.tier)}
               </div>
             </a>
           </li>`).join('')}
       </ul>
-      <section class="tiers" aria-label="信任等级说明">
-        <h2>怎么算可信</h2>
-        <dl>
-          ${Object.entries(TIER).map(([tier, { meaning }]) => `
-            <div><dt>${stamp(tier)}</dt><dd>${meaning}</dd></div>`).join('')}
-        </dl>
-      </section>
     </div>`;
 }
 
 function legendFor(pattern) {
   const items = pattern.elements.flatMap((e) => readElement(e).items);
   const has = (test) => items.some(test);
-  const unsure = has((i) => i.source !== 'source') || pattern.elements.some((e) => e.flip?.value && e.flip.source !== 'source');
-  const entries = ['<li><span class="key key-tick"></span>一道刻度是一针</li>'];
+  const entries = [];
   if (has((i) => i.kind === 'leave' || i.kind === 'join')) entries.push('<li><span class="key key-join"></span><b>,</b> 接耳</li>');
-  if (has((i) => i.kind === 'deco')) entries.push('<li><span class="key key-deco"></span><b>○</b> 装饰耳</li>');
+  if (has((i) => i.kind === 'deco')) entries.push('<li><span class="key key-deco"></span><b>·</b> 装饰耳</li>');
   if (pattern.elements.some((e) => e.flip?.value)) entries.push('<li><span class="key key-flip">翻</span>编之前先翻面</li>');
-  if (unsure) entries.push('<li><span class="key key-unsure"></span>虚线、菱形和 <b>?</b> 是推测</li>');
   return `<ul class="legend">${entries.join('')}</ul>`;
 }
 
@@ -126,13 +183,13 @@ function tableRows(pattern, type) {
     .filter((group) => group.type === type)
     .map((group) => {
       const ids = group.members.map((m) => m.id);
-      const letters = group.members.map((m) => `${m.id}${m.unsure ? '<i>?</i>' : ''}`).join(' ');
+      const letters = group.members.map((m) => m.id).join(' ');
       return `
         <li>
           <button type="button" class="row" data-ids="${ids.join(',')}" aria-pressed="false">
             <span class="row-letters">${letters}</span>
-            <span class="row-formula">${group.estimated ? '≈ ' : ''}${group.formula}</span>
-            <span class="row-total">${group.estimated ? '约 ' : ''}${group.stitches} 针</span>
+            <span class="row-formula">${group.formula}</span>
+            <span class="row-total">${group.stitches} 针</span>
           </button>
         </li>`;
     }).join('');
@@ -162,8 +219,6 @@ async function showPattern(id) {
     return;
   }
   const progress = readProgress(pattern);
-  const checks = checkPattern(pattern);
-  const failed = checks.some((c) => !c.ok);
   document.title = `${pattern.title} · 梭编花园`;
   let startLabel = '开始编';
   if (progress.finished) startLabel = '重新开始编';
@@ -178,41 +233,49 @@ async function showPattern(id) {
         <a class="back" href="#/">← 全部花样</a>
         <header>
           <h1 class="pattern-title">${escapeHtml(pattern.title)}</h1>
-          <div class="tier-line">${stamp(pattern.tier)}<span>${TIER[pattern.tier].meaning}</span></div>
           <p class="summary">${summarize(pattern)}</p>
           <p class="lede">${escapeHtml(pattern.summary ?? '')}</p>
         </header>
         <a class="start" id="start" href="#/p/${escapeHtml(pattern.id)}/work">${startLabel}</a>
+        ${db && savedIds.has(pattern.id) ? '<button type="button" class="ghost publish" id="publish">发布到网站</button>' : ''}
+        <section class="materials" id="materials"></section>
         <section>
           <h2>针数</h2>
           <p class="hint">点一行，图上对应的部分会亮起来。</p>
           ${stitchTable(pattern)}
+          ${pattern.repeat ? `
+            <div class="repeat-line">
+              <span>重复 ${repeatRange(pattern)}</span>
+              <span class="stepper">
+                <span id="repeat-label">重复次数</span>
+                <button type="button" id="repeat-less" aria-label="少一次">−</button>
+                <output id="repeat-count" aria-labelledby="repeat-label"></output>
+                <button type="button" id="repeat-more" aria-label="多一次">+</button>
+              </span>
+            </div>` : ''}
           ${legendFor(pattern)}
         </section>
-        ${pattern.toConfirm?.length ? `
-          <section class="unsure">
-            <h2>还不确定的地方</h2>
-            <ul>${pattern.toConfirm.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}</ul>
-          </section>` : ''}
         ${pattern.photo ? `
           <section>
             <h2>成品</h2>
             <img class="photo" src="${escapeHtml(pattern.photo)}" alt="${escapeHtml(pattern.title)}成品照片">
           </section>` : ''}
-        <details class="checks"${failed ? ' open' : ''}>
-          <summary>自动核对${failed ? '发现问题' : ''}</summary>
-          <p class="hint">通过只说明数字彼此一致，不代表一定正确。</p>
-          <ul>
-            ${checks.map((c) => `
-              <li class="${c.ok ? 'ok' : 'bad'}">
-                <strong>${c.ok ? '✓' : '✗'} ${escapeHtml(c.label)}</strong>
-                <span>${escapeHtml(c.detail)}</span>
-              </li>`).join('')}
-          </ul>
-        </details>
+        ${pattern.source ? `<p class="source-line">${escapeHtml(pattern.source)}</p>` : ''}
       </div>
     </div>`;
 
+  const publish = document.getElementById('publish');
+  publish?.addEventListener('click', async () => {
+    publish.disabled = true;
+    try {
+      await db.collection('studio').doc(pattern.id).update({ publish: true });
+      publish.textContent = '已请求发布';
+    } catch (error) {
+      console.error(error);
+      publish.disabled = false;
+      publish.textContent = '没成功，再点一次';
+    }
+  });
   if (progress.finished) {
     document.getElementById('start').addEventListener('click', () => {
       saveProgress(pattern, clampProgress(null, pattern.elements.length));
@@ -223,7 +286,7 @@ async function showPattern(id) {
   const draw = (ids) => {
     chart.innerHTML = renderChart(pattern, {
       highlight: ids,
-      counts: ids ?? [],
+      counts: ids ?? null,
       title: `${pattern.title}图解`,
     });
   };
@@ -236,6 +299,141 @@ async function showPattern(id) {
     });
   });
   draw(null);
+
+  const materials = document.getElementById('materials');
+  let size = readSetting('size', 20);
+  if (!THREAD_SIZES.includes(size)) size = 20;
+  let repeats = readSetting(`repeat:${pattern.id}`, pattern.repeat?.defaultTimes ?? 1);
+  const drawMaterials = () => {
+    materials.innerHTML = materialsPanel(pattern, size, repeats);
+    materials.querySelectorAll('input[name="size"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        size = Number(input.value);
+        saveSetting('size', size);
+        drawMaterials();
+      });
+    });
+    const count = document.getElementById('repeat-count');
+    if (count) count.textContent = String(repeats);
+  };
+  const setRepeats = (value) => {
+    repeats = Math.max(1, value);
+    saveSetting(`repeat:${pattern.id}`, repeats);
+    drawMaterials();
+  };
+  document.getElementById('repeat-less')?.addEventListener('click', () => setRepeats(repeats - 1));
+  document.getElementById('repeat-more')?.addEventListener('click', () => setRepeats(repeats + 1));
+  drawMaterials();
+}
+
+const SAMPLE_MESSAGES = {
+  rate_limited: '用得太频繁了，请等一会儿再试。',
+  not_granted: '这个页面还没有得到使用权限，请先允许后再试。',
+};
+
+async function showUpload() {
+  document.title = '上传 · 梭编实验室';
+  if (!sample) {
+    app.innerHTML = '<a class="back" href="#/">← 全部花样</a><p class="error">这里不能上传图片。</p>';
+    return;
+  }
+  app.innerHTML = `
+    <div class="upload">
+      <a class="back" href="#/">← 全部花样</a>
+      <h1 class="pattern-title">上传图片</h1>
+      <p class="lede">书上的图解页、手绘的图解，或者成品照片，都可以。</p>
+      <input type="file" id="file" accept="image/*" aria-label="选择图片">
+      <img class="photo" id="preview" alt="" hidden>
+      <button type="button" class="primary convert" id="convert" disabled>转成图解</button>
+      <p class="hint" id="status" role="status" aria-live="polite"></p>
+      <div id="result"></div>
+    </div>`;
+  const file = document.getElementById('file');
+  const preview = document.getElementById('preview');
+  const convert = document.getElementById('convert');
+  const status = document.getElementById('status');
+  const result = document.getElementById('result');
+  let blob = null;
+  let run = 0;
+  let size = readSetting('size', 20);
+  if (!THREAD_SIZES.includes(size)) size = 20;
+
+  file.addEventListener('change', () => {
+    blob = file.files[0] ?? null;
+    run += 1;
+    result.innerHTML = '';
+    status.textContent = '';
+    convert.disabled = !blob;
+    preview.hidden = !blob;
+    if (blob) preview.src = URL.createObjectURL(blob);
+  });
+
+  const showResult = ({ pattern, problems }) => {
+    const drawable = pattern && structureProblems(pattern).length === 0;
+    const notes = problems.length
+      ? `<p class="error">这张图没能完全转好：${escapeHtml(problems.join('；'))}。可以再转一次，或者换一张更清楚的图。</p>`
+      : '';
+    result.innerHTML = `
+      ${notes}
+      ${drawable ? `
+        <h2 class="pattern-title">${escapeHtml(pattern.title ?? '新花样')}</h2>
+        <p class="summary">${summarize(pattern)}</p>
+        <p class="lede">${escapeHtml(pattern.summary ?? '')}</p>
+        <figure class="paper" id="chart">${renderChart(pattern, { counts: [], title: `${pattern.title}图解` })}</figure>
+        <section class="materials" id="materials"></section>
+        <section><h2>针数</h2>${stitchTable(pattern)}${legendFor(pattern)}</section>` : ''}
+      <div class="upload-actions">
+        ${drawable && problems.length === 0 && db ? '<button type="button" class="primary" id="save">保存</button>' : ''}
+        <button type="button" class="ghost" id="again">重新转</button>
+      </div>`;
+    const materials = document.getElementById('materials');
+    const drawMaterials = () => {
+      materials.innerHTML = materialsPanel(pattern, size, pattern.repeat?.defaultTimes ?? 1);
+      materials.querySelectorAll('input[name="size"]').forEach((input) => {
+        input.addEventListener('change', () => {
+          size = Number(input.value);
+          saveSetting('size', size);
+          drawMaterials();
+        });
+      });
+    };
+    if (materials) drawMaterials();
+    document.getElementById('again').addEventListener('click', start);
+    document.getElementById('save')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        await db.collection('studio').doc(pattern.id).set({ pattern, publish: false, savedAt: Date.now() });
+        cache.set(pattern.id, pattern);
+        savedIds.add(pattern.id);
+        location.hash = `#/p/${pattern.id}`;
+      } catch (error) {
+        console.error(error);
+        button.disabled = false;
+        status.textContent = '没能保存，请再点一次。';
+      }
+    });
+  };
+
+  async function start() {
+    if (!blob) return;
+    run += 1;
+    const mine = run;
+    convert.disabled = true;
+    result.innerHTML = '';
+    try {
+      const outcome = await convertImage(blob, sample, { onProgress: (text) => { if (mine === run) status.textContent = text; } });
+      if (mine !== run) return;
+      status.textContent = '';
+      showResult(outcome);
+    } catch (error) {
+      console.error(error);
+      if (mine !== run) return;
+      status.textContent = SAMPLE_MESSAGES[error?.code] ?? '转换没成功，请过一会儿再试。';
+    }
+    if (mine === run) convert.disabled = false;
+  }
+  convert.addEventListener('click', start);
 }
 
 function keepScreenAwake() {
@@ -289,7 +487,6 @@ async function showWork(id) {
               ${elements.map((e, i) => `<button type="button" data-jump="${i}" aria-label="跳到 ${e.id} ${unitName(e)}">${e.id}</button>`).join('')}
             </div>
           </details>
-          ${stamp(pattern.tier)}
         </div>
         <div class="bar" aria-hidden="true"><span id="bar"></span></div>
         <div class="work-content" id="content">
@@ -316,14 +513,15 @@ async function showWork(id) {
   const next = document.getElementById('next');
   const toggle = document.getElementById('view-toggle');
   const jump = document.getElementById('jump');
+  const repeatIds = pattern.repeat?.elements ?? [];
+  const repeatFirst = elements.findIndex((e) => e.id === repeatIds[0]);
+  const repeatLast = elements.findIndex((e) => e.id === repeatIds.at(-1));
+  let pass = 1;
+  let asking = false;
 
   function flipLine(element) {
     if (!element.flip) return '';
-    if (element.flip.value) {
-      const unsure = element.flip.source !== 'source';
-      return `<p class="flip${unsure ? ' flip-unsure' : ''}">先翻面${unsure ? '（推测）' : ''}</p>`;
-    }
-    return element.flip.source === 'source' ? '' : '<p class="flip-quiet">不翻面（推测）</p>';
+    return element.flip.value ? '<p class="flip">先翻面</p>' : '';
   }
 
   function drawChart(element) {
@@ -332,7 +530,7 @@ async function showWork(id) {
       toggle.hidden = true;
       return;
     }
-    const parts = partsInWords(pattern, element);
+    const parts = partsInWords(pattern, element, { pass });
     const selected = state.part === null ? null : parts[state.part] ?? null;
     const earlier = elements.slice(0, state.index).map((e) => e.id);
     const targets = parts.filter((p) => p.target).map((p) => p.target);
@@ -352,7 +550,7 @@ async function showWork(id) {
   }
 
   function drawWords(element) {
-    const parts = partsInWords(pattern, element);
+    const parts = partsInWords(pattern, element, { pass });
     const selected = state.part === null ? null : parts[state.part] ?? null;
     words.textContent = selected ? selected.words : '点数字可以逐段看。';
     formula.querySelectorAll('[data-part]').forEach((button) => {
@@ -373,12 +571,31 @@ async function showWork(id) {
     prev.disabled = false;
   }
 
+  function drawAsk() {
+    position.textContent = `第 ${state.index + 1} 个，共 ${elements.length} 个`;
+    announce.innerHTML = '<h2 class="element-name">再编一组？</h2>';
+    formula.innerHTML = '';
+    formula.hidden = true;
+    words.textContent = `${repeatRange(pattern)} 已经编完第 ${pass} 组。`;
+    total.innerHTML = '<div class="again-choice"><button type="button" id="again-group">再来一组</button></div>';
+    document.getElementById('again-group').addEventListener('click', () => {
+      pass += 1;
+      go(repeatFirst);
+    });
+    next.textContent = state.index === elements.length - 1 ? '收尾' : '接着往下编';
+    prev.disabled = false;
+  }
+
   function drawPanel(element) {
+    if (asking) {
+      drawAsk();
+      return;
+    }
     if (state.finished) {
       drawFinish();
       return;
     }
-    const parts = partsInWords(pattern, element);
+    const parts = partsInWords(pattern, element, { pass });
     const read = readElement(element);
     const join = read.items.filter((i) => i.kind === 'leave' || i.kind === 'join').length;
     const deco = read.items.filter((i) => i.kind === 'deco').length;
@@ -389,7 +606,7 @@ async function showWork(id) {
     announce.innerHTML = `${flipLine(element)}<h2 class="element-name"><b>${element.id}</b> ${unitName(element)}</h2>`;
     formula.hidden = false;
     formula.setAttribute('aria-label', `${element.id} ${unitName(element)}的针数，${handFormula(element)}`);
-    formula.innerHTML = parts.map((p) => `<button type="button" class="part part-${p.kind}${p.source === 'source' ? '' : ' part-unsure'}" data-part="${p.index}" aria-pressed="false" aria-label="${escapeHtml(p.words)}">${p.text}</button>`).join('');
+    formula.innerHTML = parts.map((p) => `<button type="button" class="part part-${p.kind}" data-part="${p.index}" aria-pressed="false" aria-label="${escapeHtml(p.words)}">${p.text}</button>`).join('');
     formula.querySelectorAll('[data-part]').forEach((button) => {
       button.addEventListener('click', () => {
         const part = Number(button.dataset.part);
@@ -417,6 +634,8 @@ async function showWork(id) {
     state.index = Math.max(0, Math.min(index, elements.length - 1));
     state.part = null;
     state.finished = false;
+    asking = false;
+    if (!repeatIds.includes(elements[state.index].id)) pass = 1;
     jump.open = false;
     draw();
   }
@@ -424,7 +643,12 @@ async function showWork(id) {
   function forward() {
     if (state.finished) {
       location.hash = `#/p/${pattern.id}`;
+    } else if (state.index === repeatLast && !asking) {
+      state.part = null;
+      asking = true;
+      draw();
     } else if (state.index === elements.length - 1) {
+      asking = false;
       state.part = null;
       state.finished = true;
       draw();
@@ -434,7 +658,10 @@ async function showWork(id) {
   }
 
   function back() {
-    if (state.finished) go(elements.length - 1);
+    if (asking) {
+      asking = false;
+      draw();
+    } else if (state.finished) go(elements.length - 1);
     else go(state.index - 1);
   }
 
@@ -470,6 +697,8 @@ async function route() {
     cleanup = null;
   }
   window.scrollTo(0, 0);
+  await studioReady;
+  if (thisRoute !== routeCount) return;
   const match = location.hash.match(/^#\/p\/([\w-]+)(\/work)?$/);
   document.body.classList.toggle('in-work', Boolean(match?.[2]));
   try {
@@ -477,7 +706,8 @@ async function route() {
     // A home page failure is sorted out per pattern inside showHome.
     if (match) await loadPattern(match[1]);
     if (thisRoute !== routeCount) return;
-    if (match?.[2]) await showWork(match[1]);
+    if (location.hash === '#/upload') await showUpload();
+    else if (match?.[2]) await showWork(match[1]);
     else if (match) await showPattern(match[1]);
     else await showHome(() => thisRoute === routeCount);
   } catch (error) {

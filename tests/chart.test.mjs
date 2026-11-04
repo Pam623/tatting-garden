@@ -7,7 +7,6 @@ import { checkPattern, readElement } from '../js/pattern.js';
 
 const root = new URL('..', import.meta.url).pathname;
 const flower = JSON.parse(readFileSync(join(root, 'patterns/little-flower.json'), 'utf8'));
-const v1 = JSON.parse(readFileSync(join(root, 'tests/fixtures/little-flower-v1.json'), 'utf8'));
 const css = readFileSync(join(root, 'style.css'), 'utf8');
 
 const near = (a, b, tolerance = 0.5) => assert.ok(Math.abs(a - b) <= tolerance, `${a} is not near ${b}`);
@@ -25,6 +24,12 @@ const count = (svg, pattern_) => (svg.match(pattern_) ?? []).length;
 function circles(svg, className) {
   return [...svg.matchAll(new RegExp(`<circle class="[^"]*${className}[^"]*"[^>]*?cx="([-\\d.]+)" cy="([-\\d.]+)"`, 'g'))]
     .map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
+}
+
+// The base and tip of each decorative picot: the start, and the end of its first curve.
+function picotTips(svg) {
+  return [...svg.matchAll(/<path class="picot deco[^"]*"[^>]*d="M([-\d.]+) ([-\d.]+)C[^C]*? ([-\d.]+) ([-\d.]+)C/g)]
+    .map((m) => ({ base: { x: Number(m[1]), y: Number(m[2]) }, tip: { x: Number(m[3]), y: Number(m[4]) } }));
 }
 
 test('a ring starts at its base, reaches its tip halfway, and returns', () => {
@@ -82,87 +87,70 @@ test('a bridge runs between its ends and bulges by half its offset', () => {
   assert.ok(elementGeometry(bridgeEl(['10'], { bulge: 0 })).pointAt(0.5).out.y < 0, 'a straight bridge uses its left');
 });
 
-test('stitch counts decide where a picot lands', () => {
+test('stitch counts decide where a picot lands, a fixed offset out', () => {
   const element = ringEl(['5', 'o', '17']);
-  const [picot] = circles(renderChart(pattern([element])), 'deco');
-  const g = elementGeometry(element);
-  const edge = g.pointAt(5 / 22);
-  near(picot.x, edge.x + edge.out.x * 5.5);
-  near(picot.y, edge.y + edge.out.y * 5.5);
-  const later = circles(renderChart(pattern([ringEl(['17', 'o', '5'])])), 'deco')[0];
-  assert.ok(Math.hypot(later.x - picot.x, later.y - picot.y) > 10);
+  const [picot] = picotTips(renderChart(pattern([element])));
+  const edge = elementGeometry(element).pointAt(5 / 22);
+  near(picot.base.x, edge.x);
+  near(picot.base.y, edge.y);
+  near(picot.tip.x, edge.x + edge.out.x * 11);
+  near(picot.tip.y, edge.y + edge.out.y * 11);
+  const later = picotTips(renderChart(pattern([ringEl(['17', 'o', '5'])])))[0];
+  assert.ok(Math.hypot(later.base.x - picot.base.x, later.base.y - picot.base.y) > 10);
 });
 
-test('the flower keeps its v1 picots, which pins each ring\'s direction', () => {
-  const old = circles(v1.diagramDone, 'deco');
-  const now = circles(renderChart(flower), 'deco');
-  assert.equal(old.length, 25);
-  assert.equal(now.length, 25);
-  old.forEach((point, i) => {
-    near(now[i].x, point.x, 1.5);
-    near(now[i].y, point.y, 1.5);
-  });
+test('each stitch segment is one cord path, with no ticks or doubled edge', () => {
+  const svg = renderChart(pattern([ringEl(['5', 'o', '5', 'p:x', '5'])]));
+  assert.equal(count(svg, /<path class="cord"/g), 3);
+  assert.doesNotMatch(svg, /tick|cord-edge|cord-core|cord-uncertain/);
+  assert.match(css, /\.cord \{[^}]*stroke-width: calc\(1\.8px/);
 });
 
-test('one tick per confirmed stitch, at stitch centres', () => {
+test('a decorative picot is a small path of class picot deco, not a circle', () => {
+  const svg = renderChart(pattern([ringEl(['5', 'o', '5'])]));
+  assert.equal(count(svg, /<path class="picot deco"/g), 1);
+  assert.doesNotMatch(svg, /<circle class="picot deco/);
+  const { base, tip } = picotTips(svg)[0];
+  assert.ok(Math.hypot(tip.x - base.x, tip.y - base.y) < 12);
+});
+
+test('numbers show on the first of each group, or on every ungrouped element', () => {
+  const grouped = [
+    { ...ringEl(['5']), id: 'A', group: 'g' }, { ...ringEl(['6']), id: 'B', group: 'g' },
+    { ...ringEl(['7']), id: 'C', group: 'h' }, { ...ringEl(['8']), id: 'D' },
+  ];
+  const svg = renderChart(pattern(grouped));
+  const labelled = [...svg.matchAll(/class="count[^"]*" data-el="(\w+)"/g)].map((m) => m[1]);
+  assert.deepEqual(labelled, ['A', 'C', 'D']);
+  assert.equal(count(renderChart(pattern(grouped), { highlight: ['B'] }), /class="count/g), 0);
+  assert.equal(count(renderChart(pattern(grouped), { current: 'A' }), /class="count/g), 0);
+  assert.equal(count(renderChart(pattern(grouped), { counts: 'all' }), /class="count/g), 4);
+});
+
+test('a dashed thread joins ring bases that differ, and not shared ones or bridges', () => {
+  const a = ringEl(['5']);
+  const b = { ...ringEl(['5'], { base: [50, 80], tip: [150, 80] }), id: 'B' };
+  assert.equal(count(renderChart(pattern([a, b])), /<line class="thread"/g), 1);
+  const same = { ...ringEl(['5'], { tip: [0, 90] }), id: 'B' };
+  assert.equal(count(renderChart(pattern([a, same])), /<line class="thread/g), 0);
+  const bridge = { ...bridgeEl(['5'], { from: [0, 0], to: [50, 80] }), id: 'B' };
+  assert.equal(count(renderChart(pattern([a, bridge, { ...b, id: 'C' }])), /<line class="thread/g), 0);
+  assert.match(css, /\.thread \{[^}]*stroke-dasharray/);
+});
+
+test('numbers can be asked for by element', () => {
   const element = ringEl(['5', 'o', '5']);
-  const svg = renderChart(pattern([element]));
-  assert.equal(count(svg, /class="tick/g), 10);
-  const ticks = [...svg.matchAll(/class="tick[^"]*"[^>]*x1="([-\d.]+)" y1="([-\d.]+)" x2="([-\d.]+)" y2="([-\d.]+)"/g)];
-  for (const [index, fraction] of [[0, 0.5 / 10], [9, 9.5 / 10]]) {
-    const expected = elementGeometry(element).pointAt(fraction);
-    near((Number(ticks[index][1]) + Number(ticks[index][3])) / 2, expected.x);
-    near((Number(ticks[index][2]) + Number(ticks[index][4])) / 2, expected.y);
-  }
-});
-
-test('an estimated segment has no ticks and always shows its number with the error', () => {
-  const svg = renderChart(pattern([ringEl(['16~3', 'o~', '5'])]));
-  assert.equal(count(svg, /class="tick/g), 5);
-  assert.match(svg, /≈16±3/);
-  assert.match(svg, /cord-edge cord-uncertain/);
-  assert.match(svg, /<circle class="picot deco uncertain/);
-});
-
-test('an inferred segment is dashed and shows its mark without being asked', () => {
-  const svg = renderChart(pattern([ringEl(['5?', 'o', '5'])]));
-  assert.match(svg, />5\?</);
-  assert.equal(count(svg, /cord-uncertain/g), 1);
-  assert.doesNotMatch(renderChart(pattern([ringEl(['5', 'o', '5'])])), /cord-uncertain/);
-});
-
-test('a dense element drops its ticks and shows its numbers', () => {
-  const svg = renderChart(pattern([ringEl(['200'], { tip: [10, 0], width: 5 })]));
-  assert.equal(count(svg, /class="tick/g), 0);
-  assert.match(svg, />200</);
-});
-
-test('numbers appear only when asked, for confirmed parts', () => {
-  const element = ringEl(['5', 'o', '5']);
-  assert.equal(count(renderChart(pattern([element])), /class="count/g), 0);
   assert.equal(count(renderChart(pattern([element]), { counts: 'all' }), /class="count/g), 2);
   assert.equal(count(renderChart(pattern([element]), { counts: ['A'] }), /class="count/g), 2);
   assert.equal(count(renderChart(pattern([element]), { counts: ['Z'] }), /class="count/g), 0);
 });
 
-test('join picots, decorative picots and uncertain joins have different shapes', () => {
+test('join picots are solid dots and joins are thin links', () => {
   const left = ringEl(['5', 'p:x', '5', 'o', '5']);
   const svg = renderChart(pattern([left, { ...ringEl(['5', 'j:A.x', '5']), id: 'B' }]));
   assert.equal(count(svg, /<circle class="picot join/g), 2);
-  assert.equal(count(svg, /<circle class="picot deco/g), 1);
-  assert.equal(count(svg, /join-uncertain/g), 0);
-  assert.match(svg, /<line class="link" /);
-
-  const unsure = renderChart(pattern([left, { ...ringEl(['5', 'j:A.x?', '5']), id: 'B' }]));
-  assert.match(unsure, /<path class="picot join-uncertain/);
-  assert.match(unsure, /<line class="link uncertain/);
-  assert.match(unsure, />\?</);
-});
-
-test('a link is dashed if either end is uncertain', () => {
-  const left = ringEl(['5', 'p:x?', '5']);
-  const svg = renderChart(pattern([left, { ...ringEl(['5', 'j:A.x', '5']), id: 'B' }]));
-  assert.match(svg, /<line class="link uncertain/);
+  assert.equal(count(svg, /<path class="picot deco/g), 1);
+  assert.equal(count(svg, /<line class="link"/g), 1);
 });
 
 test('a join link connects the two picot positions', () => {
@@ -177,27 +165,23 @@ test('a join link connects the two picot positions', () => {
   near(Number(link[2]), fromB.y);
 });
 
-test('every uncertainty class has a dash rule, and confirmed links are solid', () => {
-  for (const name of ['\\.cord-uncertain', '\\.picot\\.uncertain', '\\.picot\\.join-uncertain', '\\.link\\.uncertain', '\\.flip-mark\\.uncertain rect']) {
-    assert.match(css, new RegExp(`${name} \\{[^}]*stroke-dasharray`), name);
-  }
-  assert.doesNotMatch(css, /\.link \{[^}]*stroke-dasharray/);
-  assert.match(css, /\.cord-uncertain \{[^}]*stroke-linecap: butt/, 'round caps would close the dashes');
-  assert.match(css, /\.link\.uncertain \{[^}]*stroke-linecap: butt/);
+test('no uncertainty is drawn, even for marked parts', () => {
+  const svg = renderChart(pattern([ringEl(['5?', 'o~', '5~2', 'p:x?', '5'])]), { counts: 'all' });
+  assert.doesNotMatch(svg, /uncertain|mark-q|>\?<|≈/);
+  assert.doesNotMatch(css, /uncertain|part-unsure|mark-unsure/);
 });
 
-test('flip marks follow value and source', () => {
+test('a flip with value true is marked 翻, whatever its source', () => {
   const withFlip = (flip) => renderChart(pattern([{ ...ringEl(['5']), flip }]));
   assert.match(withFlip({ value: true, source: 'source' }), /class="flip-mark"[^]*>翻</);
-  assert.match(withFlip({ value: true, source: 'inferred' }), /class="flip-mark uncertain"[^]*>翻\?</);
-  assert.match(withFlip({ value: true, source: 'estimated' }), /class="flip-mark uncertain"[^]*>翻≈</);
+  assert.match(withFlip({ value: true, source: 'inferred' }), /class="flip-mark"[^]*>翻</);
   assert.doesNotMatch(withFlip({ value: false, source: 'inferred' }), /flip-mark/);
   assert.doesNotMatch(renderChart(pattern([ringEl(['5'])])), /flip-mark/);
 });
 
 test('highlight and current fade the right elements', () => {
   const elements = [ringEl(['5']), { ...ringEl(['5']), id: 'B' }, { ...ringEl(['5']), id: 'C' }];
-  const faint = (svg, id) => new RegExp(`cord-core is-faint" data-el="${id}"`).test(svg);
+  const faint = (svg, id) => new RegExp(`cord is-faint" data-el="${id}"`).test(svg);
   const plain = renderChart(pattern(elements));
   assert.doesNotMatch(plain, /is-faint/);
   const lit = renderChart(pattern(elements), { highlight: ['B'] });
@@ -216,11 +200,6 @@ test('highlight and current fade the right elements', () => {
   assert.equal(faint(working, 'C'), true);
 });
 
-test('an uncertain element stays dashed while current', () => {
-  const svg = renderChart(pattern([ringEl(['5?'])]), { current: 'A' });
-  assert.match(svg, /cord-uncertain/);
-});
-
 test('reached colours progress on the current element', () => {
   const element = ringEl(['10']);
   const svg = renderChart(pattern([element]), { current: 'A', reached: 5 });
@@ -234,9 +213,9 @@ test('reached colours progress on the current element', () => {
 
 test('the current element is always marked, before any part is chosen', () => {
   const svg = renderChart(pattern([ringEl(['5']), { ...ringEl(['5']), id: 'B' }]), { current: 'A', done: ['B'] });
-  assert.match(svg, /cord-edge is-current" data-el="A"/);
+  assert.match(svg, /class="cord is-current" data-el="A"/);
   assert.doesNotMatch(svg, /is-current" data-el="B"/);
-  assert.match(css, /\.cord-edge\.is-current \{[^}]*--mark-current/);
+  assert.match(css, /\.cord\.is-current \{[^}]*--mark-current/);
 });
 
 test('a view can frame chosen elements, and marks scale to it', () => {
@@ -289,15 +268,14 @@ test('a motif with ten rings, six bridges and joins renders whole', () => {
   assert.doesNotMatch(svg, /NaN/);
   assert.equal(count(svg, /<line class="link"/g), 1);
   ids.forEach((id) => assert.match(svg, new RegExp(`>${id}</text>`)));
-  assert.equal(new Set([...svg.matchAll(/cord-core[^"]*" data-el="(\w+)"/g)].map((m) => m[1])).size, 16);
+  assert.equal(new Set([...svg.matchAll(/class="cord[^"]*" data-el="(\w+)"/g)].map((m) => m[1])).size, 16);
 });
 
 test('the flower draws only its own numbers, marks and letters', () => {
   const svg = renderChart(flower);
   assert.doesNotMatch(svg, /NaN/);
-  assert.equal(count(svg, /class="tick/g), 110);
-  assert.doesNotMatch(svg, /flip-mark/);
-  assert.equal(count(svg, /join-uncertain/g), 1);
+  assert.doesNotMatch(svg, /tick|uncertain/);
+  assert.equal(count(svg, /<path class="picot deco/g), 25);
   assert.equal(readElement(flower.elements[0]).stitches, 22);
 });
 

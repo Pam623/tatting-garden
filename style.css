@@ -103,9 +103,9 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .plate-card .diagram { aspect-ratio: 1; }
 .inset {
   position: absolute;
-  right: -8px;
-  bottom: -14px;
-  width: 30%;
+  right: 14px;
+  bottom: 14px;
+  width: 24%;
   aspect-ratio: 1;
   object-fit: cover;
   border: 4px solid var(--paper);
@@ -304,7 +304,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .count.now { fill: var(--mark-current); font-size: calc(17px * var(--s)); }
 .flip-mark rect { fill: var(--chart-paper); stroke: var(--chart-ink); stroke-width: calc(1.2px * var(--s)); }
 .flip-mark.uncertain rect { stroke: var(--mark-unsure); stroke-dasharray: calc(2px * var(--s)) calc(2px * var(--s)); }
-.flip-mark text { font-size: calc(8.5px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 600; }
+.flip-mark text { font-size: calc(9.5px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 600; }
 .start-label { font-size: calc(10px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 700; paint-order: stroke; stroke: var(--chart-paper); stroke-width: calc(3px * var(--s)); }
 .start-arrow { stroke: var(--chart-ink); stroke-width: calc(1.8px * var(--s)); fill: none; stroke-linecap: round; stroke-linejoin: round; }
 

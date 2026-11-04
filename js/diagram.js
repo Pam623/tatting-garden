@@ -232,8 +232,8 @@ export function renderChart(pattern, options = {}) {
       // Sits on the cord like a bead, so it adds no clutter beside crowded rings.
       const p = geometry.pointAt(element.type === 'ring' ? 0.09 : 0.14);
       const { x, y } = p;
-      const w = (element.flip.source === 'source' ? 13 : 18) * s;
-      const h = 12 * s;
+      const w = (element.flip.source === 'source' ? 14 : 20) * s;
+      const h = 13 * s;
       const uncertain = element.flip.source !== 'source' ? ' uncertain' : '';
       marks += `<g class="flip-mark${uncertain}${state}" ${attrs}><rect x="${n(x - w / 2)}" y="${n(y - h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(3 * s)}"/><text x="${n(x)}" y="${n(y)}">${flipLabel(element.flip)}</text></g>`;
     }

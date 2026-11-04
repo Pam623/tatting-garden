@@ -4,6 +4,18 @@ import { parseToken } from './pattern.js';
 // Picot names are private to each reader, so a join is compared by which of the
 // target's left picots it lands on, not by what the reader called it.
 function readAll(transcription) {
+  if (!Array.isArray(transcription.elements) || transcription.elements.length === 0) {
+    throw new Error('没有任何元素');
+  }
+  const seen = new Set();
+  transcription.elements.forEach((element) => {
+    if (typeof element.id !== 'string' || element.id === '') throw new Error('有元素没有名字');
+    if (seen.has(element.id)) throw new Error(`${element.id} 重复了`);
+    seen.add(element.id);
+    if (!['ring', 'bridge'].includes(element.type)) throw new Error(`${element.id} 的类型无效`);
+    if (!Array.isArray(element.parts)) throw new Error(`${element.id} 没有内容`);
+    if (element.flip !== undefined && typeof element.flip?.value !== 'boolean') throw new Error(`${element.id} 的翻面写法无效`);
+  });
   const leftOrder = new Map();
   transcription.elements.forEach((element) => {
     const left = element.parts.map(parseToken).filter((p) => p.kind === 'leave').map((p) => p.name);
@@ -15,16 +27,17 @@ function readAll(transcription) {
     flip: element.flip?.value ?? null,
     parts: element.parts.map(parseToken).map((part) => ({
       ...part,
-      key: partKey(part, leftOrder),
+      key: partKey(part, leftOrder, element.id),
     })),
   }));
 }
 
-function partKey(part, leftOrder) {
+function partKey(part, leftOrder, owner) {
   if (part.kind === 'stitch') return String(part.count);
   if (part.kind === 'deco') return '○';
   if (part.kind === 'leave') return ',';
   const ordinal = (leftOrder.get(part.element) ?? []).indexOf(part.name) + 1;
+  if (ordinal === 0) throw new Error(`${owner} 接到的 ${part.element}.${part.name} 不存在`);
   return `→${part.element}#${ordinal}`;
 }
 
@@ -58,6 +71,8 @@ export function compareTranscriptions(a, b) {
       x.parts.forEach((part, index) => {
         if (part.source !== y.parts[index].source) {
           notes.push(`${id} 第 ${index + 1} 段：数字相同，把握程度不同（${part.source} 和 ${y.parts[index].source}）`);
+        } else if (part.error !== y.parts[index].error) {
+          notes.push(`${id} 第 ${index + 1} 段：数字相同，误差不同（${part.error ?? '没写'} 和 ${y.parts[index].error ?? '没写'}）`);
         }
       });
     }

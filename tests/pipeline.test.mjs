@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import vm from 'node:vm';
 import { compareTranscriptions } from '../js/compare.js';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -83,6 +84,28 @@ function runCompare(a, b) {
   return spawnSync(process.execPath, [join(root, 'scripts/compare-transcriptions.mjs'), join(dir, 'a.json'), join(dir, 'b.json')], { encoding: 'utf8' });
 }
 
+test('a join to a picot nobody left is an error, not a match', () => {
+  const left = doc(ring('A', ['2', 'p:n']), ring('B', ['5', 'j:A.zz']));
+  assert.throws(() => compareTranscriptions(left, base()), /不存在/);
+  const noOwner = doc(ring('B', ['5', 'j:Q.a']));
+  assert.throws(() => compareTranscriptions(noOwner, noOwner), /不存在/);
+});
+
+test('duplicate, nameless and malformed elements are errors', () => {
+  const twice = doc(ring('A', ['2']), ring('A', ['3']));
+  assert.throws(() => compareTranscriptions(twice, twice), /重复/);
+  assert.throws(() => compareTranscriptions(doc({ type: 'ring', parts: ['5'] }), base()), /没有名字/);
+  assert.throws(() => compareTranscriptions(doc(), base()), /没有任何元素/);
+  assert.throws(() => compareTranscriptions(doc({ id: 'A', type: 'knot', parts: ['5'] }), base()), /类型无效/);
+  assert.throws(() => compareTranscriptions(doc(ring('A', ['5'], { flip: true })), base()), /翻面写法/);
+});
+
+test('a differing stated error is a note', () => {
+  const report = compareTranscriptions(doc(ring('A', ['7~3'])), doc(ring('A', ['7~1'])));
+  assert.equal(report.match, true);
+  assert.match(report.notes[0], /误差不同/);
+});
+
 test('the script exits by result', () => {
   assert.equal(runCompare(base(), base()).status, 0);
   const differing = runCompare(base(), doc(base().elements[0]));
@@ -109,6 +132,9 @@ test('the bundle holds every lab pattern, with no local fetches in effect', () =
   assert.doesNotMatch(html, /^import /m);
   assert.doesNotMatch(html, /^export /m);
   assert.doesNotMatch(html, /src="js\//);
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  assert.equal(scripts.length, 2);
+  scripts.forEach((script) => new vm.Script(script));
 });
 
 test('lab content stays out of the public repo', () => {

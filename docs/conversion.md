@@ -7,7 +7,7 @@
 - 原创和已过版权期的花样放 `patterns/`，会公开。
 - 别人的图解、复原稿和所有中间文件放 `lab/`，不进 repo。
 
-运行 `node scripts/build-lab.mjs` 可以把 `lab/` 打包成一个私有页面。
+运行 `node scripts/build-lab.mjs` 可以把 `lab/` 打包成一个私有页面。各读者的读法和差异报告放在 `lab/readings/`。
 
 ## 从图解转录
 
@@ -19,9 +19,9 @@
    node scripts/compare-transcriptions.mjs a.json b.json
    ```
 
-4. 不同的地方回到原图逐处判断，判断不了的标 `?` 并写进 `toConfirm`。
+4. 不同的地方回到原图逐处判断。判断不了的标 `?` 并写进 `toConfirm`，等级留在 `sorted`，不能升级。
 5. 写入花样文件，等级是 `sorted`。
-6. Kimi 查逻辑：结构、对称、接耳是否合理。通过后写入 `reviewedBy`，等级升到 `checked`。
+6. Kimi 查逻辑：结构、对称、接耳是否合理。分歧全部解决、逻辑通过后，写入 `reviewedBy`，等级才升到 `checked`。
 7. 有人照着编成功，等级才升到 `made`。
 
 ## 从成品照片复原

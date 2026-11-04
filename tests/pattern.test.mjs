@@ -255,6 +255,8 @@ test('the summary gives ring stitches only when the rings all match', () => {
 test('estimates never read as exact counts', () => {
   const guess = pattern([ring('A', ['7~3', 'o~', '3~1'])], { tier: 'reconstruction' });
   assert.equal(summarize(guess), '1 环 · 0 桥 · 每环约 10 针');
+  const mixedGuess = pattern([ring('A', ['7', 'o', '3']), ring('C', ['7~1', 'o', '3'])], { tier: 'reconstruction' });
+  assert.match(summarize(mixedGuess), /约/);
   assert.equal(formulaGroups(guess)[0].estimated, true);
   assert.equal(formulaGroups(flower)[0].estimated, false);
 });

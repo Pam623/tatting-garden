@@ -103,7 +103,7 @@ export function summarize(pattern) {
   const ringFormulas = new Set(rings.map(plainFormula));
   const parts = [`${rings.length} 环`, `${bridges.length} 桥`];
   if (ringFormulas.size === 1) {
-    const estimated = readElement(rings[0]).items.some((item) => item.source === 'estimated');
+    const estimated = rings.some((ring) => readElement(ring).items.some((item) => item.source === 'estimated'));
     parts.push(`每环${estimated ? '约 ' : ' '}${readElement(rings[0]).stitches} 针`);
   }
   return parts.join(' · ');

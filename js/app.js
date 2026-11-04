@@ -70,6 +70,7 @@ async function showHome() {
   // One file that fails to load shouldn't hide the others.
   const loaded = await Promise.allSettled(ids.map(loadPattern));
   loaded.filter((r) => r.status === 'rejected').forEach((r) => console.error(r.reason));
+  if (loaded.length > 0 && loaded.every((r) => r.status === 'rejected')) throw new Error('No patterns could be loaded');
   const patterns = loaded
     .filter((r) => r.status === 'fulfilled')
     .map((r) => r.value)
@@ -472,8 +473,8 @@ async function route() {
   document.body.classList.toggle('in-work', Boolean(match?.[2]));
   try {
     // Fetch first, so a page that finishes loading late can't draw over a newer one.
+    // A home page failure is sorted out per pattern inside showHome.
     if (match) await loadPattern(match[1]);
-    else await Promise.allSettled((await loadIndex()).map(loadPattern));
     if (thisRoute !== routeCount) return;
     if (match?.[2]) await showWork(match[1]);
     else if (match) await showPattern(match[1]);

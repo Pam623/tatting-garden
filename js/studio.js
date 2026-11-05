@@ -3,6 +3,10 @@ import { renderChart } from './diagram.js';
 import { THREAD_SIZES } from './materials.js';
 import { convertImage } from './convert.js';
 import {
+  buildRow, READ_TIMEOUT_MS, readSaved, retryIfUnavailable, RETRY_TIMEOUT_MS, rowFits, saveErrorMessage, savedNotice,
+  withDeadline, WRITE_TIMEOUT_MS,
+} from './saved.js';
+import {
   app, embedded, escapeHtml, isKnownPattern, legendFor, materialsPanel, readSetting, rememberPattern,
   saveSetting, stitchTable, studio,
 } from './shared.js';
@@ -11,29 +15,46 @@ function withTimeout(promise, ms) {
   return Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
 }
 
-async function loadSaved() {
+// claude.use answers null when a capability can't run in this view; a failure means the same.
+async function useCapability(name) {
   try {
-    const snap = await withTimeout(studio.db.collection('studio').get(), 10000);
-    (snap?.docs ?? []).forEach((doc) => {
-      const row = doc.data?.();
-      if (!row?.pattern?.id || isKnownPattern(row.pattern.id)) return;
-      rememberPattern(row.pattern);
-      studio.savedIds.add(row.pattern.id);
-    });
+    return await withTimeout(window.claude.use(name), 10000);
   } catch (error) {
     console.error(error);
+    return null;
   }
+}
+
+async function loadSaved(timeoutMs) {
+  const result = studio.db ? await readSaved(studio.db, { timeoutMs }) : { status: 'unavailable', saved: [] };
+  result.saved.forEach(({ pattern }) => {
+    // A saved pattern can't replace one built into the page.
+    if (isKnownPattern(pattern.id) && !studio.savedIds.has(pattern.id)) return;
+    rememberPattern(pattern);
+    studio.savedIds.add(pattern.id);
+  });
+  studio.notice = savedNotice(result);
 }
 
 export async function startStudio() {
   if (!embedded || typeof window.claude?.use !== 'function') return;
-  try {
-    studio.sample = await withTimeout(window.claude.use('sample'), 10000);
-    studio.db = await withTimeout(window.claude.use('db'), 10000);
-  } catch {
-    studio.db = null;
-  }
-  if (studio.db) await loadSaved();
+  app.innerHTML = '<p class="hint" role="status">正在读取保存的花样……</p>';
+  [studio.sample, studio.db] = await Promise.all([useCapability('sample'), useCapability('db')]);
+  await loadSaved(READ_TIMEOUT_MS);
+}
+
+// Runs when the viewer asks to read the saved patterns again.
+export async function rereadSaved() {
+  studio.db = studio.db ?? await useCapability('db');
+  await loadSaved(RETRY_TIMEOUT_MS);
+}
+
+// The current trouble reading saved patterns, ready to put on a page.
+export function studioNoticeHtml() {
+  const notice = studio.notice;
+  if (!notice) return '';
+  const retry = notice.retry ? '<button type="button" class="ghost publish" id="reread">再读一次</button>' : '';
+  return `<p class="${notice.kind}" role="status">${escapeHtml(notice.text)}</p>${retry}`;
 }
 
 const SAMPLE_MESSAGES = {
@@ -95,7 +116,8 @@ export async function showUpload() {
       <div class="upload-actions">
         ${drawable && problems.length === 0 && studio.db ? '<button type="button" class="primary" id="save">保存</button>' : ''}
         <button type="button" class="ghost" id="again">重新转</button>
-      </div>`;
+      </div>
+      ${drawable && problems.length === 0 && !studio.db ? '<p class="error">现在连不上存储，这个花样存不了。请确认已经登录，刷新页面后再转一次。</p>' : ''}`;
     const materials = document.getElementById('materials');
     const drawMaterials = () => {
       materials.innerHTML = materialsPanel(pattern, size, pattern.repeat?.defaultTimes ?? 1);
@@ -113,14 +135,21 @@ export async function showUpload() {
       const button = event.currentTarget;
       button.disabled = true;
       try {
-        await studio.db.collection('studio').doc(pattern.id).set({ pattern, publish: false, savedAt: Date.now() });
+        const row = buildRow(pattern);
+        if (!rowFits(row)) {
+          status.textContent = '这个花样太大，存不进去。可以再转一次，或者换一张更简单的图。';
+          button.disabled = false;
+          return;
+        }
+        const target = studio.db.collection('studio').doc(pattern.id);
+        await withDeadline(retryIfUnavailable(() => target.set(row)), WRITE_TIMEOUT_MS);
         rememberPattern(pattern);
         studio.savedIds.add(pattern.id);
         location.hash = `#/p/${pattern.id}`;
       } catch (error) {
         console.error(error);
         button.disabled = false;
-        status.textContent = '没能保存，请再点一次。';
+        status.textContent = saveErrorMessage(error);
       }
     });
   };

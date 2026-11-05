@@ -28,7 +28,7 @@ export const embedded = window.TATTING_PATTERNS ?? null;
 
 // Only the private lab page, running as an artifact, has `claude`. The public site never does,
 // so sample and db stay null there.
-export const studio = { sample: null, db: null, savedIds: new Set() };
+export const studio = { sample: null, db: null, savedIds: new Set(), notice: null };
 
 export function rememberPattern(pattern) {
   cache.set(pattern.id, pattern);

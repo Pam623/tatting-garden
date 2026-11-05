@@ -12,6 +12,7 @@ export const LAB_FILES = [
   'js/materials.js',
   'js/diagram.js',
   'js/convert.js',
+  'js/saved.js',
   'js/shared.js',
   'js/studio.js',
   'js/home.js',

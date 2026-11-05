@@ -1,7 +1,7 @@
 import { showHome } from './home.js';
 import { showPattern } from './pattern-page.js';
-import { app, loadPattern, runCleanup } from './shared.js';
-import { showUpload, startStudio } from './studio.js';
+import { app, embedded, loadPattern, runCleanup } from './shared.js';
+import { rereadSaved, showUpload, startStudio, studioNoticeHtml } from './studio.js';
 import { showWork } from './work.js';
 
 const studioReady = startStudio();
@@ -29,8 +29,18 @@ async function route() {
   } catch (error) {
     console.error(error);
     if (thisRoute !== routeCount) return;
-    app.innerHTML = '<p class="error">这一页没打开，<a href="#/">回到全部花样</a>。</p>';
+    app.innerHTML = '<p class="error">这一页没打开，<a href="#/">回到全部花样</a>。</p>' + studioNoticeHtml();
   }
+}
+
+if (embedded) {
+  app.addEventListener('click', async (event) => {
+    if (event.target.id !== 'reread') return;
+    event.target.disabled = true;
+    event.target.textContent = '正在读取……';
+    await rereadSaved();
+    route();
+  });
 }
 
 window.addEventListener('hashchange', route);

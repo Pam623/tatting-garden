@@ -65,7 +65,7 @@ test('the bundle has every file the page imports, each after what it imports', (
 
 // A small stand-in for the browser, enough to run the bundle's first page.
 function runBundle(patterns) {
-  const app = { innerHTML: '' };
+  const app = { innerHTML: '', addEventListener() {} };
   const context = {
     console,
     setTimeout,

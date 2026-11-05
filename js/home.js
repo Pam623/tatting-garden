@@ -1,6 +1,7 @@
 import { structureProblems, summarize } from './pattern.js';
 import { renderChart } from './diagram.js';
 import { app, embedded, escapeHtml, loadIndex, loadPattern, studio } from './shared.js';
+import { studioNoticeHtml } from './studio.js';
 
 export async function showHome(isCurrent) {
   const ids = await loadIndex();
@@ -20,6 +21,7 @@ export async function showHome(isCurrent) {
         <h1>${embedded ? '梭编实验室' : '梭编花园'}</h1>
         <p>${embedded ? '只有你能打开。这里的花样还不能公开，或者还在验证。' : '少而精的梭编图解。每一张都能照着编完。'}</p>
         ${studio.sample ? '<a class="start" href="#/upload">上传图片，转成图解</a>' : ''}
+        ${studioNoticeHtml()}
       </header>
       <ul class="plates">
         ${patterns.map((p, i) => `

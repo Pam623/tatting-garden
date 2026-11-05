@@ -106,7 +106,11 @@ export function showDraw() {
     };
     drawMaterials();
     document.getElementById('redraw').addEventListener('click', () => {
-      deleteDrawing(pattern.id);
+      // An unsaved result has nothing stored, so only a saved one can fail to delete.
+      if (!deleteDrawing(pattern.id) && saved) {
+        document.getElementById('redraw').insertAdjacentHTML('afterend', '<p class="error" role="alert">这一张没删掉，浏览器不让改存储。关掉页面再试，或者在首页“我画的”里删。</p>');
+        return;
+      }
       forgetPattern(pattern.id);
       backToBoard();
     });

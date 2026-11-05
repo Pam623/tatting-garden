@@ -8,6 +8,13 @@ import { SKETCHES } from './fixtures/sketches.mjs';
 
 const read = (path) => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'));
 
+test('the highlighted count keeps the size its position was worked out for', () => {
+  const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  const rule = css.match(/\.count\.now\s*\{([^}]*)\}/);
+  assert.ok(rule);
+  assert.doesNotMatch(rule[1], /font-size/);
+});
+
 function labelsOf(pattern, shows) {
   const [minX, minY, width, height] = pattern.layout.viewBox;
   const s = width / 370;

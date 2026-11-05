@@ -6,8 +6,12 @@ import {
   buildRow, READ_TIMEOUT_MS, readSaved, retryIfUnavailable, RETRY_TIMEOUT_MS, rowFits, saveErrorMessage, savedNotice,
   withDeadline, WRITE_TIMEOUT_MS,
 } from './saved.js';
-import { describeOriginal, fileProblem, originalErrorMessage } from './upload-file.js';
+import {
+  ACCEPTED_FILES, describeOriginal, fileKind, fileProblem, originalErrorMessage, pageNumbers, pdfErrorMessage,
+  readPageNumber,
+} from './upload-file.js';
 import { shrinkPicture } from './picture.js';
+import { openPdf } from './pdf-reader.js';
 import {
   app, embedded, escapeHtml, isKnownPattern, legendFor, materialsPanel, readSetting, rememberPattern,
   saveSetting, setCleanup, stitchTable, studio,
@@ -76,9 +80,12 @@ export async function showUpload() {
   app.innerHTML = `
     <div class="upload">
       <a class="back" href="#/">← 全部花样</a>
-      <h1 class="pattern-title">上传图片</h1>
-      <p class="lede">书上的图解页、手绘的图解，或者成品照片，都可以。</p>
-      <input type="file" id="file" accept="image/*" aria-label="选择图片">
+      <h1 class="pattern-title">上传图片或 PDF</h1>
+      <p class="lede">书上的图解页、手绘的图解，或者成品照片，都可以。PDF 有很多页时，选其中一页来转。</p>
+      <input type="file" id="file" accept="${ACCEPTED_FILES}" aria-label="选择图片或 PDF">
+      <p class="hint" id="pages" hidden>
+        <label>第 <select id="page"></select> 页</label>，共 <span id="page-count"></span> 页
+      </p>
       <img class="photo" id="preview" alt="" hidden>
       <button type="button" class="primary convert" id="convert" disabled>转成图解</button>
       <p class="hint" id="status" role="status" aria-live="polite"></p>
@@ -89,6 +96,10 @@ export async function showUpload() {
   const convert = document.getElementById('convert');
   const status = document.getElementById('status');
   const result = document.getElementById('result');
+  const pages = document.getElementById('pages');
+  const pagePicker = document.getElementById('page');
+  let pdf = null;
+  let pdfName = '';
   let blob = null;
   let original = null;
   let previewUrl = null;
@@ -103,9 +114,17 @@ export async function showUpload() {
     if (picture) preview.src = previewUrl;
     else preview.removeAttribute('src');
   };
-  setCleanup(() => showPreview(null));
+  const closePdf = () => {
+    pdf?.close();
+    pdf = null;
+    pages.hidden = true;
+  };
+  setCleanup(() => {
+    showPreview(null);
+    closePdf();
+  });
 
-  // Forgets the picture on show, so an old one can't be converted or saved by mistake.
+  // Forgets the current picture, so an old one can't be converted or saved by mistake.
   const clearPicture = () => {
     run += 1;
     blob = null;
@@ -128,13 +147,57 @@ export async function showUpload() {
     showPreview(shrunk.blob);
   };
 
+  const showPdfPage = async (number, mine) => {
+    status.textContent = `正在读第 ${number} 页……`;
+    try {
+      const drawn = await pdf.drawPage(number);
+      if (mine !== run) return;
+      await usePicture(drawn, { fileName: pdfName, page: number }, mine);
+    } catch (error) {
+      console.error(error);
+      if (mine === run) status.textContent = pdfErrorMessage(error);
+    }
+  };
+
+  const showPdf = async (picked, mine) => {
+    status.textContent = '正在打开 PDF……';
+    let opened;
+    try {
+      opened = await openPdf(picked);
+    } catch (error) {
+      console.error(error);
+      if (mine === run) status.textContent = pdfErrorMessage(error);
+      return;
+    }
+    if (mine !== run) {
+      opened.close();
+      return;
+    }
+    pdf = opened;
+    pdfName = picked.name;
+    pagePicker.innerHTML = pageNumbers(pdf.pageCount).map((n) => `<option value="${n}">${n}</option>`).join('');
+    document.getElementById('page-count').textContent = String(pdf.pageCount);
+    pages.hidden = pdf.pageCount < 2;
+    await showPdfPage(1, mine);
+  };
+
+  pagePicker.addEventListener('change', () => {
+    const number = readPageNumber(pagePicker.value, pdf?.pageCount ?? 0);
+    if (number) showPdfPage(number, clearPicture());
+  });
+
   file.addEventListener('change', async () => {
     const mine = clearPicture();
+    closePdf();
     const picked = file.files[0] ?? null;
     if (!picked) return;
     const problem = fileProblem(picked);
     if (problem) {
       status.textContent = problem;
+      return;
+    }
+    if (fileKind(picked) === 'pdf') {
+      await showPdf(picked, mine);
       return;
     }
     try {

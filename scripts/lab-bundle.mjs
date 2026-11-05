@@ -15,6 +15,7 @@ export const LAB_FILES = [
   'js/saved.js',
   'js/upload-file.js',
   'js/picture.js',
+  'js/pdf-reader.js',
   'js/shared.js',
   'js/studio.js',
   'js/home.js',

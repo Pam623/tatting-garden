@@ -63,6 +63,16 @@ test('the bundle has every file the page imports, each after what it imports', (
   });
 });
 
+test('pdf.js is a fixed version from cdnjs, fetched only from inside a function', () => {
+  const source = readFileSync(join(root, 'js/pdf-reader.js'), 'utf8');
+  assert.match(source, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js\/\d+\.\d+\.\d+'/);
+  assert.doesNotMatch(source, /^\S.*\bimport\(/m, 'no import() at the top level');
+  const code = bundleCode();
+  assert.equal(code.match(/cdnjs/g).length, 1, 'only one place names the CDN');
+  // The artifact host refuses a page that embeds a PDF, so the page must not carry that marker.
+  assert.ok(!code.includes('%' + 'PDF'));
+});
+
 // A small stand-in for the browser, enough to run the bundle's first page.
 function runBundle(patterns) {
   const app = { innerHTML: '', addEventListener() {} };

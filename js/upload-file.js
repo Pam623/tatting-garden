@@ -80,6 +80,21 @@ export function looksBlank(pixels, tolerance = 16, minShare = 0.0001) {
   return true;
 }
 
+const SCREENSHOT = '也可以把这一页截图，当图片上传。';
+const PDF_MESSAGES = {
+  library: `PDF 工具没有加载出来。请检查网络后重新选一次文件；${SCREENSHOT}`,
+  blank: `这一页读出来是空白的，可能是这个 PDF 的扫描格式读不了。请换一页；${SCREENSHOT}`,
+  timeout: `这个 PDF 读得太久了。请重新选一次文件，或者只导出需要的那几页；${SCREENSHOT}`,
+};
+const PDF_ERROR_NAMES = {
+  PasswordException: `这个 PDF 有密码。请去掉密码后再传；${SCREENSHOT}`,
+  InvalidPDFException: `这个 PDF 打不开，文件可能坏了。请换一个文件；${SCREENSHOT}`,
+};
+
+export function pdfErrorMessage(error) {
+  return PDF_MESSAGES[error?.code] ?? PDF_ERROR_NAMES[error?.name] ?? `这个 PDF 没读出来。请重新选一次文件；${SCREENSHOT}`;
+}
+
 const ORIGINAL_MESSAGES = {
   no_assets: '这个页面现在存不了原图。',
   too_large: '原图太大，存不下。',

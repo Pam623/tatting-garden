@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   ACCEPTED_FILES, describeOriginal, fileKind, fileProblem, fitWithin, looksBlank, MAX_IMAGE_BYTES, MAX_PDF_BYTES,
-  originalCaption, originalErrorMessage, pageNumbers, pdfPageScale, readPageNumber,
+  originalCaption, originalErrorMessage, pageNumbers, pdfErrorMessage, pdfPageScale, readPageNumber,
 } from '../js/upload-file.js';
 
 test('the file box takes pictures and PDFs', () => {
@@ -116,6 +116,17 @@ test('the caption names the file and page', () => {
   assert.equal(originalCaption({ fileName: 'a.pdf', page: 2 }), 'a.pdf · 第 2 页');
   assert.equal(originalCaption({ fileName: 'a.jpg' }), 'a.jpg');
   assert.equal(originalCaption(null), '');
+});
+
+test('every PDF failure says what to do next', () => {
+  assert.match(pdfErrorMessage({ code: 'library' }), /检查网络/);
+  assert.match(pdfErrorMessage({ code: 'blank' }), /空白/);
+  assert.match(pdfErrorMessage({ code: 'timeout' }), /太久/);
+  assert.match(pdfErrorMessage({ name: 'PasswordException' }), /密码/);
+  assert.match(pdfErrorMessage({ name: 'InvalidPDFException' }), /坏了/);
+  for (const error of [{ code: 'library' }, { name: 'PasswordException' }, new Error('x'), null]) {
+    assert.match(pdfErrorMessage(error), /截图/);
+  }
 });
 
 test('every way an original can fail to store has a message', () => {

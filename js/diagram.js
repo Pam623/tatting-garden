@@ -104,11 +104,11 @@ export function focusBox(pattern, ids, padding = 34) {
 
 // Label sizes, in the units marks are designed at. Wider than the ink, so labels keep a little air.
 const LABEL_BOXES = {
-  letter: (text) => ({ w: 12 * text.length + 4, h: 18 }),
   count: (text) => ({ w: 7.5 * text.length + 3, h: 13 }),
   flip: () => ({ w: 14, h: 13 }),
   start: () => ({ w: 22, h: 12 }),
 };
+const LETTER_SMALL = 0.7;
 const LINE_CLEARANCE = 1.5;
 const OBSTACLE_SPACING = 3;
 
@@ -160,7 +160,7 @@ function pointInOutline(point, outline) {
 
 // Picks each label's spot: the first candidate touching nothing, or else the one touching least.
 // The earlier a candidate is listed, the more it is wanted.
-function placeLabel(candidates, box, { obstacles, placed, view, rings, ignoreOwner = null }, owner = null) {
+function bestSpot(candidates, box, { obstacles, placed, view, rings, ignoreOwner = null }, owner = null) {
   let best = null;
   for (const candidate of candidates) {
     const area = { x: candidate.x, y: candidate.y, w: box.w, h: box.h };
@@ -177,8 +177,33 @@ function placeLabel(candidates, box, { obstacles, placed, view, rings, ignoreOwn
     if (!best || penalty < best.penalty) best = { ...area, penalty };
     if (penalty === 0) break;
   }
-  placed.push(best);
   return best;
+}
+
+function placeLabel(candidates, box, context, owner = null) {
+  const best = bestSpot(candidates, box, context, owner);
+  context.placed.push(best);
+  return best;
+}
+
+// A letter keeps its size if it fits; a small ring gets a small letter inside rather than one elsewhere.
+function placeLetter(element, s, context) {
+  const box = (scale) => ({ w: (12 * element.id.length + 4) * s * scale, h: 18 * s * scale });
+  const inside = letterCandidates(element, s);
+  const full = bestSpot(inside, box(1), context, element.id);
+  if (full.penalty === 0 || element.type !== 'ring') {
+    context.placed.push(full);
+    return full;
+  }
+  const small = bestSpot(inside, box(LETTER_SMALL), context, element.id);
+  if (small.penalty === 0) {
+    context.placed.push(small);
+    return { ...small, small: true };
+  }
+  const past = bestSpot(letterPastTip(element, s), box(1), context, element.id);
+  const chosen = past.penalty <= small.penalty ? past : { ...small, small: true };
+  context.placed.push(chosen);
+  return chosen;
 }
 
 function letterCandidates(element, s) {
@@ -204,12 +229,25 @@ function letterCandidates(element, s) {
   return list;
 }
 
+// Last resort for a ring too small to hold even a small letter.
+function letterPastTip(element, s) {
+  const tip = element.geometry.pointAt(0.5);
+  const [bx, by] = element.place.base;
+  const length = Math.hypot(tip.x - bx, tip.y - by) || 1;
+  const ux = (tip.x - bx) / length;
+  const uy = (tip.y - by) / length;
+  return [15, 22, 30].flatMap((past) => [0, 12, -12].map((across) => ({
+    x: tip.x + ux * past * s + uy * across * s,
+    y: tip.y + uy * past * s - ux * across * s,
+  })));
+}
+
 function countCandidates(element, item, s) {
   const { geometry, stitches } = element;
   const list = [];
-  [0.5, 0.35, 0.65, 0.2, 0.8].forEach((at) => {
+  [0.5, 0.35, 0.65, 0.2, 0.8, 0.05, 0.95].forEach((at) => {
     const p = geometry.pointAt((item.from + (item.to - item.from) * at) / stitches);
-    [13, 18, -13, -18, 24, -24, 30, -30].forEach((off) => list.push({ x: p.x + p.out.x * off * s, y: p.y + p.out.y * off * s }));
+    [13, 18, -13, -18, 9, -9, 24, -24, 30, -30, 37, -37].forEach((off) => list.push({ x: p.x + p.out.x * off * s, y: p.y + p.out.y * off * s }));
   });
   return list;
 }
@@ -222,7 +260,8 @@ function flipCandidates(element) {
   return spots.map((at) => element.geometry.pointAt(at));
 }
 
-// Where the arrow showing an element's direction goes, and which side it landed on.
+// Where the arrow showing an element's direction goes. It stays beside its own element, and a ring
+// too crowded inside can have it standing just outside the base, pointing in.
 function placeArrow(element, elements, s, context) {
   const sharesBase = element.type === 'ring' && elements.some((other) => other !== element
     && other.place?.base?.[0] === element.place.base[0] && other.place?.base?.[1] === element.place.base[1]);
@@ -234,21 +273,34 @@ function placeArrow(element, elements, s, context) {
       candidates.push({ x: p.x + side * p.out.x * off * s, y: p.y + side * p.out.y * off * s, side, p });
     }));
   });
-  const box = { w: 22 * s, h: 22 * s };
+  if (element.type === 'ring') {
+    const [bx, by] = element.place.base;
+    const tip = element.geometry.pointAt(0.5);
+    const length = Math.hypot(tip.x - bx, tip.y - by) || 1;
+    const along = { x: (tip.x - bx) / length, y: (tip.y - by) / length };
+    const p = { along, out: { x: along.y, y: -along.x } };
+    [18, 26, 34].forEach((back) => {
+      candidates.push({ x: bx - along.x * back * s, y: by - along.y * back * s, side: 1, p, outside: true });
+    });
+  }
   const scored = candidates.map((candidate, index) => {
-    let penalty = index * 0.001;
-    for (const other of context.placed) if (boxesOverlap({ ...candidate, ...box }, other)) penalty += 50;
+    let penalty = index * 0.001 + (candidate.outside ? 0.5 : 0);
+    for (const other of context.placed) {
+      if (boxesOverlap({ x: candidate.x, y: candidate.y, w: 22 * s, h: 22 * s }, other)) penalty += 50;
+    }
     for (const o of context.obstacles) {
-      if (Math.hypot(o.x - candidate.x, o.y - candidate.y) < 11 * s + o.r) penalty += 1;
+      const along = (o.x - candidate.x) * candidate.p.along.x + (o.y - candidate.y) * candidate.p.along.y;
+      const across = (o.x - candidate.x) * candidate.p.out.x + (o.y - candidate.y) * candidate.p.out.y;
+      if (Math.abs(along) < 13 * s + o.r && Math.abs(across) < 6 * s + o.r) penalty += 1;
     }
     return { ...candidate, penalty };
   });
   return scored.reduce((a, b) => (b.penalty < a.penalty ? b : a));
 }
 
-// Every label's spot. Worked out with all the numbers in, so a label stays put whichever of them show.
-// Labels come out in order of importance: flip marks, the start, letters, then numbers.
-export function chartLabels(elements, leftPicots, s, view) {
+// Every label's spot, in order of importance: flip marks, letters, the start, then the numbers on show.
+// Numbers come last, so letters stay put whichever numbers are showing.
+export function chartLabels(elements, leftPicots, s, view, showsCounts = () => true) {
   const obstacles = chartObstacles(elements, leftPicots, s);
   const placed = [];
   const rings = elements.filter((e) => e.type === 'ring').map((e) => ({
@@ -264,10 +316,13 @@ export function chartLabels(elements, leftPicots, s, view) {
   elements.filter((e) => e.flip?.value === true).forEach((element) => {
     labels.flip.set(element.id, placeLabel(flipCandidates(element), sized(LABEL_BOXES.flip), { ...context, ignoreOwner: element.id }));
   });
+  elements.forEach((element) => {
+    labels.letter.set(element.id, placeLetter(element, s, context));
+  });
   if (elements.length) {
     const first = elements[0];
     labels.arrow = placeArrow(first, elements, s, context);
-    placed.push({ x: labels.arrow.x, y: labels.arrow.y, w: 22 * s, h: 18 * s });
+    placed.push({ x: labels.arrow.x, y: labels.arrow.y, w: 26 * s, h: 26 * s });
     const { p, side } = labels.arrow;
     const options = [17, 24, -17, -24, 32, -32].flatMap((off) => [0, 12, -12].map((along) => ({
       x: labels.arrow.x + side * p.out.x * off * s + p.along.x * along * s,
@@ -275,13 +330,18 @@ export function chartLabels(elements, leftPicots, s, view) {
     })));
     labels.start = placeLabel(options, sized(LABEL_BOXES.start), context);
   }
-  elements.forEach((element) => {
-    labels.letter.set(element.id, placeLabel(letterCandidates(element, s), sized(LABEL_BOXES.letter, element.id), context, element.id));
-  });
-  elements.forEach((element) => {
+  // The smallest elements have the least room around them, so their numbers choose first.
+  [...elements].filter(showsCounts).sort((a, b) => a.stitches - b.stitches).forEach((element) => {
     element.items.forEach((item, index) => {
       if (item.kind !== 'stitch') return;
-      labels.count.set(`${element.id}:${index}`, placeLabel(countCandidates(element, item, s), sized(LABEL_BOXES.count, numberText(item)), context, element.id));
+      const candidates = countCandidates(element, item, s);
+      const box = sized(LABEL_BOXES.count, numberText(item));
+      const full = bestSpot(candidates, box, context, element.id);
+      // In a crowded spot a smaller number that touches nothing beats a full-size one on a line.
+      const small = full.penalty >= 1 ? bestSpot(candidates, { w: box.w * 0.8, h: box.h * 0.8 }, context, element.id) : null;
+      const chosen = small && small.penalty < full.penalty ? { ...small, small: true } : full;
+      placed.push(chosen);
+      labels.count.set(`${element.id}:${index}`, chosen);
     });
   });
   return { ...labels, context };
@@ -349,7 +409,7 @@ export function renderChart(pattern, options = {}) {
 
   // Where each join picot was left, for drawing links to it.
   const leftPicots = leftPicotSpots(elements, s);
-  const labels = chartLabels(elements, leftPicots, s, { minX, minY, width, height });
+  const labels = chartLabels(elements, leftPicots, s, { minX, minY, width, height }, showsCounts);
 
   let cords = '';
   let threads = '';
@@ -384,7 +444,7 @@ export function renderChart(pattern, options = {}) {
       if (item.kind === 'stitch') {
         if (showsCounts(element)) {
           const spot = labels.count.get(`${element.id}:${itemIndex}`);
-          marks += `<text class="count${now}${state}" ${attrs} x="${n(spot.x)}" y="${n(spot.y)}">${numberText(item)}</text>`;
+          marks += `<text class="count${spot.small ? ' small' : ''}${now}${state}" ${attrs} x="${n(spot.x)}" y="${n(spot.y)}">${numberText(item)}</text>`;
         }
         return;
       }
@@ -410,7 +470,7 @@ export function renderChart(pattern, options = {}) {
 
     // Letter: inside a ring, on the inner side of a bridge, unless something else is already there.
     const letter = labels.letter.get(element.id);
-    marks += `<text class="letter${state}" ${attrs} x="${n(letter.x)}" y="${n(letter.y)}">${element.id}</text>`;
+    marks += `<text class="letter${letter.small ? ' small' : ''}${state}" ${attrs} x="${n(letter.x)}" y="${n(letter.y)}">${element.id}</text>`;
 
     if (element.flip?.value === true) {
       const { x, y } = labels.flip.get(element.id);

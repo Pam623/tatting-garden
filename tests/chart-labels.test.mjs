@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { applyLayout, fitLayout } from '../js/fit-layout.js';
 import { chartLabels, leftPicotSpots, readChartElements, renderChart } from '../js/diagram.js';
 
 const read = (path) => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'));
 
-function labelsOf(pattern) {
+function labelsOf(pattern, shows) {
   const [minX, minY, width, height] = pattern.layout.viewBox;
   const s = width / 370;
   const elements = readChartElements(pattern);
-  const labels = chartLabels(elements, leftPicotSpots(elements, s), s, { minX, minY, width, height });
+  const labels = chartLabels(elements, leftPicotSpots(elements, s), s, { minX, minY, width, height }, shows);
   const named = [];
   labels.flip.forEach((box, id) => named.push({ ...box, name: `翻 ${id}`, own: id, bead: true }));
   labels.letter.forEach((box, id) => named.push({ ...box, name: `字母 ${id}`, own: null }));
@@ -48,6 +49,23 @@ function labelsOnLines({ elements, named }) {
 for (const path of ['patterns/leaf-braid.json', 'patterns/little-flower.json', 'patterns/letter-motif.json']) {
   test(`${path}: no label touches another or lies on a line`, () => {
     const layout = labelsOf(read(path));
+    assert.deepEqual(labelsTouching(layout), []);
+    assert.deepEqual(labelsOnLines(layout), []);
+  });
+}
+
+for (const name of ['sketch-heart', 'sketch-butterfly']) {
+  test(`${name}, laid out by the fitter: as shown by default, no label touches another or lies on a line`, () => {
+    const pattern = read(`tests/fixtures/${name}.json`);
+    // The chart numbers one of each group by default, which is the left half of a mirrored design.
+    const seen = new Set();
+    const firstOfGroup = (element) => {
+      if (element.group === undefined) return true;
+      if (seen.has(element.group)) return false;
+      seen.add(element.group);
+      return true;
+    };
+    const layout = labelsOf(applyLayout(pattern, fitLayout(pattern, { aspect: 1 })), firstOfGroup);
     assert.deepEqual(labelsTouching(layout), []);
     assert.deepEqual(labelsOnLines(layout), []);
   });

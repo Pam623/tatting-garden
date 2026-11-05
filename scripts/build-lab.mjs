@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { bundleCode } from './lab-bundle.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const lab = process.argv[2] ?? join(root, 'lab');
@@ -23,12 +24,8 @@ const patterns = readdirSync(lab)
     return pattern;
   });
 
-// The five modules become one script, so the page works as a single file.
-const code = ['js/pattern.js', 'js/materials.js', 'js/diagram.js', 'js/convert.js', 'js/app.js']
-  .map(read)
-  .join('\n')
-  .replace(/^import [\s\S]*?;$/gm, '')
-  .replace(/^export /gm, '');
+// The modules become one script, so the page works as a single file.
+const code = bundleCode();
 
 const safe = JSON.stringify(patterns).replace(/</g, '\\u003c');
 const html = `<!doctype html>

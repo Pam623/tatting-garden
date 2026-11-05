@@ -71,6 +71,100 @@ const SAMPLE_MESSAGES = {
   not_granted: '这个页面还没有得到使用权限，请先允许后再试。',
 };
 
+// Stores the small copy once, however many times saving is tried.
+async function storeOriginal(kept) {
+  if (kept.uploaded) return kept.uploaded;
+  if (!studio.assets) throw { code: 'no_assets' };
+  const stored = await withDeadline(
+    retryIfUnavailable(() => studio.assets.upload(kept.blob, { type: 'image/jpeg' })),
+    WRITE_TIMEOUT_MS,
+  );
+  kept.uploaded = describeOriginal(stored, kept);
+  return kept.uploaded;
+}
+
+// The finished chart with its thread length and save button.
+function showConversionResult({ pattern, problems }, { result, status, kept, again, againLabel, failure, advice }) {
+  let size = readSetting('size', 20);
+  if (!THREAD_SIZES.includes(size)) size = 20;
+  const drawable = pattern && structureProblems(pattern).length === 0;
+  const notes = problems.length
+    ? `<p class="error">${failure}：${escapeHtml(problems.join('；'))}。${advice}。</p>`
+    : '';
+  result.innerHTML = `
+    ${notes}
+    ${drawable ? `
+      <h2 class="pattern-title">${escapeHtml(pattern.title ?? '新花样')}</h2>
+      <p class="summary">${summarize(pattern)}</p>
+      <p class="lede">${escapeHtml(pattern.summary ?? '')}</p>
+      <figure class="paper" id="chart">${renderChart(pattern, { counts: [], title: `${pattern.title}图解` })}</figure>
+      <section class="materials" id="materials"></section>
+      <section><h2>针数</h2>${stitchTable(pattern)}${legendFor(pattern)}</section>` : ''}
+    <div class="upload-actions">
+      ${drawable && problems.length === 0 && studio.db ? '<button type="button" class="primary" id="save">保存</button><button type="button" class="ghost" id="save-plain" hidden>不带原图，只存花样</button>' : ''}
+      <button type="button" class="ghost" id="again">${againLabel}</button>
+    </div>
+    ${drawable && problems.length === 0 && !studio.db ? '<p class="error">现在连不上存储，这个花样存不了。请确认已经登录，刷新页面后再转一次。</p>' : ''}`;
+  const materials = document.getElementById('materials');
+  const drawMaterials = () => {
+    materials.innerHTML = materialsPanel(pattern, size, pattern.repeat?.defaultTimes ?? 1);
+    materials.querySelectorAll('input[name="size"]').forEach((input) => {
+      input.addEventListener('change', () => {
+        size = Number(input.value);
+        saveSetting('size', size);
+        drawMaterials();
+      });
+    });
+  };
+  if (materials) drawMaterials();
+  document.getElementById('again').addEventListener('click', again);
+  const saveButton = document.getElementById('save');
+  const plainButton = document.getElementById('save-plain');
+  const save = async (withOriginal) => {
+    saveButton.disabled = true;
+    plainButton.disabled = true;
+    const enable = () => {
+      saveButton.disabled = false;
+      plainButton.disabled = false;
+    };
+    status.textContent = '正在保存……';
+    let stored = null;
+    if (withOriginal) {
+      try {
+        stored = await storeOriginal(kept);
+      } catch (error) {
+        console.error(error);
+        status.textContent = `${originalErrorMessage(error)}花样还没有存。可以再试一次，也可以先只存花样。`;
+        plainButton.hidden = false;
+        saveButton.textContent = '再试一次';
+        enable();
+        return;
+      }
+    }
+    try {
+      const row = buildRow(pattern, stored);
+      if (!rowFits(row)) {
+        status.textContent = '这个花样太大，存不进去。可以再转一次，或者换一张更简单的图。';
+        enable();
+        return;
+      }
+      const target = studio.db.collection('studio').doc(pattern.id);
+      await withDeadline(retryIfUnavailable(() => target.set(row)), WRITE_TIMEOUT_MS);
+      rememberPattern(pattern);
+      studio.savedIds.add(pattern.id);
+      if (stored) studio.originals.set(pattern.id, stored);
+      status.textContent = '';
+      location.hash = `#/p/${pattern.id}`;
+    } catch (error) {
+      console.error(error);
+      enable();
+      status.textContent = saveErrorMessage(error);
+    }
+  };
+  saveButton?.addEventListener('click', () => save(true));
+  plainButton?.addEventListener('click', () => save(false));
+}
+
 export async function showUpload() {
   document.title = '上传 · 梭编实验室';
   if (!studio.sample) {
@@ -104,8 +198,6 @@ export async function showUpload() {
   let original = null;
   let previewUrl = null;
   let run = 0;
-  let size = readSetting('size', 20);
-  if (!THREAD_SIZES.includes(size)) size = 20;
 
   const showPreview = (picture) => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -208,98 +300,6 @@ export async function showUpload() {
     }
   });
 
-  // Stores the small copy once, however many times saving is tried.
-  const storeOriginal = async (kept) => {
-    if (kept.uploaded) return kept.uploaded;
-    if (!studio.assets) throw { code: 'no_assets' };
-    const stored = await withDeadline(
-      retryIfUnavailable(() => studio.assets.upload(kept.blob, { type: 'image/jpeg' })),
-      WRITE_TIMEOUT_MS,
-    );
-    kept.uploaded = describeOriginal(stored, kept);
-    return kept.uploaded;
-  };
-
-  const showResult = ({ pattern, problems }) => {
-    const drawable = pattern && structureProblems(pattern).length === 0;
-    const notes = problems.length
-      ? `<p class="error">这张图没能完全转好：${escapeHtml(problems.join('；'))}。可以再转一次，或者换一张更清楚的图。</p>`
-      : '';
-    result.innerHTML = `
-      ${notes}
-      ${drawable ? `
-        <h2 class="pattern-title">${escapeHtml(pattern.title ?? '新花样')}</h2>
-        <p class="summary">${summarize(pattern)}</p>
-        <p class="lede">${escapeHtml(pattern.summary ?? '')}</p>
-        <figure class="paper" id="chart">${renderChart(pattern, { counts: [], title: `${pattern.title}图解` })}</figure>
-        <section class="materials" id="materials"></section>
-        <section><h2>针数</h2>${stitchTable(pattern)}${legendFor(pattern)}</section>` : ''}
-      <div class="upload-actions">
-        ${drawable && problems.length === 0 && studio.db ? '<button type="button" class="primary" id="save">保存</button><button type="button" class="ghost" id="save-plain" hidden>不带原图，只存花样</button>' : ''}
-        <button type="button" class="ghost" id="again">重新转</button>
-      </div>
-      ${drawable && problems.length === 0 && !studio.db ? '<p class="error">现在连不上存储，这个花样存不了。请确认已经登录，刷新页面后再转一次。</p>' : ''}`;
-    const materials = document.getElementById('materials');
-    const drawMaterials = () => {
-      materials.innerHTML = materialsPanel(pattern, size, pattern.repeat?.defaultTimes ?? 1);
-      materials.querySelectorAll('input[name="size"]').forEach((input) => {
-        input.addEventListener('change', () => {
-          size = Number(input.value);
-          saveSetting('size', size);
-          drawMaterials();
-        });
-      });
-    };
-    if (materials) drawMaterials();
-    document.getElementById('again').addEventListener('click', start);
-    const saveButton = document.getElementById('save');
-    const plainButton = document.getElementById('save-plain');
-    const kept = original;
-    const save = async (withOriginal) => {
-      saveButton.disabled = true;
-      plainButton.disabled = true;
-      const enable = () => {
-        saveButton.disabled = false;
-        plainButton.disabled = false;
-      };
-      status.textContent = '正在保存……';
-      let stored = null;
-      if (withOriginal) {
-        try {
-          stored = await storeOriginal(kept);
-        } catch (error) {
-          console.error(error);
-          status.textContent = `${originalErrorMessage(error)}花样还没有存。可以再试一次，也可以先只存花样。`;
-          plainButton.hidden = false;
-          saveButton.textContent = '再试一次';
-          enable();
-          return;
-        }
-      }
-      try {
-        const row = buildRow(pattern, stored);
-        if (!rowFits(row)) {
-          status.textContent = '这个花样太大，存不进去。可以再转一次，或者换一张更简单的图。';
-          enable();
-          return;
-        }
-        const target = studio.db.collection('studio').doc(pattern.id);
-        await withDeadline(retryIfUnavailable(() => target.set(row)), WRITE_TIMEOUT_MS);
-        rememberPattern(pattern);
-        studio.savedIds.add(pattern.id);
-        if (stored) studio.originals.set(pattern.id, stored);
-        status.textContent = '';
-        location.hash = `#/p/${pattern.id}`;
-      } catch (error) {
-        console.error(error);
-        enable();
-        status.textContent = saveErrorMessage(error);
-      }
-    };
-    saveButton?.addEventListener('click', () => save(true));
-    plainButton?.addEventListener('click', () => save(false));
-  };
-
   async function start() {
     if (!blob) return;
     run += 1;
@@ -310,7 +310,7 @@ export async function showUpload() {
       const outcome = await convertImage(blob, studio.sample, { onProgress: (text) => { if (mine === run) status.textContent = text; } });
       if (mine !== run) return;
       status.textContent = '';
-      showResult(outcome);
+      showConversionResult(outcome, { result, status, kept: original, again: start, againLabel: '重新转', failure: '这张图没能完全转好', advice: '可以再转一次，或者换一张更清楚的图' });
     } catch (error) {
       console.error(error);
       if (mine !== run) return;

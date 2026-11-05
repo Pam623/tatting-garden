@@ -1,0 +1,441 @@
+{
+  "schema": 2,
+  "id": "sketch-butterfly",
+  "title": "草图蝴蝶",
+  "craft": "梭编",
+  "difficulty": "进阶",
+  "tier": "sorted",
+  "rights": {
+    "kind": "original",
+    "note": "草图试验，未试编"
+  },
+  "summary": "八个环朝里，八段桥围出四片翅膀，A 和 I 环是身体，B、P 桥上的长耳是触角。",
+  "threadNote": "1 个梭子 + 1 团线，不剪线（梭子先绕好，线不断开）。每次翻面后，环和桥之间只留极短的线，紧贴着编。先把 B、P 桥上的装饰耳留长一点（约 1 厘米）。",
+  "layout": {
+    "viewBox": [
+      -165,
+      -175,
+      330,
+      330
+    ],
+    "closed": true
+  },
+  "closingFlip": true,
+  "elements": [
+    {
+      "id": "A",
+      "type": "ring",
+      "place": {
+        "base": [
+          0,
+          -62
+        ],
+        "tip": [
+          0,
+          -14.3
+        ],
+        "width": 29.6,
+        "dir": "cw"
+      },
+      "parts": [
+        "2",
+        "p:first",
+        "6",
+        "p:last",
+        "2"
+      ]
+    },
+    {
+      "id": "B",
+      "type": "bridge",
+      "group": "c0",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "from": [
+          0,
+          -62
+        ],
+        "to": [
+          -121,
+          -105
+        ],
+        "bulge": -57.6
+      },
+      "parts": [
+        "2",
+        "o",
+        "10"
+      ]
+    },
+    {
+      "id": "C",
+      "type": "ring",
+      "group": "r1",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "base": [
+          -121,
+          -105
+        ],
+        "tip": [
+          -30.1,
+          -35.4
+        ],
+        "width": 70.9,
+        "dir": "cw"
+      },
+      "parts": [
+        "10",
+        "j:A.last",
+        "2",
+        "o",
+        "2",
+        "p:last",
+        "10"
+      ]
+    },
+    {
+      "id": "D",
+      "type": "bridge",
+      "group": "c1",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "from": [
+          -121,
+          -105
+        ],
+        "to": [
+          -66,
+          -6
+        ],
+        "bulge": -97.6
+      },
+      "parts": [
+        "13"
+      ]
+    },
+    {
+      "id": "E",
+      "type": "ring",
+      "group": "r2",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "base": [
+          -66,
+          -6
+        ],
+        "tip": [
+          -18.3,
+          -6.8
+        ],
+        "width": 29.6,
+        "dir": "cw"
+      },
+      "parts": [
+        "2",
+        "j:C.last",
+        "6",
+        "p:last",
+        "2"
+      ]
+    },
+    {
+      "id": "F",
+      "type": "bridge",
+      "group": "c2",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "from": [
+          -66,
+          -6
+        ],
+        "to": [
+          -86,
+          65
+        ],
+        "bulge": -55.5
+      },
+      "parts": [
+        "8"
+      ]
+    },
+    {
+      "id": "G",
+      "type": "ring",
+      "group": "r3",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "base": [
+          -86,
+          65
+        ],
+        "tip": [
+          -21.9,
+          23.6
+        ],
+        "width": 47.3,
+        "dir": "cw"
+      },
+      "parts": [
+        "6",
+        "j:E.last",
+        "2",
+        "o",
+        "2",
+        "p:last",
+        "6"
+      ]
+    },
+    {
+      "id": "H",
+      "type": "bridge",
+      "group": "c3",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "from": [
+          -86,
+          65
+        ],
+        "to": [
+          0,
+          60
+        ],
+        "bulge": -37.4
+      },
+      "parts": [
+        "8"
+      ]
+    },
+    {
+      "id": "I",
+      "type": "ring",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "base": [
+          0,
+          60
+        ],
+        "tip": [
+          0,
+          12.3
+        ],
+        "width": 29.6,
+        "dir": "cw"
+      },
+      "parts": [
+        "2",
+        "j:G.last",
+        "6",
+        "p:last",
+        "2"
+      ]
+    },
+    {
+      "id": "J",
+      "type": "bridge",
+      "group": "c3",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "from": [
+          0,
+          60
+        ],
+        "to": [
+          86,
+          65
+        ],
+        "bulge": -37.4
+      },
+      "parts": [
+        "8"
+      ]
+    },
+    {
+      "id": "K",
+      "type": "ring",
+      "group": "r3",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "base": [
+          86,
+          65
+        ],
+        "tip": [
+          21.9,
+          23.6
+        ],
+        "width": 47.3,
+        "dir": "cw"
+      },
+      "parts": [
+        "6",
+        "j:I.last",
+        "2",
+        "o",
+        "2",
+        "p:last",
+        "6"
+      ]
+    },
+    {
+      "id": "L",
+      "type": "bridge",
+      "group": "c2",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "from": [
+          86,
+          65
+        ],
+        "to": [
+          66,
+          -6
+        ],
+        "bulge": -55.5
+      },
+      "parts": [
+        "8"
+      ]
+    },
+    {
+      "id": "M",
+      "type": "ring",
+      "group": "r2",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "base": [
+          66,
+          -6
+        ],
+        "tip": [
+          18.3,
+          -6.8
+        ],
+        "width": 29.6,
+        "dir": "cw"
+      },
+      "parts": [
+        "2",
+        "j:K.last",
+        "6",
+        "p:last",
+        "2"
+      ]
+    },
+    {
+      "id": "N",
+      "type": "bridge",
+      "group": "c1",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "from": [
+          66,
+          -6
+        ],
+        "to": [
+          121,
+          -105
+        ],
+        "bulge": -97.6
+      },
+      "parts": [
+        "13"
+      ]
+    },
+    {
+      "id": "O",
+      "type": "ring",
+      "group": "r1",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "base": [
+          121,
+          -105
+        ],
+        "tip": [
+          30.1,
+          -35.4
+        ],
+        "width": 70.9,
+        "dir": "cw"
+      },
+      "parts": [
+        "10",
+        "j:M.last",
+        "2",
+        "o",
+        "2",
+        "j:A.first",
+        "10"
+      ]
+    },
+    {
+      "id": "P",
+      "type": "bridge",
+      "group": "c0",
+      "flip": {
+        "value": true,
+        "source": "source"
+      },
+      "place": {
+        "from": [
+          121,
+          -105
+        ],
+        "to": [
+          0,
+          -62
+        ],
+        "bulge": -57.6
+      },
+      "parts": [
+        "10",
+        "o",
+        "2"
+      ]
+    }
+  ],
+  "finish": "P 桥编完后翻面，把两股线拉到 A 环的底部（起点），和起头的线尾打结，藏好线尾"
+}

@@ -108,9 +108,14 @@ const LABEL_BOXES = {
   flip: () => ({ w: 14, h: 13 }),
   start: () => ({ w: 22, h: 12 }),
 };
-const LETTER_SMALL = 0.7;
+// The sizes a label may shrink to, largest first. A smaller label beside its line beats a bigger one away from it.
+const COUNT_SIZES = [{ scale: 1 }, { scale: 0.8, name: 'small' }, { scale: 0.68, name: 'tiny' }];
+const LETTER_SIZES = [{ scale: 1 }, { scale: 0.7, name: 'small' }, { scale: 0.56, name: 'tiny' }];
 const LINE_CLEARANCE = 1.5;
 const OBSTACLE_SPACING = 3;
+const HUG_GAP = 4.5;        // the most air a label may leave between itself and its own line
+const HUG_ROOM = 30;        // how far around a line anything can matter to a label beside it
+const HUG_SPOTS = [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.1, 0.9];
 
 function boxesOverlap(a, b) {
   return Math.abs(a.x - b.x) * 2 < a.w + b.w && Math.abs(a.y - b.y) * 2 < a.h + b.h;
@@ -119,7 +124,7 @@ function boxesOverlap(a, b) {
 // Everything already drawn that a label must stay off, as points close enough that no line slips between them.
 function chartObstacles(elements, leftPicots, s) {
   const obstacles = [];
-  const addPoint = (x, y, owner, r = LINE_CLEARANCE) => obstacles.push({ x, y, owner, r: r * s });
+  const addPoint = (x, y, owner, r = LINE_CLEARANCE, ear = false) => obstacles.push({ x, y, owner, r: r * s, ear });
   const addSegment = (a, b) => {
     const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / (OBSTACLE_SPACING * s)));
     for (let i = 0; i <= steps; i++) addPoint(a.x + ((b.x - a.x) * i) / steps, a.y + ((b.y - a.y) * i) / steps, null);
@@ -135,12 +140,12 @@ function chartObstacles(elements, leftPicots, s) {
       if (item.kind === 'stitch') return;
       const p = geometry.pointAt(item.from / element.stitches);
       if (item.kind === 'deco') {
-        [4, 8, 11].forEach((out) => addPoint(p.x + p.out.x * out * s, p.y + p.out.y * out * s, null, 3.5));
+        [4, 8, 11].forEach((out) => addPoint(p.x + p.out.x * out * s, p.y + p.out.y * out * s, null, 3.5, true));
         return;
       }
       const cx = p.x + p.out.x * PICOT_R * s;
       const cy = p.y + p.out.y * PICOT_R * s;
-      addPoint(cx, cy, null, 3.5);
+      addPoint(cx, cy, null, 3.5, true);
       const target = item.kind === 'join' ? leftPicots.get(`${item.element}.${item.name}`) : null;
       if (target) addSegment({ x: cx, y: cy }, target);
     });
@@ -158,26 +163,119 @@ function pointInOutline(point, outline) {
   return inside;
 }
 
+// How much a label at this spot is in the way: of other labels, of lines, of the frame, of other rings.
+function spotPenalty(area, { obstacles, placed, view, rings, ignoreOwner = null, earWeight = 1 }, owner) {
+  let penalty = 0;
+  for (const other of placed) if (boxesOverlap(area, other)) penalty += 50;
+  for (const o of obstacles) {
+    if (o.owner !== null && o.owner === ignoreOwner) continue;
+    if (Math.abs(o.x - area.x) * 2 < area.w + o.r * 2 && Math.abs(o.y - area.y) * 2 < area.h + o.r * 2) penalty += o.ear ? earWeight : 1;
+  }
+  if (area.x - area.w / 2 < view.minX || area.x + area.w / 2 > view.minX + view.width
+    || area.y - area.h / 2 < view.minY || area.y + area.h / 2 > view.minY + view.height) penalty += 25;
+  // A number sitting inside a neighbouring ring reads as that ring's number.
+  if (rings.some((ring) => ring.id !== owner && pointInOutline(area, ring.outline))) penalty += 0.5;
+  return penalty;
+}
+
 // Picks each label's spot: the first candidate touching nothing, or else the one touching least.
 // The earlier a candidate is listed, the more it is wanted.
-function bestSpot(candidates, box, { obstacles, placed, view, rings, ignoreOwner = null }, owner = null) {
+function bestSpot(candidates, box, context, owner = null) {
   let best = null;
   for (const candidate of candidates) {
     const area = { x: candidate.x, y: candidate.y, w: box.w, h: box.h };
-    let penalty = 0;
-    for (const other of placed) if (boxesOverlap(area, other)) penalty += 50;
-    for (const o of obstacles) {
-      if (o.owner !== null && o.owner === ignoreOwner) continue;
-      if (Math.abs(o.x - area.x) * 2 < area.w + o.r * 2 && Math.abs(o.y - area.y) * 2 < area.h + o.r * 2) penalty += 1;
-    }
-    if (area.x - area.w / 2 < view.minX || area.x + area.w / 2 > view.minX + view.width
-      || area.y - area.h / 2 < view.minY || area.y + area.h / 2 > view.minY + view.height) penalty += 25;
-    // A number sitting inside a neighbouring ring reads as that ring's number.
-    if (rings.some((ring) => ring.id !== owner && pointInOutline(candidate, ring.outline))) penalty += 0.5;
+    const penalty = spotPenalty(area, context, owner);
     if (!best || penalty < best.penalty) best = { ...area, penalty };
     if (penalty === 0) break;
   }
   return best;
+}
+
+// The air between a label's box and the nearest of these points.
+function boxGap(area, points) {
+  let min = Infinity;
+  for (const p of points) {
+    const dx = Math.max(Math.abs(p.x - area.x) - area.w / 2, 0);
+    const dy = Math.max(Math.abs(p.y - area.y) - area.h / 2, 0);
+    const d = dx * dx + dy * dy;
+    if (d < min) min = d;
+  }
+  return Math.sqrt(min);
+}
+
+// Points along the stretch of an element's line between two fractions.
+function linePoints(element, from, to, s) {
+  const steps = Math.max(4, Math.ceil(((to - from) * element.geometry.length) / (OBSTACLE_SPACING * s)));
+  return Array.from({ length: steps + 1 }, (_, i) => element.geometry.pointAt(from + ((to - from) * i) / steps));
+}
+
+// The spot beside a stretch of line: right up against it, as near its middle as it can be, never
+// further from it than HUG_GAP. Crowded by another element's line, it scores worse, because a label
+// about as close to two lines doesn't say which it belongs to.
+function hugSpot(element, from, to, box, sides, s, context) {
+  const line = linePoints(element, from, to, s);
+  const reach = (HUG_ROOM * s) + Math.max(box.w, box.h);
+  const near = context.obstacles.filter((o) => line.some((p) => Math.abs(p.x - o.x) < reach && Math.abs(p.y - o.y) < reach));
+  const nearby = { ...context, obstacles: near };
+  const neighbours = near.filter((o) => o.owner !== null && o.owner !== element.id);
+  const maxOffset = HUG_GAP + Math.hypot(box.w, box.h) / (2 * s);
+  let best = null;
+  HUG_SPOTS.forEach((at) => {
+    const p = element.geometry.pointAt(from + (to - from) * at);
+    sides.forEach((side, sideRank) => {
+      for (let off = 0; off <= maxOffset; off += 1) {
+        const area = { x: p.x + side * p.out.x * off * s, y: p.y + side * p.out.y * off * s, w: box.w, h: box.h };
+        const gap = boxGap(area, line);
+        if (gap > HUG_GAP * s) break;
+        const toNeighbour = boxGap(area, neighbours);
+        // Closer to another element's line than to its own, a label reads as that element's.
+        const penalty = spotPenalty(area, nearby, element.id) + (toNeighbour < gap ? 0.25 : 0);
+        const crowded = Math.max(0, 8 - (toNeighbour - gap) / s);
+        const cost = penalty * 1000 + gap / s + Math.abs(at - 0.5) * 8 + sideRank * 2 + crowded * 0.5;
+        if (!best || cost < best.cost) best = { ...area, penalty, cost, gap };
+        if (penalty === 0) break;
+      }
+    });
+  });
+  return best;
+}
+
+// The largest size that fits beside the line untouched, or else whichever size touches least.
+function hugSized(element, from, to, makeBox, sizes, sides, s, context) {
+  let best = null;
+  for (const size of sizes) {
+    const box = makeBox(size.scale);
+    const spot = { ...hugSpot(element, from, to, box, sides, s, context), size: size.name };
+    if (!best || spot.penalty < best.penalty) best = spot;
+    if (spot.penalty === 0) break;
+  }
+  return best;
+}
+
+const letterBox = (element, s) => (scale) => ({ w: (12 * element.id.length + 4) * s * scale, h: 18 * s * scale });
+const countBox = (item, s) => (scale) => {
+  const box = LABEL_BOXES.count(numberText(item));
+  return { w: box.w * s * scale, h: box.h * s * scale };
+};
+const stitchItems = (element) => element.items.filter((item) => item.kind === 'stitch');
+
+// A bridge keeps its letter and its numbers together on one side: its outside, unless they fit better within.
+function bridgeSide(element, s, context) {
+  let chosen = null;
+  [1, -1].forEach((side) => {
+    const trial = { ...context, placed: [...context.placed] };
+    let penalty = 0;
+    const take = (spot) => {
+      penalty += spot.penalty;
+      trial.placed.push(spot);
+    };
+    take(hugSized(element, 0, 1, letterBox(element, s), LETTER_SIZES, [side], s, trial));
+    stitchItems(element).forEach((item) => {
+      take(hugSized(element, item.from / element.stitches, item.to / element.stitches, countBox(item, s), COUNT_SIZES, [side], s, trial));
+    });
+    if (!chosen || penalty < chosen.penalty) chosen = { side, penalty };
+  });
+  return chosen.side;
 }
 
 function placeLabel(candidates, box, context, owner = null) {
@@ -186,78 +284,82 @@ function placeLabel(candidates, box, context, owner = null) {
   return best;
 }
 
-// A letter keeps its size if it fits; a small ring gets a small letter inside rather than one elsewhere.
-function placeLetter(element, s, context) {
-  const box = (scale) => ({ w: (12 * element.id.length + 4) * s * scale, h: 18 * s * scale });
+// What a ring's own numbers would touch, all of them, whichever are on show.
+function ringNumbersPenalty(element, s, context, letter) {
+  const trial = { ...context, placed: [...context.placed, letter] };
+  let penalty = 0;
+  stitchItems(element).forEach((item) => {
+    const spot = hugSized(element, item.from / element.stitches, item.to / element.stitches, countBox(item, s), COUNT_SIZES, [1, -1], s, trial);
+    penalty += spot.penalty;
+    trial.placed.push(spot);
+  });
+  return penalty;
+}
+
+// A ring's letter stays inside it, shrinking to fit there, and to leave its numbers room beside the line.
+// Only a ring too small for even that has it just past the tip.
+function placeRingLetter(element, s, context) {
   const inside = letterCandidates(element, s);
-  const full = bestSpot(inside, box(1), context, element.id);
-  if (full.penalty === 0 || element.type !== 'ring') {
-    context.placed.push(full);
-    return full;
+  const box = letterBox(element, s);
+  let best = null;
+  for (const size of LETTER_SIZES) {
+    const spot = { ...bestSpot(inside, box(size.scale), context, element.id), size: size.name };
+    const total = spot.penalty * 10 + ringNumbersPenalty(element, s, context, spot);
+    if (!best || total < best.total) best = { spot, total };
+    if (total === 0) break;
   }
-  const small = bestSpot(inside, box(LETTER_SMALL), context, element.id);
-  if (small.penalty === 0) {
-    context.placed.push(small);
-    return { ...small, small: true };
+  if (best.spot.penalty > 0) {
+    const past = { ...bestSpot(letterPastTip(element, s), box(LETTER_SIZES[1].scale), context, element.id), size: LETTER_SIZES[1].name };
+    if (past.penalty < best.spot.penalty) best = { spot: past };
   }
-  const past = bestSpot(letterPastTip(element, s), box(1), context, element.id);
-  const chosen = past.penalty <= small.penalty ? past : { ...small, small: true };
-  context.placed.push(chosen);
-  return chosen;
+  context.placed.push(best.spot);
+  return best.spot;
 }
 
 function letterCandidates(element, s) {
   const { geometry, place } = element;
+  const tip = geometry.pointAt(0.5);
+  const [bx, by] = place.base;
+  const axis = { x: tip.x - bx, y: tip.y - by };
+  const length = Math.hypot(axis.x, axis.y) || 1;
+  const side = { x: axis.y / length, y: -axis.x / length };
   const list = [];
-  if (element.type === 'ring') {
-    const tip = geometry.pointAt(0.5);
-    const [bx, by] = place.base;
-    const axis = { x: tip.x - bx, y: tip.y - by };
-    const length = Math.hypot(axis.x, axis.y) || 1;
-    const side = { x: axis.y / length, y: -axis.x / length };
-    [0.62, 0.5, 0.72, 0.4, 0.8, 0.3].forEach((along) => {
-      [0, 7, -7, 13, -13].forEach((across) => {
-        list.push({ x: bx + axis.x * along + side.x * across * s, y: by + axis.y * along + side.y * across * s });
-      });
+  [0.62, 0.5, 0.72, 0.4, 0.8, 0.3].forEach((along) => {
+    [0, 7, -7, 13, -13].forEach((across) => {
+      list.push({ x: bx + axis.x * along + side.x * across * s, y: by + axis.y * along + side.y * across * s });
     });
-    return list;
-  }
-  [0.5, 0.4, 0.6, 0.3, 0.7].forEach((at) => {
-    const p = geometry.pointAt(at);
-    [-20, -27, -14, 20, 27, 14, -34, 34].forEach((off) => list.push({ x: p.x + p.out.x * off * s, y: p.y + p.out.y * off * s }));
   });
   return list;
 }
 
-// Last resort for a ring too small to hold even a small letter.
 function letterPastTip(element, s) {
   const tip = element.geometry.pointAt(0.5);
   const [bx, by] = element.place.base;
   const length = Math.hypot(tip.x - bx, tip.y - by) || 1;
   const ux = (tip.x - bx) / length;
   const uy = (tip.y - by) / length;
-  return [15, 22, 30].flatMap((past) => [0, 12, -12].map((across) => ({
+  return [9, 11].flatMap((past) => [0, 6, -6].map((across) => ({
     x: tip.x + ux * past * s + uy * across * s,
     y: tip.y + uy * past * s - ux * across * s,
   })));
 }
 
-function countCandidates(element, item, s) {
-  const { geometry, stitches } = element;
-  const list = [];
-  [0.5, 0.35, 0.65, 0.2, 0.8, 0.05, 0.95].forEach((at) => {
-    const p = geometry.pointAt((item.from + (item.to - item.from) * at) / stitches);
-    [13, 18, -13, -18, 9, -9, 24, -24, 30, -30, 37, -37].forEach((off) => list.push({ x: p.x + p.out.x * off * s, y: p.y + p.out.y * off * s }));
-  });
-  return list;
-}
-
 // The flip mark sits on its own cord like a bead, sliding along it to stay clear of everything else.
+// It goes on the longest stretch, which has room for it and the number beside it.
 function flipCandidates(element) {
   const spots = element.type === 'ring'
-    ? [0.09, 0.13, 0.17, 0.21, 0.91, 0.87, 0.83, 0.26, 0.74, 0.32, 0.68]
+    ? [0.09, 0.13, 0.17, 0.21, 0.91, 0.87, 0.83, 0.26, 0.74, 0.32, 0.68, 0.38, 0.62]
     : [0.14, 0.2, 0.26, 0.32, 0.38, 0.44, 0.5, 0.56, 0.62, 0.68, 0.74, 0.8, 0.86];
-  return spots.map((at) => element.geometry.pointAt(at));
+  const longest = stitchItems(element).reduce((a, b) => (b.to - b.from > a.to - a.from ? b : a));
+  const within = (at) => at * element.stitches > longest.from && at * element.stitches < longest.to;
+  const inStretch = spots.filter(within);
+  // A quarter of the way along a ring's stretch, leaving the middle to its number.
+  if (element.type === 'ring') {
+    const length = longest.to - longest.from;
+    const want = (longest.to === element.stitches ? longest.to - length / 4 : longest.from + length / 4) / element.stitches;
+    inStretch.sort((a, b) => Math.abs(a - want) - Math.abs(b - want));
+  }
+  return [...inStretch, ...spots.filter((at) => !within(at))].map((at) => element.geometry.pointAt(at));
 }
 
 // Where the arrow showing an element's direction goes. It stays beside its own element, and a ring
@@ -314,15 +416,30 @@ export function chartLabels(elements, leftPicots, s, view, showsCounts = () => t
     return { w: box.w * s, h: box.h * s };
   };
   elements.filter((e) => e.flip?.value === true).forEach((element) => {
-    labels.flip.set(element.id, placeLabel(flipCandidates(element), sized(LABEL_BOXES.flip), { ...context, ignoreOwner: element.id }));
+    labels.flip.set(element.id, placeLabel(flipCandidates(element), sized(LABEL_BOXES.flip), { ...context, ignoreOwner: element.id, earWeight: 4 }));
   });
-  elements.forEach((element) => {
-    labels.letter.set(element.id, placeLetter(element, s, context));
+  elements.filter((e) => e.type === 'ring').forEach((element) => {
+    labels.letter.set(element.id, placeRingLetter(element, s, context));
+  });
+  // Worked out for every bridge whichever numbers are on show, so its letter doesn't move when they change.
+  const sides = new Map();
+  elements.filter((e) => e.type === 'bridge').forEach((element) => {
+    const side = bridgeSide(element, s, context);
+    sides.set(element.id, side);
+    const letter = hugSized(element, 0, 1, letterBox(element, s), LETTER_SIZES, [side], s, context);
+    placed.push(letter);
+    labels.letter.set(element.id, letter);
   });
   if (elements.length) {
     const first = elements[0];
     labels.arrow = placeArrow(first, elements, s, context);
-    placed.push({ x: labels.arrow.x, y: labels.arrow.y, w: 26 * s, h: 26 * s });
+    const { along, out } = labels.arrow.p;
+    placed.push({
+      x: labels.arrow.x,
+      y: labels.arrow.y,
+      w: (Math.abs(along.x) * 26 + Math.abs(out.x) * 12) * s,
+      h: (Math.abs(along.y) * 26 + Math.abs(out.y) * 12) * s,
+    });
     const { p, side } = labels.arrow;
     const options = [17, 24, -17, -24, 32, -32].flatMap((off) => [0, 12, -12].map((along) => ({
       x: labels.arrow.x + side * p.out.x * off * s + p.along.x * along * s,
@@ -330,20 +447,20 @@ export function chartLabels(elements, leftPicots, s, view, showsCounts = () => t
     })));
     labels.start = placeLabel(options, sized(LABEL_BOXES.start), context);
   }
-  // The smallest elements have the least room around them, so their numbers choose first.
-  [...elements].filter(showsCounts).sort((a, b) => a.stitches - b.stitches).forEach((element) => {
-    element.items.forEach((item, index) => {
-      if (item.kind !== 'stitch') return;
-      const candidates = countCandidates(element, item, s);
-      const box = sized(LABEL_BOXES.count, numberText(item));
-      const full = bestSpot(candidates, box, context, element.id);
-      // In a crowded spot a smaller number that touches nothing beats a full-size one on a line.
-      const small = full.penalty >= 1 ? bestSpot(candidates, { w: box.w * 0.8, h: box.h * 0.8 }, context, element.id) : null;
-      const chosen = small && small.penalty < full.penalty ? { ...small, small: true } : full;
-      placed.push(chosen);
-      labels.count.set(`${element.id}:${index}`, chosen);
+  // A bridge's numbers can only go on its one side, so they choose before the rings'.
+  // Then the smallest elements, which have the least room around them.
+  [...elements].filter(showsCounts)
+    .sort((a, b) => (a.type === b.type ? a.stitches - b.stitches : a.type === 'bridge' ? -1 : 1))
+    .forEach((element) => {
+      element.items.forEach((item, index) => {
+        if (item.kind !== 'stitch') return;
+        const from = item.from / element.stitches;
+        const to = item.to / element.stitches;
+        const spot = hugSized(element, from, to, countBox(item, s), COUNT_SIZES, sides.has(element.id) ? [sides.get(element.id)] : [1, -1], s, context);
+        placed.push(spot);
+        labels.count.set(`${element.id}:${index}`, spot);
+      });
     });
-  });
   return { ...labels, context };
 }
 
@@ -444,7 +561,7 @@ export function renderChart(pattern, options = {}) {
       if (item.kind === 'stitch') {
         if (showsCounts(element)) {
           const spot = labels.count.get(`${element.id}:${itemIndex}`);
-          marks += `<text class="count${spot.small ? ' small' : ''}${now}${state}" ${attrs} x="${n(spot.x)}" y="${n(spot.y)}">${numberText(item)}</text>`;
+          marks += `<text class="count${spot.size ? ` ${spot.size}` : ''}${now}${state}" ${attrs} x="${n(spot.x)}" y="${n(spot.y)}">${numberText(item)}</text>`;
         }
         return;
       }
@@ -468,9 +585,9 @@ export function renderChart(pattern, options = {}) {
       }
     });
 
-    // Letter: inside a ring, on the inner side of a bridge, unless something else is already there.
+    // Letter: inside a ring, or beside a bridge on the same side as its numbers.
     const letter = labels.letter.get(element.id);
-    marks += `<text class="letter${letter.small ? ' small' : ''}${state}" ${attrs} x="${n(letter.x)}" y="${n(letter.y)}">${element.id}</text>`;
+    marks += `<text class="letter${letter.size ? ` ${letter.size}` : ''}${state}" ${attrs} x="${n(letter.x)}" y="${n(letter.y)}">${element.id}</text>`;
 
     if (element.flip?.value === true) {
       const { x, y } = labels.flip.get(element.id);

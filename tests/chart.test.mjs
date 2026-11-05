@@ -238,11 +238,15 @@ test('marks scale with the viewBox', () => {
   assert.match(renderChart(big), /--s:2"/);
 });
 
-test('a bridge letter sits on the opposite side from its outside', () => {
+test('a bridge letter sits on its outside when nothing is in the way, with its number on the same side', () => {
   const element = bridgeEl(['5']);
   const svg = renderChart(pattern([element]));
-  const y = Number(svg.match(/class="letter"[^>]*y="([-\d.]+)"/)[1]);
-  assert.ok(y > elementGeometry(element).pointAt(0.5).y);
+  const mid = elementGeometry(element).pointAt(0.5);
+  const sideOf = (y) => Math.sign((y - mid.y) * mid.out.y);
+  const letter = Number(svg.match(/class="letter"[^>]*y="([-\d.]+)"/)[1]);
+  const number = Number(svg.match(/class="count"[^>]*y="([-\d.]+)"/)[1]);
+  assert.equal(sideOf(letter), 1);
+  assert.equal(sideOf(number), 1);
 });
 
 test('the first element shows where to start', () => {

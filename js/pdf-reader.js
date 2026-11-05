@@ -55,7 +55,7 @@ async function drawPage(pdf, number) {
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
     const context = canvas.getContext('2d', { willReadFrequently: true });
-    // The default intent waits on animation frames, which stop whenever the tab or pane is hidden.
+    // A hidden pane stalled rendering with the default intent in testing; 'print' did not stall.
     await page.render({ canvas, canvasContext: context, viewport, intent: 'print' }).promise;
     if (looksBlank(context.getImageData(0, 0, canvas.width, canvas.height).data)) throw { code: 'blank' };
     return await canvasToJpeg(canvas, PDF_PAGE_QUALITY);

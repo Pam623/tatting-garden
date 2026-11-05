@@ -1,7 +1,8 @@
+import { rememberDrawings, showDraw } from './draw.js';
 import { showHome } from './home.js';
 import { showPattern } from './pattern-page.js';
 import { app, embedded, loadPattern, runCleanup } from './shared.js';
-import { rereadSaved, showDraw, showUpload, startStudio, studioNoticeHtml } from './studio.js';
+import { rereadSaved, showUpload, startStudio, studioNoticeHtml } from './studio.js';
 import { showWork } from './work.js';
 
 const studioReady = startStudio();
@@ -18,6 +19,7 @@ async function route() {
   const match = location.hash.match(/^#\/p\/([\w-]+)(\/work)?$/);
   document.body.classList.toggle('in-work', Boolean(match?.[2]));
   try {
+    rememberDrawings();
     // Fetch first, so a page that finishes loading late can't draw over a newer one.
     // A home page failure is sorted out per pattern inside showHome.
     if (match) await loadPattern(match[1]);

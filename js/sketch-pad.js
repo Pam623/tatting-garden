@@ -1,4 +1,4 @@
-// The drawing board on the private workbench. Strokes are kept in 0..1 coordinates, so the
+// The drawing board. Strokes are kept in 0..1 coordinates, so the
 // board can change size (a phone turning sideways) without losing or distorting the sketch.
 
 export const PAD_LINE_WIDTH = 0.012;
@@ -29,18 +29,6 @@ export function padMirrorPoints(points) {
 // Every line that gets drawn: each stroke, plus its reflection if it was drawn with mirroring on.
 export function padLines(strokes) {
   return strokes.flatMap((stroke) => (stroke.mirrored ? [stroke.points, padMirrorPoints(stroke.points)] : [stroke.points]));
-}
-
-// Width / height of what was drawn. Layout uses this to keep the sketch's proportions.
-export function sketchAspect(strokes) {
-  const points = padLines(strokes).flat();
-  if (points.length < 2) return 1;
-  const xs = points.map((p) => p[0]);
-  const ys = points.map((p) => p[1]);
-  const width = Math.max(...xs) - Math.min(...xs);
-  const height = Math.max(...ys) - Math.min(...ys);
-  if (width <= 0 || height <= 0) return 1;
-  return Math.min(3, Math.max(1 / 3, width / height));
 }
 
 export function padPointFromEvent(event, rect) {
@@ -148,8 +136,9 @@ export function startSketchPad(canvas, { onChange = () => {} } = {}) {
 
   return {
     isEmpty: () => strokes.length === 0,
-    aspect: () => sketchAspect(strokes),
-    mirrored: () => mirror,
+    lines: () => padLines(strokes),
+    anyMirrored: () => strokes.some((stroke) => stroke.mirrored),
+    refresh: resize,
     setMirror(value) {
       mirror = value;
       paint();
@@ -163,14 +152,6 @@ export function startSketchPad(canvas, { onChange = () => {} } = {}) {
       strokes = [];
       paint();
       onChange();
-    },
-    // Paints the sketch on a separate canvas so the on-screen guide stays out of it.
-    toCanvas(edge = 1200) {
-      const output = document.createElement('canvas');
-      output.width = edge;
-      output.height = edge;
-      paintSketch(output.getContext('2d'), strokes, edge);
-      return output;
     },
     stop() {
       watcher?.disconnect();

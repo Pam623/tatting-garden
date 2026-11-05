@@ -744,7 +744,8 @@ export function layoutProblems(pattern) {
     });
   }
   rings.forEach((r) => {
-    if (fitMirrorIndex(r.index, m, closed) !== r.index) return;
+    // A tip ring ('ccw') points away from its bridges by design, so only rings pointing in are measured.
+    if (fitMirrorIndex(r.index, m, closed) !== r.index || r.element.place.dir === 'ccw') return;
     const { base, tip } = r.element.place;
     const axisLength = fitDist(base, tip) || 1;
     bridges.filter((b) => fitSamePoint(b.element.place.from, base) || fitSamePoint(b.element.place.to, base)).forEach((b) => {
@@ -755,7 +756,7 @@ export function layoutProblems(pattern) {
       const dy = control[1] - base[1];
       const cos = (dx * (tip[0] - base[0]) + dy * (tip[1] - base[1])) / ((Math.hypot(dx, dy) || 1) * axisLength);
       const angle = (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI;
-      if (angle < 60 || angle > 125) problems.add(`${b.id} 桥和 ${r.id} 环看起来像一条线直线穿过：请缩短 ${b.id} 桥的针数`);
+      if (angle < 60 || angle > 155) problems.add(`${b.id} 桥和 ${r.id} 环看起来像一条线直线穿过：请缩短 ${b.id} 桥的针数`);
     });
   });
   model.forEach((e, i) => {

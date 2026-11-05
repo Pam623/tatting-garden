@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  padAddStroke, padExtendStroke, padLines, padMirrorPoints, padPointFromEvent, padUndo, paintSketch, sketchAspect,
+  padAddStroke, padExtendStroke, padLines, padMirrorPoints, padPointFromEvent, padUndo, paintSketch,
 } from '../js/sketch-pad.js';
 
 const draw = (strokes, points, mirrored) => {
@@ -43,15 +43,6 @@ test('a pointer is read relative to the board and kept on it', () => {
   const rect = { left: 10, top: 20, width: 200, height: 200 };
   assert.deepEqual(padPointFromEvent({ clientX: 110, clientY: 70 }, rect), [0.5, 0.25]);
   assert.deepEqual(padPointFromEvent({ clientX: -50, clientY: 500 }, rect), [0, 1]);
-});
-
-test('the aspect of a sketch counts both sides, and stays sane', () => {
-  assert.equal(sketchAspect([]), 1);
-  const halfWide = draw([], [[0.1, 0.4], [0.4, 0.6]], true);
-  assert.equal(sketchAspect(halfWide), 3, 'a very wide sketch is limited to 3');
-  const tall = draw([], [[0.45, 0.1], [0.4, 0.9]], true);
-  assert.ok(sketchAspect(tall) < 0.3 + 0.1);
-  assert.equal(sketchAspect(draw([], [[0.5, 0.5]], false)), 1, 'a single dot has no shape');
 });
 
 test('the saved picture has only ink on white paper', () => {

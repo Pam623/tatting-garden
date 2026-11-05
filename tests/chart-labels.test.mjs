@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { applyLayout, fitLayout } from '../js/fit-layout.js';
 import { chartLabels, leftPicotSpots, readChartElements, renderChart } from '../js/diagram.js';
+import { traceDesign } from '../js/trace-design.js';
+import { SKETCHES } from './fixtures/sketches.mjs';
 
 const read = (path) => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'));
 
@@ -169,6 +171,21 @@ for (const path of ['patterns/leaf-braid.json', 'patterns/little-flower.json', '
 for (const name of ['sketch-heart', 'sketch-butterfly']) {
   test(`${name}, laid out by the fitter: every number and letter sits right beside what it describes`, () => {
     const pattern = fittedFixture(name);
+    assert.deepEqual(labelFaults(pattern, firstOfEachGroup()), []);
+    assert.deepEqual(labelFaults(pattern), []);
+  });
+}
+
+for (const [name, strokes] of Object.entries(SKETCHES)) {
+  test(`${name}, traced from the drawing: no label touches or crowds anything`, () => {
+    const { pattern } = traceDesign({ strokes });
+    const [minX, minY, width, height] = pattern.layout.viewBox;
+    assert.ok(minX < 0 && minY < 1e9 && width > 0 && height > 0);
+    for (const shows of [firstOfEachGroup(), () => true]) {
+      const layout = labelsOf(pattern, shows);
+      assert.deepEqual(labelsTouching(layout), []);
+      assert.deepEqual(labelsOnLines(layout), []);
+    }
     assert.deepEqual(labelFaults(pattern, firstOfEachGroup()), []);
     assert.deepEqual(labelFaults(pattern), []);
   });

@@ -36,6 +36,10 @@ export function rememberPattern(pattern) {
   cache.set(pattern.id, pattern);
 }
 
+export function forgetPattern(id) {
+  cache.delete(id);
+}
+
 export function isKnownPattern(id) {
   return cache.has(id);
 }

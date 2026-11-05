@@ -1,7 +1,7 @@
 import { structureProblems, summarize } from './pattern.js';
 import { renderChart } from './diagram.js';
 import { THREAD_SIZES } from './materials.js';
-import { convertImage, designFromSketch } from './convert.js';
+import { convertImage } from './convert.js';
 import {
   buildRow, READ_TIMEOUT_MS, readSaved, retryIfUnavailable, RETRY_TIMEOUT_MS, rowFits, saveErrorMessage, savedNotice,
   withDeadline, WRITE_TIMEOUT_MS,
@@ -10,8 +10,7 @@ import {
   ACCEPTED_FILES, describeOriginal, fileKind, fileProblem, originalErrorMessage, pageNumbers, pdfErrorMessage,
   readPageNumber,
 } from './upload-file.js';
-import { canvasToJpeg, shrinkPicture } from './picture.js';
-import { startSketchPad } from './sketch-pad.js';
+import { shrinkPicture } from './picture.js';
 import { openPdf } from './pdf-reader.js';
 import {
   app, embedded, escapeHtml, isKnownPattern, legendFor, materialsPanel, readSetting, rememberPattern,
@@ -84,7 +83,7 @@ async function storeOriginal(kept) {
   return kept.uploaded;
 }
 
-// The finished chart with its thread length and save button, for uploads and sketches alike.
+// The finished chart with its thread length and save button.
 function showConversionResult({ pattern, problems }, { result, status, kept, again, againLabel, failure, advice }) {
   let size = readSetting('size', 20);
   if (!THREAD_SIZES.includes(size)) size = 20;
@@ -320,92 +319,4 @@ export async function showUpload() {
     if (mine === run) convert.disabled = false;
   }
   convert.addEventListener('click', start);
-}
-
-export async function showDraw() {
-  document.title = '画一个 · 梭编实验室';
-  if (!studio.sample) {
-    app.innerHTML = '<a class="back" href="#/">← 全部花样</a><p class="error">这里不能画草图。</p>';
-    return;
-  }
-  app.innerHTML = `
-    <div class="upload">
-      <a class="back" href="#/">← 全部花样</a>
-      <h1 class="pattern-title">画一个</h1>
-      <p class="lede">画一个简单的轮廓，比如爱心或蝴蝶。线条不用好看，看得出形状就行。</p>
-      <canvas class="sketch-pad" id="pad" role="img" aria-label="画板"></canvas>
-      <div class="pad-tools">
-        <button type="button" class="ghost" id="undo" disabled>撤销</button>
-        <button type="button" class="ghost" id="clear" disabled>清空</button>
-        <label class="pad-mirror"><input type="checkbox" id="mirror" checked> 左右对称</label>
-      </div>
-      <p class="hint" id="mirror-note" hidden>关掉后只是画的时候不镜像，图解还是按左右对称来设计。</p>
-      <button type="button" class="primary convert" id="design" disabled>变成图解</button>
-      <p class="hint" id="status" role="status" aria-live="polite"></p>
-      <div id="result"></div>
-    </div>`;
-  const design = document.getElementById('design');
-  const undo = document.getElementById('undo');
-  const clear = document.getElementById('clear');
-  const mirror = document.getElementById('mirror');
-  const status = document.getElementById('status');
-  const result = document.getElementById('result');
-  let run = 0;
-  let kept = null;
-  let busy = false;
-
-  const pad = startSketchPad(document.getElementById('pad'), {
-    // A changed sketch makes any chart below out of date, including one still being designed.
-    onChange() {
-      run += 1;
-      busy = false;
-      kept = null;
-      result.innerHTML = '';
-      status.textContent = '';
-      const empty = pad.isEmpty();
-      design.disabled = empty;
-      undo.disabled = empty;
-      clear.disabled = empty;
-    },
-  });
-  setCleanup(() => {
-    run += 1;
-    pad.stop();
-  });
-  undo.addEventListener('click', () => pad.undo());
-  clear.addEventListener('click', () => pad.clear());
-  mirror.addEventListener('change', () => {
-    pad.setMirror(mirror.checked);
-    document.getElementById('mirror-note').hidden = mirror.checked;
-  });
-
-  async function start() {
-    if (pad.isEmpty() || busy) return;
-    run += 1;
-    const mine = run;
-    busy = true;
-    design.disabled = true;
-    result.innerHTML = '';
-    const report = (text) => { if (mine === run) status.textContent = text; };
-    try {
-      const picture = await canvasToJpeg(pad.toCanvas(), 0.92);
-      if (!kept) kept = { ...await shrinkPicture(picture), fileName: '手绘草图', uploaded: null };
-      const keptForRun = kept;
-      const outcome = await designFromSketch(picture, studio.sample, { aspect: pad.aspect(), onProgress: report });
-      if (mine !== run) return;
-      status.textContent = '';
-      showConversionResult(outcome, {
-        result, status, kept: keptForRun, again: start, againLabel: '重新设计', failure: '这张草图没能设计好', advice: '可以再设计一次，或者把草图画简单一点',
-      });
-    } catch (error) {
-      console.error(error);
-      if (mine !== run) return;
-      status.textContent = SAMPLE_MESSAGES[error?.code] ?? '设计没成功，请过一会儿再试。';
-    }
-    if (mine === run) {
-      busy = false;
-      design.disabled = pad.isEmpty();
-    }
-  }
-  design.addEventListener('click', start);
 }

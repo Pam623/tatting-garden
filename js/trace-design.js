@@ -1,7 +1,18 @@
 // Turns a drawn outline into a complete pattern with no AI: the outline decides where rings go, the
 // stitch unit decides their counts, and fit-layout's own checks decide whether the result can be made.
 // Only the left half is worked out; the right half is its exact mirror.
-import { elementGeometry } from './diagram.js';
+//
+// How it is worked, which every generated pattern follows (docs/conversion.md says the same for people):
+// - One shuttle and one ball, never cut. The work goes once round the outline, starting at the top ring.
+// - Every bridge is worked from the same face, so its stitch heads lie outside and it bows outward. No bridge
+//   here bows inward: a dent in the outline is a corner where two outward bows meet at an inward ring's base.
+// - A ring pointing into the shape lies on the other side of the core thread from the bridges' heads, so it is
+//   worked from the reverse face: flip before it, flip again before the next bridge.
+// - A ring pointing out of the shape (a tip) is a thrown-off ring: same face as the bridges, no flip either side.
+// - So a flip exists exactly where the working face changes, and nowhere else.
+// - A long straight run is a bridge pulled nearly taut between two rings. What holds a corner in place is the
+//   join between neighbouring inward rings, so a pattern whose neighbours can't all join is refused as loose.
+import { chartLabels, elementGeometry, leftPicotSpots, readChartElements } from './diagram.js';
 import { RING_SHAPE, STITCH_UNIT as U, layoutProblems } from './fit-layout.js';
 import { checkPattern, structureProblems } from './pattern.js';
 
@@ -13,10 +24,11 @@ const CONVEX_CORNER = 52;
 const CONCAVE_CORNER = 40;
 const MAX_CORNERS = 14;
 const MIN_LIKENESS = 0.72;
-const MAX_STITCHES = 340;
-const SIZES = [230, 270, 320, 380, 450];
-const SPACINGS = [65, 85, 110, 145];
-const TIP_RINGS = [6, 8, 10];
+const MAX_STITCHES = 240;
+const SIZES = [190, 230, 270, 320, 380];
+const SPACINGS = [85, 110, 145, 190];
+const TIP_RINGS = [6, 8];
+const ENOUGH_CANDIDATES = 12;
 const TIP_REACH = 0.65;
 const QUALITY_MARGIN = 0.1;
 const MIN_RING = 6;
@@ -25,7 +37,7 @@ const MAX_RING = 26;
 const REACH = 1.25 * U;
 const CLEAR = 0.4 * U;
 const AXIS_MIN = 62;
-const AXIS_MAX = 123;
+const AXIS_MAX = 153;
 
 const dist = (a, b) => Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2);
 const round1 = (value) => Math.round(value * 10) / 10 + 0;
@@ -61,38 +73,6 @@ function strokesToInk(lines, radius) {
       for (let k = 0; k <= steps; k++) dab(at[i - 1][0] + ((at[i][0] - at[i - 1][0]) * k) / steps, at[i - 1][1] + ((at[i][1] - at[i - 1][1]) * k) / steps);
     }
   });
-  return ink;
-}
-
-// Pixels (1 for ink) are boxed to what was drawn, then scaled onto the same grid.
-function pixelsToInk({ width, height, data }) {
-  let minX = width;
-  let minY = height;
-  let maxX = -1;
-  let maxY = -1;
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (data[y * width + x]) {
-        minX = Math.min(minX, x);
-        maxX = Math.max(maxX, x);
-        minY = Math.min(minY, y);
-        maxY = Math.max(maxY, y);
-      }
-    }
-  }
-  if (maxX < 0) return null;
-  const span = Math.max(maxX - minX, maxY - minY) + 1;
-  const fit = (GRID * 0.76) / span;
-  const offX = (GRID - (maxX - minX + 1) * fit) / 2;
-  const offY = (GRID - (maxY - minY + 1) * fit) / 2;
-  const ink = new Uint8Array(GRID * GRID);
-  for (let y = 0; y < GRID; y++) {
-    for (let x = 0; x < GRID; x++) {
-      const sx = Math.floor((x + 0.5 - offX) / fit) + minX;
-      const sy = Math.floor((y + 0.5 - offY) / fit) + minY;
-      if (sx >= minX && sx <= maxX && sy >= minY && sy <= maxY && data[sy * width + sx]) ink[y * GRID + x] = 1;
-    }
-  }
   return ink;
 }
 
@@ -373,11 +353,15 @@ function ringLength(stitches) {
   return (stitches * U) / ringPerimeter;
 }
 
+// Which way round a ring is drawn follows the face it is worked from: inward rings 'cw', tips 'ccw'.
+const ringDir = (ring) => (ring.role === 'tip' ? 'ccw' : 'cw');
+
 const shapes = new Map();
-function ringShape(stitches) {
-  if (!shapes.has(stitches)) {
+function ringShape(stitches, dir) {
+  const key = `${stitches}${dir}`;
+  if (!shapes.has(key)) {
     const length = ringLength(stitches);
-    const geometry = elementGeometry({ type: 'ring', place: { base: [0, 0], tip: [length, 0], width: length * RING_SHAPE, dir: 'cw' } });
+    const geometry = elementGeometry({ type: 'ring', place: { base: [0, 0], tip: [length, 0], width: length * RING_SHAPE, dir } });
     const outline = Array.from({ length: 28 }, (_, k) => {
       const p = geometry.pointAt(k / 28);
       return [p.x, p.y];
@@ -387,9 +371,9 @@ function ringShape(stitches) {
       const p = geometry.pointAt(at / stitches);
       ears.push({ at, x: p.x, y: p.y });
     }
-    shapes.set(stitches, { length, outline, ears });
+    shapes.set(key, { length, outline, ears });
   }
-  return shapes.get(stitches);
+  return shapes.get(key);
 }
 
 // A ring's points in the world; mirrored gives its reflection, with stitch positions counted the other way.
@@ -401,7 +385,7 @@ function worldRing(ring, mirrored = false) {
 }
 
 function computeWorldRing(ring, mirrored) {
-  const shape = ringShape(ring.stitches);
+  const shape = ringShape(ring.stitches, ringDir(ring));
   const cos = Math.cos(ring.angle);
   const sin = Math.sin(ring.angle);
   const flipX = mirrored ? -1 : 1;
@@ -502,27 +486,14 @@ function planHalf(walk, corners, ends, { spacing, tipRing, topStyle, bottomStyle
       } else {
         out.push({ role: 'in', axis: true, l, stitches: 10, angle: axisAngleIn(atTop), base: [0, point[1]] });
       }
+    } else if (style === 'out') {
+      // A dip can also take a tip ring standing in it, which leaves the room inside to the rings beside it.
+      out.push({ role: 'tip', axis: true, inDip: true, l, stitches: tipRing, angle: axisAngleIn(atTop) + Math.PI, fixed: true, base: [0, point[1]] });
     } else if (style === 'cluster') {
-      // A small ring each side of the axis ring takes the bridge, so the bridge can leave at any angle.
-      if (kind === 'tip') {
-        const length = ringLength(tipRing);
-        const base = [0, point[1] + sign * length * TIP_REACH];
-        const angle = axisAngleIn(atTop) + Math.PI;
-        out.push({ role: 'tip', axis: true, l, stitches: tipRing, angle, fixed: true, base, joinNext: 'none' });
-        const side = [-1.5 * U, base[1] + sign * 0.3 * U];
-        const tilt = atTop ? -Math.PI / 2 - 0.8 : Math.PI / 2 + 0.8;
-        const nearest = nearestLength(walk, side, atTop);
-        out.push({ role: 'shoulder', l: nearest, stitches: MIN_RING + 2, angle: tilt, fixed: true, base: side });
-      } else {
-        const bases = walk.at(atTop ? 1.75 * U : walk.total - 1.75 * U);
-        out.push({ role: 'in', axis: true, l, stitches: 8, angle: axisAngleIn(atTop), base: [0, point[1]], joinNext: 'none' });
-        out.push({ role: 'in', notchTwin: true, l: atTop ? 1.75 * U : walk.total - 1.75 * U, stitches: 10, base: [Math.min(bases[0], -1.2 * U), bases[1]], angle: walk.inward(atTop ? 2 * U : walk.total - 2 * U) });
-      }
-    } else if (style === 'axis-bridge') {
-      const inset = 1.7 * U;
-      const here = walk.at(atTop ? inset : walk.total - inset);
-      const base = [Math.min(here[0], -1.2 * U), here[1]];
-      out.push({ role: 'in', notchTwin: true, l: atTop ? inset : walk.total - inset, stitches: 10, base, angle: walk.inward(atTop ? inset : walk.total - inset), besideAxisBridge: true });
+      // A deep notch: a small ring on the axis with a ring either side of it, which take the bridges at a flatter angle.
+      const bases = walk.at(atTop ? 1.75 * U : walk.total - 1.75 * U);
+      out.push({ role: 'in', axis: true, l, stitches: 8, angle: axisAngleIn(atTop), base: [0, point[1]], joinNext: 'none' });
+      out.push({ role: 'in', notchTwin: true, l: atTop ? 1.75 * U : walk.total - 1.75 * U, stitches: 10, base: [Math.min(bases[0], -1.2 * U), bases[1]], angle: walk.inward(atTop ? 2 * U : walk.total - 2 * U) });
     }
     return atTop || style === 'single' ? out : out.reverse().map((ring, i, list) => ({ ...ring, joinNext: i === list.length - 1 ? ring.joinNext : list[i + 1]?.joinNext ?? 'bridge' }));
   };
@@ -537,7 +508,7 @@ function planHalf(walk, corners, ends, { spacing, tipRing, topStyle, bottomStyle
   }
   firsts.forEach(add);
 
-  const startL = firsts[firsts.length - 1].l + (firsts[firsts.length - 1].role === 'tip' ? 0 : 0);
+  const startL = firsts[firsts.length - 1].l;
   const endL = lasts[0].l;
   const fixed = corners
     .map((corner) => ({ ...corner, l: walk.lengthOfIndex(corner.i) }))
@@ -571,21 +542,6 @@ function planHalf(walk, corners, ends, { spacing, tipRing, topStyle, bottomStyle
   return { rings, topStyle, bottomStyle };
 }
 
-function nearestLength(walk, point, atTop) {
-  let best = atTop ? 0 : walk.total;
-  let bestD = Infinity;
-  for (let i = 0; i < walk.points.length; i++) {
-    const l = walk.lengths[i];
-    if (atTop ? l > walk.total / 2 : l < walk.total / 2) continue;
-    const d = dist(walk.points[i], point);
-    if (d < bestD) {
-      bestD = d;
-      best = l;
-    }
-  }
-  return best;
-}
-
 function straightness(walk, fromL, toL) {
   const a = walk.at(fromL);
   const b = walk.at(toL);
@@ -610,28 +566,16 @@ function linksOf(half) {
     const a = inner[i];
     const b = inner[i + 1];
     const between = rings.slice(rings.indexOf(a) + 1, rings.indexOf(b));
-    links.push({ a, b, must: false, want: true, close: between.length === 0 });
+    links.push({ a, b, must: false, want: true, close: true });
   }
   for (let i = 0; i < rings.length - 1; i++) {
     const a = rings[i];
     const b = rings[i + 1];
     if (a.role !== 'in' || b.role !== 'in') links.push({ a, b, must: a.joinNext === 'none', want: a.joinNext === 'none' });
   }
-  [rings[0], rings[rings.length - 1]].forEach((r, index) => {
-    if (r.axis) return;
-    links.push({ a: r, b: r, across: true, must: r.besideAxisBridge === true, want: true, atTop: index === 0 });
-  });
-  const nearAxis = (r) => r.role === 'in' && !r.axis;
-  if (rings[0].axis && rings[0].role === 'tip' && nearAxis(rings[rings[0].joinNext === 'none' ? 2 : 1] ?? {})) {
-    const r = rings[rings[0].joinNext === 'none' ? 2 : 1];
-    links.push({ a: r, b: r, across: true, must: false, want: true });
-  }
-  const end = rings[rings.length - 1];
-  if (end.axis && end.role === 'tip') {
-    const before = rings[rings.length - 2];
-    const r = before?.role === 'shoulder' ? rings[rings.length - 3] : before;
-    if (r && nearAxis(r)) links.push({ a: r, b: r, across: true, must: false, want: true });
-  }
+  // With a tip on the axis, the nearest inward rings either side of it hold on to each other across the axis.
+  if (rings[0].role === 'tip' && inner.length) links.push({ a: inner[0], b: inner[0], across: true, want: true });
+  if (rings[rings.length - 1].role === 'tip' && inner.length > 1) links.push({ a: inner[inner.length - 1], b: inner[inner.length - 1], across: true, want: true });
   return links;
 }
 
@@ -781,6 +725,34 @@ function settleRings(half, walk) {
     });
     if (!changed) break;
   }
+  // Neighbours that still can't reach get one more try together: both rings may grow and turn at once.
+  const offsets = [0, 0.2, -0.2, 0.4, -0.4, 0.6, -0.6];
+  const growth = [0, 2, 4, 6, -2];
+  const reaches = (link) => linkGap(link).reach <= REACH;
+  const settings = (ring) => (ring.fixed ? [[ring.stitches, ring.angle]] : growth.flatMap((g) => offsets.map((o) => [ring.stitches + g, ring.angle + o]))
+    .filter(([stitches, angle]) => stitches >= MIN_RING + 2 && stitches <= MAX_RING && (ring.axis ? angle === ring.angle : Math.abs(angle - ring.home) <= 1.25)));
+  const stuck = links.filter((link) => (link.close || link.across) && !reaches(link));
+  // More than this and the plan is hopeless; it isn't worth the time.
+  if (stuck.length <= 2) stuck.forEach((link) => {
+    const { a, b } = link;
+    const start = [a.stitches, a.angle, b.stitches, b.angle];
+    const set = ([sa, aa, sb, ab]) => {
+      a.stitches = sa;
+      a.angle = aa;
+      b.stitches = sb;
+      b.angle = ab;
+    };
+    const options = settings(a).flatMap(([sa, aa]) => (a === b ? [[sa, aa, sa, aa]] : settings(b).map(([sb, ab]) => [sa, aa, sb, ab])));
+    const reaching = options.filter((option) => {
+      set(option);
+      return reaches(link);
+    }).sort((p, q) => p[0] + p[2] - q[0] - q[2]);
+    const found = reaching.find((option) => {
+      set(option);
+      return !inTheWay(a) && !inTheWay(b);
+    });
+    set(found ?? start);
+  });
   return links;
 }
 
@@ -845,23 +817,32 @@ function axisAngle(from, to, bulge, base, ringAngle) {
   return degrees(Math.acos(Math.max(-1, Math.min(1, cos))));
 }
 
+// A run the drawing keeps straight, or dents inward, is a bridge pulled nearly taut: bridges never bow inward.
 function isStraightRun(walk, a, b) {
-  const pointed = (ring) => ring.role === 'tip' || ring.role === 'shoulder';
-  // Out of a notch the line stays crisp even where the drawing curves, or the arc fills the notch in.
   if (a.notchTwin || b.notchTwin) return !a.axis && !b.axis;
-  if (a.axis || b.axis || !(pointed(a) || pointed(b))) return false;
-  return Math.abs(drawnBow(walk, walk.at(a.l), walk.at(b.l), a.l, b.l)) < 0.025;
+  // Into a tip the line runs taut even if the drawing curves a little, or the point goes round.
+  return drawnBow(walk, walk.at(a.l), walk.at(b.l), a.l, b.l) > (a.role === 'tip' || b.role === 'tip' ? -0.08 : -0.025);
 }
 
 // Slides each tip ring a little, so its straight bridges come out a whole number of stitches long.
 function fitTipBases(half, walk) {
   const { rings } = half;
   rings.forEach((ring, i) => {
-    if ((ring.role !== 'tip' && ring.role !== 'shoulder') || ring.axis) return;
+    if (ring.role !== 'tip' || ring.inDip) return;
     const before = i > 0 && rings[i - 1].joinNext !== 'none' && isStraightRun(walk, rings[i - 1], ring) ? rings[i - 1] : null;
     const after = i < rings.length - 1 && ring.joinNext !== 'none' && isStraightRun(walk, ring, rings[i + 1]) ? rings[i + 1] : null;
     const target = (other) => Math.max(2, Math.round(dist(other.base, ring.base) / NEAR_STRAIGHT / U)) * U * NEAR_STRAIGHT;
-    if (before && after) {
+    if (ring.axis) {
+      // A tip on the axis can only slide along it, and its bridge has the same length on both sides.
+      const other = before ?? after;
+      if (!other) return;
+      const r = target(other);
+      const across = r * r - other.base[0] * other.base[0];
+      if (across <= 0) return;
+      const options = [other.base[1] - Math.sqrt(across), other.base[1] + Math.sqrt(across)];
+      const y = options.reduce((p, q) => (Math.abs(p - ring.base[1]) < Math.abs(q - ring.base[1]) ? p : q));
+      if (Math.abs(y - ring.base[1]) < 1.2 * U) ring.base = [0, y];
+    } else if (before && after) {
       const r0 = target(before);
       const r1 = target(after);
       const d = dist(before.base, after.base);
@@ -886,6 +867,7 @@ function fitTipBases(half, walk) {
 }
 
 // One bridge between two rings: the stitch count follows the outline, the arc follows the stitch count.
+// On the left half walked downward a negative bulge is outward, and the mirror keeps the same value.
 function makeBridge(walk, a, b) {
   const from = a.base;
   const to = b.base;
@@ -895,35 +877,29 @@ function makeBridge(walk, a, b) {
   const anchorA = walk.at(a.l);
   const anchorB = walk.at(b.l);
   const drawn = stretchLength(walk, a.l, b.l);
-  const bow = drawnBow(walk, anchorA, anchorB, a.l, b.l);
-  let side = Math.sign(bow);
-  // A straight run bends away from the corners it joins, which is also how a chain lies between them.
-  const sharp = (ring) => ring.role === 'tip' || ring.role === 'shoulder' || ring.notch || ring.notchTwin;
-  if (Math.abs(bow) < 0.025) side = sharp(a) && sharp(b) ? 1 : -1;
-  const wantArc = Math.max(chord / 0.96, Math.min(drawn * (chord / (dist(anchorA, anchorB) || chord)), chord * 1.14));
-  // A straight line to a corner stays nearly straight: a full arc from both sides of a sharp tip would cross.
+  // As long as the drawn line, within what a bridge can do: from nearly taut to a clear bow.
+  const wantArc = Math.max(chord / NEAR_STRAIGHT, Math.min(drawn * (chord / (dist(anchorA, anchorB) || chord)), chord * 1.14));
+  // Only a ring pointing into the shape can seem to run straight into its bridge.
+  const axisRing = a.axis && a.role === 'in' ? a : b.axis && b.role === 'in' ? b : null;
+  const fits = (bulge) => !axisRing || (axisAngle(from, to, bulge, axisRing.base, axisRing.angle) >= AXIS_MIN && axisAngle(from, to, bulge, axisRing.base, axisRing.angle) <= AXIS_MAX);
   if (isStraightRun(walk, a, b)) {
     const stitches = Math.max(2, Math.round(chord / NEAR_STRAIGHT / U));
-    if (stitches * U * 0.9 <= chord && stitches * U >= chord * 1.004) return { stitches, bulge: round1(side * bulgeFor(chord, stitches * U)) };
+    const bulge = round1(-bulgeFor(chord, stitches * U));
+    if (stitches * U * 0.9 <= chord && stitches * U >= chord * 1.004 && fits(bulge)) return { stitches, bulge };
   }
-  const least = Math.max(2, Math.ceil(wantArc / U));
-  const axisRing = a.axis ? a : b.axis ? b : null;
+  const least = Math.max(2, Math.ceil((chord * 1.004) / U), Math.round(wantArc / U));
   for (let extra = 0; extra <= 8; extra++) {
     const stitches = least + extra;
     if (chord < 0.5 * stitches * U) break;
-    const size = bulgeFor(chord, stitches * U);
-    for (const sign of axisRing ? [side, -side] : [side]) {
-      const bulge = round1(sign * size);
-      if (!axisRing) return { stitches, bulge };
-      const angle = axisAngle(from, to, bulge, axisRing.base, axisRing.angle);
-      if (angle >= AXIS_MIN && angle <= AXIS_MAX) return { stitches, bulge };
-    }
+    const bulge = round1(-bulgeFor(chord, stitches * U));
+    if (fits(bulge)) return { stitches, bulge };
   }
   return null;
 }
 
 /* ---------- from a plan to a pattern ---------- */
 
+const THREAD_NOTE = '1 个梭子 + 1 团线，不剪线。桥都从同一面编，弧朝外。朝里的环翻到反面编，编完翻回来；朝外的环和桥同一面，不翻。只在图上有“翻”的地方翻。环和桥之间只留极短的线。';
 const NAMES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const nameOf = (i) => (i < 26 ? NAMES[i] : `${NAMES[Math.floor(i / 26) - 1]}${NAMES[i % 26]}`);
 
@@ -935,7 +911,7 @@ function roundedRing(ring) {
     base[0] = 0;
     tip[0] = 0;
   }
-  return { base, tip, width: round1(length * RING_SHAPE), dir: 'cw' };
+  return { base, tip, width: round1(length * RING_SHAPE), dir: ringDir(ring) };
 }
 
 function buildPattern(half, links, walk, title) {
@@ -946,13 +922,7 @@ function buildPattern(half, links, walk, title) {
     order.push({ ring, mirrored: false, group: `r${i}` });
     if (i < rings.length - 1) order.push(ring.joinNext === 'none' ? null : { bridgeFrom: i, mirrored: false, group: `b${i}` });
   });
-  const leftRings = order.filter(Boolean);
-  const hasTop = rings[0].axis;
-  const hasBottom = rings[rings.length - 1].axis;
-  const all = [];
-  if (!hasTop) all.push({ axisBridge: true, atTop: true, group: 'top' });
-  leftRings.forEach((e) => all.push(e));
-  if (!hasBottom) all.push({ axisBridge: true, atTop: false, group: 'bottom' });
+  const all = order.filter(Boolean);
   [...rings].reverse().forEach((ring, reversedIndex) => {
     const i = rings.length - 1 - reversedIndex;
     if (ring.axis) {
@@ -975,8 +945,8 @@ function buildPattern(half, links, walk, title) {
   const free = (entry, at) => taken(entry).every((ear) => Math.abs(ear.at - at) >= 2);
   const spots = (world, entry) => world.ears.filter((e) => free(entry, e.at));
   const joined = [];
-  const unjoined = [];
-  let looseNeighbours = 0;
+  const loose = [];
+  let joinedAcross = false;
   let earCount = 0;
   const addLink = (a, mirroredA, b, mirroredB) => {
     const ea = entryOf(a, mirroredA);
@@ -1009,44 +979,33 @@ function buildPattern(half, links, walk, title) {
       if (ok && !(link.a.axis && link.b.axis)) {
         // The other side gets the same join; rings on the axis are one ring, so they hold a second ear.
         const mirrorOk = addLink(link.a, true, link.b, true);
-        if (!mirrorOk) return { failed: `对称那一侧的 ${entryOf(link.a, true)?.id ?? ''} 接不上` };
+        if (!mirrorOk) return { failed: 'mirror' };
       }
     }
-    if (!ok && link.must) return { failed: '相邻的环够不着' };
-    if (!ok) unjoined.push(link);
-    if (!ok && link.close) looseNeighbours += 1;
+    if (!ok && link.must) return { failed: 'reach' };
+    if (!ok && link.close) loose.push(link.a.base[1]);
+    if (ok && link.across) joinedAcross = true;
   }
 
+  // With tips on the axis at both ends, nothing else ties the left half to the right.
+  if (rings[0].role === 'tip' && rings[rings.length - 1].role === 'tip' && !joinedAcross) loose.push(rings[0].base[1]);
+
   const placeOf = (entry) => {
-    if (entry.ring) {
-      const place = roundedRing(entry.ring);
-      return entry.mirrored && !entry.ring.axis ? { base: [round1(-place.base[0]), place.base[1]], tip: [round1(-place.tip[0]), place.tip[1]], width: place.width, dir: 'cw' } : place;
-    }
-    return null;
+    const place = roundedRing(entry.ring);
+    return entry.mirrored && !entry.ring.axis ? { ...place, base: [round1(-place.base[0]), place.base[1]], tip: [round1(-place.tip[0]), place.tip[1]] } : place;
   };
-  const elements = [];
   const bridgeShapes = new Map();
   for (const entry of all) {
-    if (entry.ring) continue;
-    const key = entry.axisBridge ? entry.group : entry.bridgeFrom;
-    if (bridgeShapes.has(key)) continue;
-    if (entry.axisBridge) {
-      const ring = entry.atTop ? rings[0] : rings[rings.length - 1];
-      const chord = Math.abs(ring.base[0]) * 2;
-      const stitches = Math.max(2, Math.ceil(chord / 0.96 / U));
-      const size = bulgeFor(chord, stitches * U);
-      bridgeShapes.set(key, { stitches, size });
-    } else {
-      const shape = makeBridge(walk, rings[entry.bridgeFrom], rings[entry.bridgeFrom + 1]);
-      if (!shape) return { failed: '有一段桥太短或拐得太急' };
-      bridgeShapes.set(key, shape);
-    }
+    if (entry.ring || bridgeShapes.has(entry.bridgeFrom)) continue;
+    const shape = makeBridge(walk, rings[entry.bridgeFrom], rings[entry.bridgeFrom + 1]);
+    if (!shape) return { failed: 'bridge' };
+    bridgeShapes.set(entry.bridgeFrom, shape);
   }
-  let previousSide = null;
-  all.forEach((entry, index) => {
+  // Bridges and tips share one working face, inward rings have the other; a flip is where the face changes.
+  const faceOf = (entry) => (entry.ring?.role === 'in' ? 'reverse' : 'front');
+  const elements = all.map((entry, index) => {
+    const flip = index === 0 ? {} : { flip: { value: faceOf(entry) !== faceOf(all[index - 1]), source: 'source' } };
     if (entry.ring) {
-      const place = placeOf(entry);
-      const stitches = entry.ring.stitches;
       const ears = [...taken(entry)].sort((p, q) => p.at - q.at);
       const parts = [];
       let at = 0;
@@ -1054,30 +1013,13 @@ function buildPattern(half, links, walk, title) {
         parts.push(String(ear.at - at), ear.token);
         at = ear.at;
       });
-      parts.push(String(stitches - at));
-      const element = { id: entry.id, type: 'ring', group: entry.group, parts, place };
-      const side = entry.ring.role === 'in' ? 'in' : 'out';
-      const afterBridge = index > 0 && !all[index - 1].ring;
-      // A ring on the same side as the last one needs a flip after the bridge; the other side needs none.
-      if (afterBridge) element.flip = { value: side === previousSide, source: 'source' };
-      previousSide = side;
-      elements.push(element);
-    } else {
-      const shape = bridgeShapes.get(entry.axisBridge ? entry.group : entry.bridgeFrom);
-      const before = all[(index - 1 + all.length) % all.length];
-      const after = all[(index + 1) % all.length];
-      const from = placeOf(before).base;
-      const to = placeOf(after).base;
-      let bulge;
-      if (entry.axisBridge) {
-        // An axis bridge dips into the shape.
-        const inwardSign = (to[0] - from[0]) * (entry.atTop ? 1 : -1) > 0 ? -1 : 1;
-        bulge = round1(inwardSign * shape.size);
-      } else {
-        ({ bulge } = shape);
-      }
-      elements.push({ id: entry.id, type: 'bridge', group: entry.group, flip: { value: true, source: 'source' }, parts: [String(shape.stitches)], place: { from: [...from], to: [...to], bulge } });
+      parts.push(String(entry.ring.stitches - at));
+      return { id: entry.id, type: 'ring', group: entry.group, ...flip, parts, place: placeOf(entry) };
     }
+    const shape = bridgeShapes.get(entry.bridgeFrom);
+    const from = placeOf(all[index - 1]).base;
+    const to = placeOf(all[(index + 1) % all.length]).base;
+    return { id: entry.id, type: 'bridge', group: entry.group, ...flip, parts: [String(shape.stitches)], place: { from: [...from], to: [...to], bulge: shape.bulge } };
   });
 
   const places = elements.flatMap((element) => {
@@ -1093,26 +1035,22 @@ function buildPattern(half, links, walk, title) {
   const stitchTotal = elements.reduce((sum, e) => sum + e.parts.filter((p) => /^\d+$/.test(p)).reduce((a, b) => a + Number(b), 0), 0);
   const ringCount = elements.filter((e) => e.type === 'ring').length;
   const bridgeCount = elements.length - ringCount;
-  const firstIsRing = elements[0].type === 'ring';
-  if (!firstIsRing) return { failed: '起点不是环' };
-  const lastBridgeFlip = elements[elements.length - 1].type === 'bridge';
   return {
     pattern: {
       schema: 2,
       id: 'traced',
       title,
       craft: '梭编',
-      difficulty: stitchTotal <= 170 ? '入门' : stitchTotal <= 260 ? '进阶' : '熟手',
+      difficulty: stitchTotal <= 150 ? '入门' : '进阶',
       tier: 'sorted',
       rights: { kind: 'original', note: '手绘草图设计' },
       summary: `${ringCount} 个环、${bridgeCount} 段桥，沿草图的轮廓走，左右对称。`,
-      threadNote: '1 个梭子 + 1 团线，不剪线。图上有“翻”的地方翻面，没有的地方不翻。环和桥之间只留极短的线。',
+      threadNote: THREAD_NOTE,
       layout: { viewBox: [-side, top, side * 2, Math.ceil(maxY + margin) - top], closed: true },
       elements,
-      finish: lastBridgeFlip ? `最后一段桥编完后，把两股线拉到 ${elements[0].id} 环的底部，和起头的线尾打结，藏好线尾` : `最后一个环编完后，把线拉到 ${elements[0].id} 环的底部，和起头的线尾打结，藏好线尾`,
+      finish: `${elements[elements.length - 1].type === 'bridge' ? '最后一段桥' : '最后一个环'}编完后，把线拉到 ${elements[0].id} 环的底部，和起头的线尾打结，藏好线尾`,
     },
-    unjoined: unjoined.length,
-    looseNeighbours,
+    loose,
     stitches: stitchTotal,
     rings: ringCount,
     bridges: bridgeCount,
@@ -1190,33 +1128,69 @@ function sketchOnLikeGrid(cells, axis, size, middleY) {
 
 /* ---------- the whole thing ---------- */
 
-const refuse = (...problems) => ({ pattern: null, problems, report: null });
+const refuse = (problem) => ({ pattern: null, problems: [problem], report: null });
 
-function endStyles(kind, angle) {
-  if (kind === 'round') return ['single'];
-  // Past this the bridge can't leave an axis ring at the angle the drawing needs, so small rings take it.
-  if (kind === 'tip') return angle > 122 ? ['cluster'] : ['single', 'cluster'];
-  return ['single', 'axis-bridge', 'cluster'];
+// A tip on the axis is one ring. A notch may take a cluster, and a gentle dip may also hold a tip ring.
+function endStyles({ kind, angle }) {
+  if (kind === 'tip') return ['single'];
+  return kind === 'round' && angle < 90 ? ['single', 'out', 'cluster'] : ['single', 'cluster'];
 }
 
-// input: { strokes: [[[x, y], ...], ...] } in any units, or { pixels: { width, height, data } } with 1 for ink.
+// How many labels lie on another label, on a line, or on an ear, with every number showing and with the default few.
+function crowdedLabels(pattern) {
+  const [minX, minY, width, height] = pattern.layout.viewBox;
+  const s = width / 370;
+  const elements = readChartElements(pattern);
+  const groups = new Set();
+  const firstOfGroup = (element) => {
+    if (groups.has(element.group)) return false;
+    groups.add(element.group);
+    return true;
+  };
+  const clashes = (shows) => {
+    const labels = chartLabels(elements, leftPicotSpots(elements, s), s, { minX, minY, width, height }, shows);
+    const boxes = [...[...labels.flip].map(([id, box]) => ({ ...box, own: id })), ...labels.letter.values(), ...labels.count.values(), labels.start];
+    const covers = (box, x, y) => Math.abs(x - box.x) < box.w / 2 && Math.abs(y - box.y) < box.h / 2;
+    let count = 0;
+    boxes.forEach((box, i) => {
+      if (boxes.slice(i + 1).some((other) => Math.abs(box.x - other.x) < (box.w + other.w) / 2 && Math.abs(box.y - other.y) < (box.h + other.h) / 2)) count += 1;
+      const touches = elements.some((element) => {
+        if (box.own !== element.id) {
+          for (let k = 0; k <= 200; k++) {
+            const p = element.geometry.pointAt(k / 200);
+            if (covers(box, p.x, p.y)) return true;
+          }
+        }
+        return element.items.some((item) => {
+          if (item.kind === 'stitch') return false;
+          const p = element.geometry.pointAt(item.from / element.stitches);
+          const reach = (item.kind === 'deco' ? 9 : 5.5) * s;
+          return covers(box, p.x + p.out.x * reach, p.y + p.out.y * reach);
+        });
+      });
+      if (touches) count += 1;
+    });
+    return count;
+  };
+  return clashes(firstOfGroup) + clashes(() => true);
+}
+
+const regionName = (y, size) => (y < -size * 0.14 ? '上半部分' : y > size * 0.14 ? '下半部分' : '中间');
+
+// input: { strokes: [[[x, y], ...], ...] } in any units.
+// Answers { pattern, problems, report }. Without a pattern, problems[0] says what is wrong and how to draw it instead.
 export function traceDesign(input, { title = '手绘花片', mirror = false } = {}) {
-  let ink = null;
-  if (Array.isArray(input?.strokes) && input.strokes.flat().length >= 8) ink = strokesToInk(input.strokes, 1.4);
-  else if (input?.pixels) ink = pixelsToInk(input.pixels);
-  if (!ink) return refuse('草图是空的，或者线太短，先画一个完整的形状。');
+  const ink = Array.isArray(input?.strokes) && input.strokes.flat().length >= 8 ? strokesToInk(input.strokes, 1.4) : null;
+  if (!ink) return refuse('草图是空的，或者线太短。先画一个完整的形状。');
   const cells = solidShape(ink);
-  if (!cells) return refuse('线没有围成一个封闭的形状。请把缺口接上，再试一次。');
+  if (!cells) return refuse('线没有围成一个封闭的形状。把缺口接上，再试一次。');
   const { axis, error } = findAxis(cells);
-  if (error > MAX_MIRROR_ERROR && !mirror) {
-    return refuse(`草图左右差得比较多（约 ${Math.round(error * 100)}%）。梭编图解现在只做左右对称的花样，请打开“对称”开关，会按左半边来做。`);
-  }
-  const shape = mirrorLeft(cells, axis);
-  const piece = largestPiece(shape, GRID);
+  if (error > MAX_MIRROR_ERROR && !mirror) return refuse('草图左右差得比较多，这里只做左右对称的花样。打开“左右对称”，画一边就好。');
+  const piece = largestPiece(mirrorLeft(cells, axis), GRID);
   const path = leftPath(piece.cells, axis);
-  if (!path) return refuse('左右两半没有连在一起，做不成一整片。请让形状跨过中线。');
+  if (!path) return refuse('左右两半没有连在一起，做不成一整片。让形状跨过中线。');
   const corners = findCorners(path.points);
-  if (corners.length > MAX_CORNERS) return refuse(`这个形状有 ${corners.length} 个尖角，半边放不下这么多环。请把形状画简单一点。`);
+  if (corners.length > MAX_CORNERS) return refuse(`尖角太多，有 ${corners.length} 个，半边放不下。少画几个尖角。`);
   const topEnd = axisEnd(path.points, true);
   const bottomEnd = axisEnd(path.points, false);
   const ends = { top: topEnd.kind, bottom: bottomEnd.kind };
@@ -1224,28 +1198,48 @@ export function traceDesign(input, { title = '手绘花片', mirror = false } = 
   const cornerPoints = [path.points[0], path.points[path.points.length - 1], ...corners.map((c) => path.points[c.i])];
 
   const candidates = [];
+  const verdicts = new Map();
+  // Whether a candidate passes every check, and if not, whether only its labels were in the way.
+  const verdict = (candidate) => {
+    if (!verdicts.has(candidate)) {
+      const placed = layoutProblems(candidate.pattern).length === 0 && structureProblems(candidate.pattern).length === 0 && checkPattern(candidate.pattern).every((c) => c.ok);
+      verdicts.set(candidate, { placed, good: placed && crowdedLabels(candidate.pattern) === 0 });
+    }
+    return verdicts.get(candidate);
+  };
+  // Among those about as like the drawing as the best one, the least work comes first.
+  const choose = () => {
+    const alike = candidates.filter((c) => c.like >= MIN_LIKENESS);
+    const bestQuality = Math.max(...alike.map((c) => c.quality), -Infinity);
+    const closeEnough = (c) => c.quality >= bestQuality - QUALITY_MARGIN;
+    alike.sort((p, q) => (closeEnough(q) - closeEnough(p)) || (closeEnough(p) ? p.effort - q.effort : q.quality - p.quality));
+    return alike.find((c) => verdict(c).good) ?? null;
+  };
   const seen = new Set();
-  const reasons = new Map();
-  const note = (reason) => reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+  const looseAt = new Map();
+  let tooBig = 0;
   for (const size of SIZES) {
+    // Smaller is less work, so once there is plenty to choose from and one of them works, bigger ones aren't tried.
+    if (candidates.length >= ENOUGH_CANDIDATES && choose()) break;
     const walk = new Walk(path.points, size);
     for (const spacing of SPACINGS) {
       for (const tipRing of TIP_RINGS) {
-        for (const topStyle of endStyles(topEnd.kind, topEnd.angle)) {
-          for (const bottomStyle of endStyles(bottomEnd.kind, bottomEnd.angle)) {
-            // The work has to begin with a ring.
-            if (topStyle === 'axis-bridge' && bottomStyle === 'axis-bridge') continue;
-            if (topStyle === 'axis-bridge') continue;
+        for (const topStyle of endStyles(topEnd)) {
+          for (const bottomStyle of endStyles(bottomEnd)) {
             const half = planHalf(walk, corners, ends, { spacing, tipRing, topStyle, bottomStyle });
             if (half.rings.length < 2) continue;
             const links = settleRings(half, walk);
             const built = buildPattern(half, links, walk, title);
-            if (built.failed) {
-              note(built.failed);
+            if (built.failed) continue;
+            if (built.loose.length) {
+              built.loose.forEach((y) => {
+                const region = regionName(y, size);
+                looseAt.set(region, (looseAt.get(region) ?? 0) + 1);
+              });
               continue;
             }
             if (built.stitches > MAX_STITCHES) {
-              note('stitches');
+              tooBig += 1;
               continue;
             }
             const signature = JSON.stringify(built.pattern.elements);
@@ -1255,57 +1249,40 @@ export function traceDesign(input, { title = '手绘花片', mirror = false } = 
             const like = likeness(sketch, chart);
             const edge = edgeError(path.points, cornerPoints, chart);
             const quality = like - 7 * edge.mean - 3 * edge.worst - 3 * edge.corner;
-            candidates.push({ ...built, like, edge, size, spacing, tipRing, topStyle, bottomStyle, quality, effort: built.stitches + built.unjoined * 16 + built.looseNeighbours * 24 });
+            candidates.push({ ...built, like, edge, size, spacing, tipRing, topStyle, bottomStyle, quality, effort: built.stitches + built.rings * 6 });
           }
         }
       }
     }
   }
-  // Among those about as like the drawing as the best one, the least work comes first.
-  const bestQuality = Math.max(...candidates.filter((c) => c.like >= MIN_LIKENESS).map((c) => c.quality), -Infinity);
-  const closeEnough = (c) => c.quality >= bestQuality - QUALITY_MARGIN;
-  candidates.sort((p, q) => (closeEnough(q) - closeEnough(p)) || (closeEnough(p) ? p.effort - q.effort : q.quality - p.quality));
-  let tested = 0;
-  for (const candidate of candidates) {
-    if (candidate.like < MIN_LIKENESS) continue;
-    tested += 1;
-    const problems = layoutProblems(candidate.pattern);
-    problems.forEach(note);
-    if (problems.length) continue;
-    const failing = [...structureProblems(candidate.pattern), ...checkPattern(candidate.pattern).filter((c) => !c.ok).map((c) => c.detail)];
-    if (failing.length) {
-      failing.forEach(note);
-      continue;
-    }
+  const winner = choose();
+  if (winner) {
     return {
-      pattern: candidate.pattern,
+      pattern: winner.pattern,
       problems: [],
       report: {
-        rings: candidate.rings,
-        bridges: candidate.bridges,
-        stitches: candidate.stitches,
-        likeness: Math.round(candidate.like * 100) / 100,
-        unjoined: candidate.unjoined,
-        looseNeighbours: candidate.looseNeighbours,
-        edge: Object.fromEntries(Object.entries(candidate.edge).map(([k, v]) => [k, Math.round(v * 1000) / 1000])),
+        rings: winner.rings,
+        bridges: winner.bridges,
+        stitches: winner.stitches,
+        likeness: Math.round(winner.like * 100) / 100,
+        edge: Object.fromEntries(Object.entries(winner.edge).map(([k, v]) => [k, Math.round(v * 1000) / 1000])),
         corners: corners.length,
         ends,
         mirrorError: Math.round(error * 100) / 100,
-        size: candidate.size,
-        spacing: candidate.spacing,
-        tipRing: candidate.tipRing,
-        topStyle: candidate.topStyle,
-        bottomStyle: candidate.bottomStyle,
-        tested,
+        size: winner.size,
+        spacing: winner.spacing,
+        tipRing: winner.tipRing,
+        topStyle: winner.topStyle,
+        bottomStyle: winner.bottomStyle,
       },
     };
   }
-  const best = [...candidates].sort((p, q) => q.like - p.like)[0];
-  if (!best) return refuse('这个形状的细节太密，环和桥放不进去。请把形状画大一些、简单一些。', ...topReasons(reasons));
-  if (best.like < MIN_LIKENESS) return refuse(`能编的版本和草图不够像（只有约 ${Math.round(best.like * 100)}%），这里不给出错的图。请把形状画简单一些，尖角少一点。`);
-  return refuse('试过的摆法都有环重叠、桥交叉或接耳够不着，这个形状现在编不出来。请把形状画简单一些。', ...topReasons(reasons));
-}
-
-function topReasons(reasons) {
-  return [...reasons.entries()].filter(([reason]) => reason !== 'stitches').sort((a, b) => b[1] - a[1]).slice(0, 2).map(([reason]) => reason);
+  const looseRegion = [...looseAt.entries()].sort((p, q) => q[1] - p[1])[0]?.[0];
+  if (candidates.length === 0 && looseRegion) return refuse(`${looseRegion}太大，环之间够不着，编出来会松散。把这一块画小一点，或少一点细节。`);
+  if (candidates.length === 0 && tooBig) return refuse('这个形状细节太多，要编的针数太多。画简单一点，少一点凹凸。');
+  if (candidates.length === 0) return refuse('这个形状的细节太密，环和桥放不下。画简单一点，转折少一点。');
+  const alike = candidates.filter((c) => c.like >= MIN_LIKENESS);
+  if (alike.length === 0) return refuse('摆得下的版本和草图不够像。画简单一点，尖角少一点。');
+  if (looseRegion && !alike.some((c) => verdict(c).placed)) return refuse(`${looseRegion}摆不下，环和桥挤在一起了。把这一块画小一点，或少一点细节。`);
+  return refuse('环和桥摆得太挤，图解会看不清。画简单一点，转折少一点。');
 }

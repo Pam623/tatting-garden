@@ -5,30 +5,7 @@ import { layoutProblems, mirrorPairs } from '../js/fit-layout.js';
 import { checkPattern } from '../js/pattern.js';
 import { padAddStroke, padExtendStroke, padLines } from '../js/sketch-pad.js';
 import { traceDesign } from '../js/trace-design.js';
-
-const curve = (p, a, b, c, steps = 24) => Array.from({ length: steps }, (_, i) => {
-  const t = (i + 1) / steps;
-  const u = 1 - t;
-  return [u * u * u * p[0] + 3 * u * u * t * a[0] + 3 * u * t * t * b[0] + t * t * t * c[0], u * u * u * p[1] + 3 * u * u * t * a[1] + 3 * u * t * t * b[1] + t * t * t * c[1]];
-});
-const chain = (start, ...parts) => {
-  const line = [start];
-  parts.forEach(([a, b, c]) => line.push(...curve(line[line.length - 1], a, b, c)));
-  return line;
-};
-const reflect = (line) => line.map(([x, y]) => [600 - x, y]);
-const ring = (cx, cy, r) => Array.from({ length: 41 }, (_, k) => [cx + r * Math.cos((k / 40) * 2 * Math.PI), cy + r * Math.sin((k / 40) * 2 * Math.PI)]);
-
-// The four test sketches, the same drawings the fit-rate trial used.
-const SKETCHES = {
-  heart: [chain([300, 520], [[150, 400], [70, 320], [85, 220]], [[100, 120], [235, 100], [305, 205]], [[370, 95], [505, 120], [518, 225]], [[530, 320], [450, 400], [297, 522]])],
-  star: [[[300, 70], [365, 235], [540, 245], [405, 355], [452, 525], [300, 430], [150, 528], [196, 356], [60, 245], [236, 236], [300, 70]]],
-  teardrop: [[[300, 80], [300, 110]], ring(300, 125, 14), chain([300, 150], [[230, 270], [170, 340], [190, 430]], [[210, 520], [390, 520], [410, 430]], [[430, 340], [370, 270], [302, 150]])],
-  butterfly: (() => {
-    const wing = chain([295, 300], [[200, 120], [70, 110], [85, 240]], [[95, 330], [200, 330], [295, 305]], [[220, 340], [130, 400], [160, 490]], [[190, 540], [270, 470], [298, 340]]);
-    return [wing, reflect(wing), [[298, 220], [300, 420]], chain([298, 220], [[280, 170], [260, 150], [240, 140]]), reflect(chain([298, 220], [[280, 170], [260, 150], [240, 140]]))];
-  })(),
-};
+import { SKETCHES } from './fixtures/sketches.mjs';
 
 // Points as a hand on a mouse gives them: whole pixels, uneven spacing, a wobble, and an end that overshoots.
 function mouseStroke(line, seed, size = 640) {
@@ -76,8 +53,10 @@ function outwardPeaks(pattern) {
   const mean = smooth.reduce((a, b) => a + b, 0) / 72;
   let peaks = 0;
   smooth.forEach((value, i) => {
-    const window = [-4, -3, -2, -1, 1, 2, 3, 4].map((d) => smooth[(i + d + 72) % 72]);
-    if (value > mean * 1.15 && window.every((other) => value >= other)) peaks += 1;
+    // A peak two bins wide is still one peak, so the earlier side has to be strictly lower.
+    const earlier = [-4, -3, -2, -1].map((d) => smooth[(i + d + 72) % 72]);
+    const later = [1, 2, 3, 4].map((d) => smooth[(i + d + 72) % 72]);
+    if (value > mean * 1.15 && earlier.every((other) => value > other) && later.every((other) => value >= other)) peaks += 1;
   });
   return peaks;
 }
@@ -99,7 +78,7 @@ for (const [name, strokes] of Object.entries(SKETCHES)) {
     const { pattern, problems, report } = traceDesign({ strokes });
     assert.deepEqual(problems, []);
     makeable(pattern);
-    assert.ok(report.stitches <= 340);
+    assert.ok(report.stitches <= 200, `${report.stitches} stitches`);
     assert.ok(report.likeness >= 0.72);
   });
 }
@@ -173,5 +152,40 @@ test('what cannot be made gets a reason in plain words, not a chart', () => {
     const radius = k % 3 === 0 ? 0.45 : 0.25;
     return [0.5 + radius * Math.sin(angle), 0.5 - radius * Math.cos(angle)];
   })];
-  refused(traceDesign({ strokes: gear }), '尖角');
+  refused(traceDesign({ strokes: gear }), '画');
+});
+
+test('the working faces follow one rule: a flip only where the face changes, and bridges bow outward', () => {
+  for (const strokes of Object.values(SKETCHES)) {
+    const { elements } = traceDesign({ strokes }).pattern;
+    const face = (element) => (element.type === 'ring' && element.place.dir === 'cw' ? 'reverse' : 'front');
+    assert.equal(elements[0].flip, undefined);
+    elements.slice(1).forEach((element, i) => {
+      assert.equal(element.flip.value, face(element) !== face(elements[i]), element.id);
+    });
+    elements.filter((e) => e.type === 'bridge').forEach((bridge) => assert.ok(bridge.place.bulge <= 0, bridge.id));
+  }
+});
+
+test('every ring pointing inward is held by a join, so nothing is left loose', () => {
+  for (const strokes of Object.values(SKETCHES)) {
+    const { elements } = traceDesign({ strokes }).pattern;
+    elements.filter((e) => e.type === 'ring' && e.place.dir === 'cw').forEach((ring) => {
+      assert.ok(ring.parts.some((part) => /^[pj]:/.test(part)), ring.id);
+    });
+  }
+});
+
+test('a refusal says what is wrong and how to draw it instead, and nothing technical', () => {
+  const tooDetailed = [Array.from({ length: 145 }, (_, k) => {
+    const angle = (k / 144) * 2 * Math.PI;
+    const radius = 0.3 + 0.12 * Math.sin(angle * 6);
+    return [0.5 + radius * Math.sin(angle), 0.5 - radius * Math.cos(angle)];
+  })];
+  const { pattern, problems } = traceDesign({ strokes: tooDetailed });
+  if (!pattern) {
+    assert.equal(problems.length, 1);
+    assert.match(problems[0], /。.*[画少].*。$/);
+    assert.doesNotMatch(problems[0], /[A-Z]/);
+  }
 });

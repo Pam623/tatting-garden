@@ -33,12 +33,14 @@ export function withDeadline(promise, ms) {
   return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
 }
 
-// The db asks for one retry after a short delay when it reports `unavailable`.
+// The db and the asset store each name one code that asks for a single retry after a short delay.
+const RETRY_ONCE = new Set(['unavailable', 'store_unavailable']);
+
 export async function retryIfUnavailable(call, delayMs = 500 + Math.random() * 500) {
   try {
     return await call();
   } catch (error) {
-    if (error?.code !== 'unavailable') throw error;
+    if (!RETRY_ONCE.has(error?.code)) throw error;
     await new Promise((resolve) => setTimeout(resolve, delayMs));
     return call();
   }
@@ -62,12 +64,9 @@ function readOriginal(value) {
   return structuredClone(value);
 }
 
-function assetUrl(assetId) {
-  return `/_blob/${assetId}`;
-}
-
+// A stored asset shows at this path from every version of the artifact.
 export function originalUrl(original) {
-  return original?.assetId ? assetUrl(original.assetId) : null;
+  return original?.assetId ? `/_blob/${encodeURIComponent(original.assetId)}` : null;
 }
 
 // Turns a db QuerySnapshot into saved patterns plus the ids of rows that can't be used.

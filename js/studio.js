@@ -6,9 +6,11 @@ import {
   buildRow, READ_TIMEOUT_MS, readSaved, retryIfUnavailable, RETRY_TIMEOUT_MS, rowFits, saveErrorMessage, savedNotice,
   withDeadline, WRITE_TIMEOUT_MS,
 } from './saved.js';
+import { describeOriginal, fileProblem, originalErrorMessage } from './upload-file.js';
+import { shrinkPicture } from './picture.js';
 import {
   app, embedded, escapeHtml, isKnownPattern, legendFor, materialsPanel, readSetting, rememberPattern,
-  saveSetting, stitchTable, studio,
+  saveSetting, setCleanup, stitchTable, studio,
 } from './shared.js';
 
 function withTimeout(promise, ms) {
@@ -27,11 +29,12 @@ async function useCapability(name) {
 
 async function loadSaved(timeoutMs) {
   const result = studio.db ? await readSaved(studio.db, { timeoutMs }) : { status: 'unavailable', saved: [] };
-  result.saved.forEach(({ pattern }) => {
+  result.saved.forEach(({ pattern, original }) => {
     // A saved pattern can't replace one built into the page.
     if (isKnownPattern(pattern.id) && !studio.savedIds.has(pattern.id)) return;
     rememberPattern(pattern);
     studio.savedIds.add(pattern.id);
+    if (original) studio.originals.set(pattern.id, original);
   });
   studio.notice = savedNotice(result);
 }
@@ -39,7 +42,9 @@ async function loadSaved(timeoutMs) {
 export async function startStudio() {
   if (!embedded || typeof window.claude?.use !== 'function') return;
   app.innerHTML = '<p class="hint" role="status">正在读取保存的花样……</p>';
-  [studio.sample, studio.db] = await Promise.all([useCapability('sample'), useCapability('db')]);
+  [studio.sample, studio.db, studio.assets] = await Promise.all(
+    [useCapability('sample'), useCapability('db'), useCapability('assets')],
+  );
   await loadSaved(READ_TIMEOUT_MS);
 }
 
@@ -85,19 +90,72 @@ export async function showUpload() {
   const status = document.getElementById('status');
   const result = document.getElementById('result');
   let blob = null;
+  let original = null;
+  let previewUrl = null;
   let run = 0;
   let size = readSetting('size', 20);
   if (!THREAD_SIZES.includes(size)) size = 20;
 
-  file.addEventListener('change', () => {
-    blob = file.files[0] ?? null;
+  const showPreview = (picture) => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = picture ? URL.createObjectURL(picture) : null;
+    preview.hidden = !picture;
+    if (picture) preview.src = previewUrl;
+    else preview.removeAttribute('src');
+  };
+  setCleanup(() => showPreview(null));
+
+  // Forgets the picture on show, so an old one can't be converted or saved by mistake.
+  const clearPicture = () => {
     run += 1;
+    blob = null;
+    original = null;
     result.innerHTML = '';
     status.textContent = '';
-    convert.disabled = !blob;
-    preview.hidden = !blob;
-    if (blob) preview.src = URL.createObjectURL(blob);
+    convert.disabled = true;
+    showPreview(null);
+    return run;
+  };
+
+  // `picture` is what Claude reads; a smaller copy of it is what gets saved.
+  const usePicture = async (picture, details, mine) => {
+    const shrunk = await shrinkPicture(picture);
+    if (mine !== run) return;
+    blob = picture;
+    original = { ...shrunk, ...details, uploaded: null };
+    status.textContent = '';
+    convert.disabled = false;
+    showPreview(shrunk.blob);
+  };
+
+  file.addEventListener('change', async () => {
+    const mine = clearPicture();
+    const picked = file.files[0] ?? null;
+    if (!picked) return;
+    const problem = fileProblem(picked);
+    if (problem) {
+      status.textContent = problem;
+      return;
+    }
+    try {
+      await usePicture(picked, { fileName: picked.name }, mine);
+    } catch (error) {
+      console.error(error);
+      if (mine === run) status.textContent = '这张图片打不开。请存成 JPG 或 PNG 再传。';
+    }
   });
+
+  // Stores the small copy once, however many times saving is tried.
+  const storeOriginal = async (kept) => {
+    if (kept.uploaded) return kept.uploaded;
+    if (!studio.assets) throw { code: 'no_assets' };
+    const stored = await withDeadline(
+      retryIfUnavailable(() => studio.assets.upload(kept.blob, { type: 'image/jpeg' })),
+      WRITE_TIMEOUT_MS,
+    );
+    kept.uploaded = describeOriginal(stored, kept);
+    return kept.uploaded;
+  };
 
   const showResult = ({ pattern, problems }) => {
     const drawable = pattern && structureProblems(pattern).length === 0;
@@ -114,7 +172,7 @@ export async function showUpload() {
         <section class="materials" id="materials"></section>
         <section><h2>针数</h2>${stitchTable(pattern)}${legendFor(pattern)}</section>` : ''}
       <div class="upload-actions">
-        ${drawable && problems.length === 0 && studio.db ? '<button type="button" class="primary" id="save">保存</button>' : ''}
+        ${drawable && problems.length === 0 && studio.db ? '<button type="button" class="primary" id="save">保存</button><button type="button" class="ghost" id="save-plain" hidden>不带原图，只存花样</button>' : ''}
         <button type="button" class="ghost" id="again">重新转</button>
       </div>
       ${drawable && problems.length === 0 && !studio.db ? '<p class="error">现在连不上存储，这个花样存不了。请确认已经登录，刷新页面后再转一次。</p>' : ''}`;
@@ -131,27 +189,52 @@ export async function showUpload() {
     };
     if (materials) drawMaterials();
     document.getElementById('again').addEventListener('click', start);
-    document.getElementById('save')?.addEventListener('click', async (event) => {
-      const button = event.currentTarget;
-      button.disabled = true;
+    const saveButton = document.getElementById('save');
+    const plainButton = document.getElementById('save-plain');
+    const kept = original;
+    const save = async (withOriginal) => {
+      saveButton.disabled = true;
+      plainButton.disabled = true;
+      const enable = () => {
+        saveButton.disabled = false;
+        plainButton.disabled = false;
+      };
+      status.textContent = '正在保存……';
+      let stored = null;
+      if (withOriginal) {
+        try {
+          stored = await storeOriginal(kept);
+        } catch (error) {
+          console.error(error);
+          status.textContent = `${originalErrorMessage(error)}花样还没有存。可以再试一次，也可以先只存花样。`;
+          plainButton.hidden = false;
+          saveButton.textContent = '再试一次';
+          enable();
+          return;
+        }
+      }
       try {
-        const row = buildRow(pattern);
+        const row = buildRow(pattern, stored);
         if (!rowFits(row)) {
           status.textContent = '这个花样太大，存不进去。可以再转一次，或者换一张更简单的图。';
-          button.disabled = false;
+          enable();
           return;
         }
         const target = studio.db.collection('studio').doc(pattern.id);
         await withDeadline(retryIfUnavailable(() => target.set(row)), WRITE_TIMEOUT_MS);
         rememberPattern(pattern);
         studio.savedIds.add(pattern.id);
+        if (stored) studio.originals.set(pattern.id, stored);
+        status.textContent = '';
         location.hash = `#/p/${pattern.id}`;
       } catch (error) {
         console.error(error);
-        button.disabled = false;
+        enable();
         status.textContent = saveErrorMessage(error);
       }
-    });
+    };
+    saveButton?.addEventListener('click', () => save(true));
+    plainButton?.addEventListener('click', () => save(false));
   };
 
   async function start() {

@@ -152,6 +152,9 @@ test('retryIfUnavailable retries only once, and only for unavailable', async () 
   await assert.rejects(retryIfUnavailable(async () => { calls += 1; throw { code: 'unavailable' }; }, 1), { code: 'unavailable' });
   assert.equal(calls, 2);
   calls = 0;
+  await assert.rejects(retryIfUnavailable(async () => { calls += 1; throw { code: 'store_unavailable' }; }, 1), { code: 'store_unavailable' });
+  assert.equal(calls, 2);
+  calls = 0;
   await assert.rejects(retryIfUnavailable(async () => { calls += 1; throw { code: 'quota_exceeded' }; }, 1), { code: 'quota_exceeded' });
   assert.equal(calls, 1);
 });

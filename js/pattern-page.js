@@ -1,10 +1,26 @@
 import { clampProgress, structureProblems, summarize } from './pattern.js';
 import { renderChart } from './diagram.js';
 import { THREAD_SIZES } from './materials.js';
+import { originalUrl } from './saved.js';
+import { originalCaption } from './upload-file.js';
 import {
   app, escapeHtml, legendFor, loadPattern, materialsPanel, readProgress, readSetting, repeatRange,
   saveProgress, saveSetting, showProblems, stitchTable, studio,
 } from './shared.js';
+
+// Only saved patterns have this section, so built-in and public patterns look as before.
+function originalSection(pattern) {
+  if (!studio.savedIds.has(pattern.id)) return '';
+  const original = studio.originals.get(pattern.id);
+  if (!original) return '<section><h2>原图</h2><p class="hint">这个花样没有存原图。</p></section>';
+  const caption = originalCaption(original);
+  return `
+    <section id="original">
+      <h2>原图</h2>
+      <img class="photo" src="${escapeHtml(originalUrl(original))}" alt="转换用的原图">
+      ${caption ? `<p class="hint">${escapeHtml(caption)}</p>` : ''}
+    </section>`;
+}
 
 function hasStarted(progress) {
   return progress.index > 0 || progress.part !== null || progress.finished;
@@ -59,10 +75,14 @@ export async function showPattern(id) {
             <h2>成品</h2>
             <img class="photo" src="${escapeHtml(pattern.photo)}" alt="${escapeHtml(pattern.title)}成品照片">
           </section>` : ''}
+        ${originalSection(pattern)}
         ${pattern.source ? `<p class="source-line">${escapeHtml(pattern.source)}</p>` : ''}
       </div>
     </div>`;
 
+  document.querySelector('#original img')?.addEventListener('error', (event) => {
+    event.target.outerHTML = '<p class="error">原图这次没读出来，花样不受影响。请刷新页面再看；一直这样就告诉 Claude。</p>';
+  });
   const publish = document.getElementById('publish');
   publish?.addEventListener('click', async () => {
     publish.disabled = true;

@@ -1,7 +1,7 @@
 import { showHome } from './home.js';
 import { showPattern } from './pattern-page.js';
 import { app, embedded, loadPattern, runCleanup } from './shared.js';
-import { rereadSaved, showUpload, startStudio, studioNoticeHtml } from './studio.js';
+import { rereadSaved, showDraw, showUpload, startStudio, studioNoticeHtml } from './studio.js';
 import { showWork } from './work.js';
 
 const studioReady = startStudio();
@@ -23,6 +23,7 @@ async function route() {
     if (match) await loadPattern(match[1]);
     if (thisRoute !== routeCount) return;
     if (location.hash === '#/upload') await showUpload();
+    else if (location.hash === '#/draw') await showDraw();
     else if (match?.[2]) await showWork(match[1]);
     else if (match) await showPattern(match[1]);
     else await showHome(() => thisRoute === routeCount);

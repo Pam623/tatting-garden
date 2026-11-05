@@ -268,7 +268,9 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .picot.now { stroke: var(--mark-current); fill: var(--mark-current); stroke-width: calc(1.6px * var(--s)); }
 .picot.deco.now { fill: none; }
 .link { stroke: var(--mark-join); stroke-width: calc(0.9px * var(--s)); stroke-linecap: round; }
+.letter.small { font-size: calc(13.5px * var(--s)); }
 .count { font-size: calc(13px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 600; paint-order: stroke; stroke: var(--chart-paper); stroke-width: calc(4px * var(--s)); }
+.count.small { font-size: calc(10.5px * var(--s)); }
 .count.now { fill: var(--mark-current); font-size: calc(17px * var(--s)); }
 .flip-mark rect { fill: var(--chart-paper); stroke: var(--chart-ink); stroke-width: calc(1.2px * var(--s)); }
 .flip-mark text { font-size: calc(9.5px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 600; }
@@ -319,6 +321,12 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .convert { min-height: 52px; padding: 0 24px; border-radius: 4px; font-size: 1.05rem; font-weight: 600; }
 .convert:disabled { opacity: 0.35; cursor: default; }
 .upload section { margin-top: 32px; }
+.start-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.sketch-pad { display: block; width: 100%; max-width: 520px; aspect-ratio: 1; margin: 20px 0 12px; background: #fff; border: 1px solid var(--line); border-radius: 4px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: crosshair; }
+.pad-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
+.pad-tools button { min-height: 44px; padding: 0 18px; border-radius: 4px; }
+.pad-tools button:disabled { opacity: 0.35; cursor: default; }
+.pad-mirror { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
 .upload-actions { display: flex; gap: 10px; margin: 28px 0 40px; }
 .upload-actions button, .publish { min-height: 48px; padding: 0 20px; border-radius: 4px; font-size: 1rem; font-weight: 600; }
 .publish { margin: -22px 0 36px; }

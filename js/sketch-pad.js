@@ -106,7 +106,12 @@ export function startSketchPad(canvas, { onChange = () => {} } = {}) {
     if (activePointer !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
     event.preventDefault();
     activePointer = event.pointerId;
-    canvas.setPointerCapture?.(event.pointerId);
+    // A pointer can already be gone by now; the stroke still counts without capture.
+    try {
+      canvas.setPointerCapture?.(event.pointerId);
+    } catch (error) {
+      console.error(error);
+    }
     strokes = padAddStroke(strokes, pointOf(event), mirror);
     paint();
     onChange();
@@ -135,6 +140,9 @@ export function startSketchPad(canvas, { onChange = () => {} } = {}) {
   canvas.addEventListener('lostpointercapture', up);
   canvas.addEventListener('touchstart', stopScroll, { passive: false });
   canvas.addEventListener('touchmove', stopScroll, { passive: false });
+  // The board's size is only settled once the page has laid out, and it changes when a phone turns.
+  const watcher = typeof ResizeObserver === 'function' ? new ResizeObserver(resize) : null;
+  watcher?.observe(canvas);
   window.addEventListener('resize', resize);
   resize();
 
@@ -165,6 +173,7 @@ export function startSketchPad(canvas, { onChange = () => {} } = {}) {
       return output;
     },
     stop() {
+      watcher?.disconnect();
       window.removeEventListener('resize', resize);
     },
   };

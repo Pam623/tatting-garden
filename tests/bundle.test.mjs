@@ -101,4 +101,5 @@ test('the bundled page runs and draws the home page without any upload entry', a
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.ok(app.innerHTML.includes(pattern.title), app.innerHTML);
   assert.ok(!app.innerHTML.includes('#/upload'), 'no upload link without the artifact capabilities');
+  assert.ok(!app.innerHTML.includes('#/draw'), 'no drawing link without the artifact capabilities');
 });

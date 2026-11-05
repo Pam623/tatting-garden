@@ -102,6 +102,212 @@ export function focusBox(pattern, ids, padding = 34) {
   return [minX, minY, Math.max(...xs) + padding - minX, Math.max(...ys) + padding - minY];
 }
 
+// Label sizes, in the units marks are designed at. Wider than the ink, so labels keep a little air.
+const LABEL_BOXES = {
+  letter: (text) => ({ w: 12 * text.length + 4, h: 18 }),
+  count: (text) => ({ w: 7.5 * text.length + 3, h: 13 }),
+  flip: () => ({ w: 14, h: 13 }),
+  start: () => ({ w: 22, h: 12 }),
+};
+const LINE_CLEARANCE = 1.5;
+const OBSTACLE_SPACING = 3;
+
+function boxesOverlap(a, b) {
+  return Math.abs(a.x - b.x) * 2 < a.w + b.w && Math.abs(a.y - b.y) * 2 < a.h + b.h;
+}
+
+// Everything already drawn that a label must stay off, as points close enough that no line slips between them.
+function chartObstacles(elements, leftPicots, s) {
+  const obstacles = [];
+  const addPoint = (x, y, owner, r = LINE_CLEARANCE) => obstacles.push({ x, y, owner, r: r * s });
+  const addSegment = (a, b) => {
+    const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / (OBSTACLE_SPACING * s)));
+    for (let i = 0; i <= steps; i++) addPoint(a.x + ((b.x - a.x) * i) / steps, a.y + ((b.y - a.y) * i) / steps, null);
+  };
+  elements.forEach((element) => {
+    const { geometry } = element;
+    const steps = Math.max(8, Math.ceil(geometry.length / (OBSTACLE_SPACING * s)));
+    for (let i = 0; i <= steps; i++) {
+      const p = geometry.pointAt(i / steps);
+      addPoint(p.x, p.y, element.id);
+    }
+    element.items.forEach((item) => {
+      if (item.kind === 'stitch') return;
+      const p = geometry.pointAt(item.from / element.stitches);
+      if (item.kind === 'deco') {
+        [4, 8, 11].forEach((out) => addPoint(p.x + p.out.x * out * s, p.y + p.out.y * out * s, null, 3.5));
+        return;
+      }
+      const cx = p.x + p.out.x * PICOT_R * s;
+      const cy = p.y + p.out.y * PICOT_R * s;
+      addPoint(cx, cy, null, 3.5);
+      const target = item.kind === 'join' ? leftPicots.get(`${item.element}.${item.name}`) : null;
+      if (target) addSegment({ x: cx, y: cy }, target);
+    });
+  });
+  return obstacles;
+}
+
+function pointInOutline(point, outline) {
+  let inside = false;
+  for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+    const a = outline[i];
+    const b = outline[j];
+    if ((a.y > point.y) !== (b.y > point.y) && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+// Picks each label's spot: the first candidate touching nothing, or else the one touching least.
+// The earlier a candidate is listed, the more it is wanted.
+function placeLabel(candidates, box, { obstacles, placed, view, rings, ignoreOwner = null }, owner = null) {
+  let best = null;
+  for (const candidate of candidates) {
+    const area = { x: candidate.x, y: candidate.y, w: box.w, h: box.h };
+    let penalty = 0;
+    for (const other of placed) if (boxesOverlap(area, other)) penalty += 50;
+    for (const o of obstacles) {
+      if (o.owner !== null && o.owner === ignoreOwner) continue;
+      if (Math.abs(o.x - area.x) * 2 < area.w + o.r * 2 && Math.abs(o.y - area.y) * 2 < area.h + o.r * 2) penalty += 1;
+    }
+    if (area.x - area.w / 2 < view.minX || area.x + area.w / 2 > view.minX + view.width
+      || area.y - area.h / 2 < view.minY || area.y + area.h / 2 > view.minY + view.height) penalty += 25;
+    // A number sitting inside a neighbouring ring reads as that ring's number.
+    if (rings.some((ring) => ring.id !== owner && pointInOutline(candidate, ring.outline))) penalty += 0.5;
+    if (!best || penalty < best.penalty) best = { ...area, penalty };
+    if (penalty === 0) break;
+  }
+  placed.push(best);
+  return best;
+}
+
+function letterCandidates(element, s) {
+  const { geometry, place } = element;
+  const list = [];
+  if (element.type === 'ring') {
+    const tip = geometry.pointAt(0.5);
+    const [bx, by] = place.base;
+    const axis = { x: tip.x - bx, y: tip.y - by };
+    const length = Math.hypot(axis.x, axis.y) || 1;
+    const side = { x: axis.y / length, y: -axis.x / length };
+    [0.62, 0.5, 0.72, 0.4, 0.8, 0.3].forEach((along) => {
+      [0, 7, -7, 13, -13].forEach((across) => {
+        list.push({ x: bx + axis.x * along + side.x * across * s, y: by + axis.y * along + side.y * across * s });
+      });
+    });
+    return list;
+  }
+  [0.5, 0.4, 0.6, 0.3, 0.7].forEach((at) => {
+    const p = geometry.pointAt(at);
+    [-20, -27, -14, 20, 27, 14, -34, 34].forEach((off) => list.push({ x: p.x + p.out.x * off * s, y: p.y + p.out.y * off * s }));
+  });
+  return list;
+}
+
+function countCandidates(element, item, s) {
+  const { geometry, stitches } = element;
+  const list = [];
+  [0.5, 0.35, 0.65, 0.2, 0.8].forEach((at) => {
+    const p = geometry.pointAt((item.from + (item.to - item.from) * at) / stitches);
+    [13, 18, -13, -18, 24, -24, 30, -30].forEach((off) => list.push({ x: p.x + p.out.x * off * s, y: p.y + p.out.y * off * s }));
+  });
+  return list;
+}
+
+// The flip mark sits on its own cord like a bead, sliding along it to stay clear of everything else.
+function flipCandidates(element) {
+  const spots = element.type === 'ring'
+    ? [0.09, 0.13, 0.17, 0.21, 0.91, 0.87, 0.83, 0.26, 0.74, 0.32, 0.68]
+    : [0.14, 0.2, 0.26, 0.32, 0.38, 0.44, 0.5, 0.56, 0.62, 0.68, 0.74, 0.8, 0.86];
+  return spots.map((at) => element.geometry.pointAt(at));
+}
+
+// Where the arrow showing an element's direction goes, and which side it landed on.
+function placeArrow(element, elements, s, context) {
+  const sharesBase = element.type === 'ring' && elements.some((other) => other !== element
+    && other.place?.base?.[0] === element.place.base[0] && other.place?.base?.[1] === element.place.base[1]);
+  const sides = sharesBase ? [1, -1] : [-1, 1];
+  const candidates = [];
+  [0.045, 0.1, 0.16, 0.22].forEach((at) => {
+    const p = element.geometry.pointAt(at);
+    sides.forEach((side) => [16, 22].forEach((off) => {
+      candidates.push({ x: p.x + side * p.out.x * off * s, y: p.y + side * p.out.y * off * s, side, p });
+    }));
+  });
+  const box = { w: 22 * s, h: 22 * s };
+  const scored = candidates.map((candidate, index) => {
+    let penalty = index * 0.001;
+    for (const other of context.placed) if (boxesOverlap({ ...candidate, ...box }, other)) penalty += 50;
+    for (const o of context.obstacles) {
+      if (Math.hypot(o.x - candidate.x, o.y - candidate.y) < 11 * s + o.r) penalty += 1;
+    }
+    return { ...candidate, penalty };
+  });
+  return scored.reduce((a, b) => (b.penalty < a.penalty ? b : a));
+}
+
+// Every label's spot. Worked out with all the numbers in, so a label stays put whichever of them show.
+// Labels come out in order of importance: flip marks, the start, letters, then numbers.
+export function chartLabels(elements, leftPicots, s, view) {
+  const obstacles = chartObstacles(elements, leftPicots, s);
+  const placed = [];
+  const rings = elements.filter((e) => e.type === 'ring').map((e) => ({
+    id: e.id,
+    outline: Array.from({ length: 40 }, (_, i) => e.geometry.pointAt(i / 40)),
+  }));
+  const context = { obstacles, placed, view, rings };
+  const labels = { flip: new Map(), letter: new Map(), count: new Map(), arrow: null, start: null };
+  const sized = (make, text) => {
+    const box = make(text);
+    return { w: box.w * s, h: box.h * s };
+  };
+  elements.filter((e) => e.flip?.value === true).forEach((element) => {
+    labels.flip.set(element.id, placeLabel(flipCandidates(element), sized(LABEL_BOXES.flip), { ...context, ignoreOwner: element.id }));
+  });
+  if (elements.length) {
+    const first = elements[0];
+    labels.arrow = placeArrow(first, elements, s, context);
+    placed.push({ x: labels.arrow.x, y: labels.arrow.y, w: 22 * s, h: 18 * s });
+    const { p, side } = labels.arrow;
+    const options = [17, 24, -17, -24, 32, -32].flatMap((off) => [0, 12, -12].map((along) => ({
+      x: labels.arrow.x + side * p.out.x * off * s + p.along.x * along * s,
+      y: labels.arrow.y + side * p.out.y * off * s + p.along.y * along * s,
+    })));
+    labels.start = placeLabel(options, sized(LABEL_BOXES.start), context);
+  }
+  elements.forEach((element) => {
+    labels.letter.set(element.id, placeLabel(letterCandidates(element, s), sized(LABEL_BOXES.letter, element.id), context, element.id));
+  });
+  elements.forEach((element) => {
+    element.items.forEach((item, index) => {
+      if (item.kind !== 'stitch') return;
+      labels.count.set(`${element.id}:${index}`, placeLabel(countCandidates(element, item, s), sized(LABEL_BOXES.count, numberText(item)), context, element.id));
+    });
+  });
+  return { ...labels, context };
+}
+
+// The parts of a chart renderChart needs for its labels, for pattern data as stored.
+export function readChartElements(pattern) {
+  return pattern.elements.map((element) => ({
+    ...readElement(element),
+    place: element.place,
+    flip: element.flip,
+    geometry: elementGeometry(element),
+  }));
+}
+
+export function leftPicotSpots(elements, s) {
+  const spots = new Map();
+  elements.forEach((element) => {
+    element.items.filter((i) => i.kind === 'leave').forEach((item) => {
+      const p = element.geometry.pointAt(item.from / element.stitches);
+      spots.set(`${element.id}.${item.name}`, { x: p.x + p.out.x * PICOT_R * s, y: p.y + p.out.y * PICOT_R * s });
+    });
+  });
+  return spots;
+}
+
 // Options, all optional:
 //   current      element id drawn solid; others not in done go faint
 //   done         element ids drawn full strength, as finished
@@ -118,12 +324,7 @@ export function renderChart(pattern, options = {}) {
   } = options;
   const [minX, minY, width, height] = viewBox ?? pattern.layout.viewBox;
   const s = width / BASE_SCALE;
-  const elements = pattern.elements.map((element) => ({
-    ...readElement(element),
-    place: element.place,
-    flip: element.flip,
-    geometry: elementGeometry(element),
-  }));
+  const elements = readChartElements(pattern);
 
   const stateClass = (id) => {
     if (current !== null) return id === current || done.includes(id) ? '' : ' is-faint';
@@ -147,13 +348,8 @@ export function renderChart(pattern, options = {}) {
   };
 
   // Where each join picot was left, for drawing links to it.
-  const leftPicots = new Map();
-  elements.forEach((element) => {
-    element.items.filter((i) => i.kind === 'leave').forEach((item) => {
-      const p = element.geometry.pointAt(fractionOf(element, item.from));
-      leftPicots.set(`${element.id}.${item.name}`, { x: p.x + p.out.x * PICOT_R * s, y: p.y + p.out.y * PICOT_R * s });
-    });
-  });
+  const leftPicots = leftPicotSpots(elements, s);
+  const labels = chartLabels(elements, leftPicots, s, { minX, minY, width, height });
 
   let cords = '';
   let threads = '';
@@ -187,9 +383,8 @@ export function renderChart(pattern, options = {}) {
       const now = element.id === current && itemIndex === currentItem ? ' now' : '';
       if (item.kind === 'stitch') {
         if (showsCounts(element)) {
-          const mid = geometry.pointAt(fractionOf(element, (item.from + item.to) / 2));
-          const offset = 13 * s;
-          marks += `<text class="count${now}${state}" ${attrs} x="${n(mid.x + mid.out.x * offset)}" y="${n(mid.y + mid.out.y * offset)}">${numberText(item)}</text>`;
+          const spot = labels.count.get(`${element.id}:${itemIndex}`);
+          marks += `<text class="count${now}${state}" ${attrs} x="${n(spot.x)}" y="${n(spot.y)}">${numberText(item)}</text>`;
         }
         return;
       }
@@ -213,21 +408,12 @@ export function renderChart(pattern, options = {}) {
       }
     });
 
-    // Letter: inside a ring, on the inner side of a bridge.
-    if (element.type === 'ring') {
-      const tip = geometry.pointAt(0.5);
-      const [bx, by] = element.place.base;
-      marks += `<text class="letter${state}" ${attrs} x="${n(bx + (tip.x - bx) * 0.62)}" y="${n(by + (tip.y - by) * 0.62)}">${element.id}</text>`;
-    } else {
-      const mid = geometry.pointAt(0.5);
-      const offset = 20 * s;
-      marks += `<text class="letter${state}" ${attrs} x="${n(mid.x - mid.out.x * offset)}" y="${n(mid.y - mid.out.y * offset)}">${element.id}</text>`;
-    }
+    // Letter: inside a ring, on the inner side of a bridge, unless something else is already there.
+    const letter = labels.letter.get(element.id);
+    marks += `<text class="letter${state}" ${attrs} x="${n(letter.x)}" y="${n(letter.y)}">${element.id}</text>`;
 
     if (element.flip?.value === true) {
-      // Sits on the cord like a bead, so it adds no clutter beside crowded rings.
-      const p = geometry.pointAt(element.type === 'ring' ? 0.09 : 0.14);
-      const { x, y } = p;
+      const { x, y } = labels.flip.get(element.id);
       const w = 14 * s;
       const h = 13 * s;
       marks += `<g class="flip-mark${state}" ${attrs}><rect x="${n(x - w / 2)}" y="${n(y - h / 2)}" width="${n(w)}" height="${n(h)}" rx="${n(3 * s)}"/><text x="${n(x)}" y="${n(y)}">翻</text></g>`;
@@ -235,21 +421,16 @@ export function renderChart(pattern, options = {}) {
 
     // The start of the piece, and the direction of whichever element is being worked.
     if (index === 0 || element.id === current) {
-      const p = geometry.pointAt(0.045);
-      // Inside the ring, unless another ring shares this base and would collide.
-      const sharesBase = element.type === 'ring' && elements.some((other) => other !== element
-        && other.place?.base?.[0] === element.place.base[0] && other.place?.base?.[1] === element.place.base[1]);
-      const side = sharesBase ? 1 : -1;
-      const inX = p.x + side * p.out.x * 16 * s;
-      const inY = p.y + side * p.out.y * 16 * s;
-      const tipX = inX + p.along.x * 12 * s;
-      const tipY = inY + p.along.y * 12 * s;
-      const tailX = inX - p.along.x * 12 * s;
-      const tailY = inY - p.along.y * 12 * s;
+      const arrow = index === 0 ? labels.arrow : placeArrow(element, elements, s, labels.context);
+      const { p } = arrow;
+      const tipX = arrow.x + p.along.x * 12 * s;
+      const tipY = arrow.y + p.along.y * 12 * s;
+      const tailX = arrow.x - p.along.x * 12 * s;
+      const tailY = arrow.y - p.along.y * 12 * s;
       const wing = (sign) => `${n(tipX - p.along.x * 7 * s + sign * p.out.x * 4.5 * s)} ${n(tipY - p.along.y * 7 * s + sign * p.out.y * 4.5 * s)}`;
       marks += `<path class="start-arrow" d="M${n(tailX)} ${n(tailY)}L${n(tipX)} ${n(tipY)}M${wing(1)}L${n(tipX)} ${n(tipY)}L${wing(-1)}"/>`;
       if (index === 0) {
-        marks += `<text class="start-label" x="${n(inX + side * p.out.x * 17 * s)}" y="${n(inY + side * p.out.y * 17 * s)}">起点</text>`;
+        marks += `<text class="start-label" x="${n(labels.start.x)}" y="${n(labels.start.y)}">起点</text>`;
       }
     }
   });

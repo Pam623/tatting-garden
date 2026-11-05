@@ -336,3 +336,6 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .mine .plates { margin-top: 16px; }
 .mine-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
 .mine-actions button { min-height: 44px; padding: 0 18px; border-radius: 4px; }
+#result .upload-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0; }
+#result .upload-actions button { min-height: 44px; padding: 0 18px; border-radius: 4px; }
+#result .upload-actions .start { margin: 0; }

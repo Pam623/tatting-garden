@@ -241,6 +241,25 @@ test('sketch heart fits cleanly and checks pass', () => {
   assertFitsClean(heart());
 });
 
+// The test heart has to read as a heart: dipped between two lobes, wide high up, narrowing to a point.
+test('sketch heart has a dip at the top, wide shoulders and a pointed bottom', () => {
+  const placed = assertFitsClean(heart());
+  const outline = placed.elements.filter((e) => e.type === 'bridge').flatMap((e) => {
+    const geometry = elementGeometry(e);
+    return Array.from({ length: 81 }, (_, i) => geometry.pointAt(i / 80));
+  });
+  const top = Math.min(...outline.map((p) => p.y));
+  const widest = outline.reduce((a, b) => (Math.abs(b.x) > Math.abs(a.x) ? b : a));
+  const dip = placed.elements.find((e) => e.id === 'A').place.base;
+  const point = placed.elements.find((e) => e.id === 'I').place.base;
+  const shoulder = placed.elements.find((e) => e.id === 'G').place.base;
+  const height = point[1] - top;
+  assert.ok((dip[1] - top) / height >= 0.09, 'the dip between the lobes');
+  assert.ok(Math.abs(widest.x) * 2 > height, 'wider than tall');
+  assert.ok((widest.y - top) / height < 0.5, 'widest in the upper half');
+  assert.ok((Math.atan2(point[1] - shoulder[1], Math.abs(shoulder[0])) * 180) / Math.PI >= 45, 'the sides meet in a point');
+});
+
 test('sketch butterfly fits cleanly and checks pass', () => {
   assertFitsClean(butterfly());
 });

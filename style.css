@@ -352,3 +352,16 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .wish-list { margin: 0 0 32px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 4px; }
 .wish-list ul { margin: 10px 0 0 1.2em; }
 .start-actions .start { margin: 26px 0 40px; }
+
+/* Simulated finished piece */
+.finished-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.finished-modes { display: inline-flex; border: 1px solid var(--ink); border-radius: 4px; overflow: hidden; }
+.finished-modes button { min-height: 44px; padding: 0 16px; border: 0; background: transparent; color: var(--ink); font: inherit; }
+.finished-modes button[aria-pressed="true"] { background: var(--button); color: var(--button-ink); font-weight: 600; }
+.finished-color { display: inline-flex; align-items: center; gap: 6px; font-size: 0.95rem; }
+.finished-color select { min-height: 44px; padding: 0 8px; font: inherit; }
+.finished-bar .hint { flex: 1 1 100%; margin: 0; }
+svg.finished { display: block; width: 100%; height: auto; aspect-ratio: 1; }
+.finished-inset { width: 34%; border-radius: 4px; overflow: hidden; line-height: 0; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4); }
+.finished-row { display: flex; gap: 8px; flex: 1 1 100%; }
+.finished-row span { flex: 1 1 0; max-width: 33%; border-radius: 4px; overflow: hidden; line-height: 0; }

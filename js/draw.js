@@ -1,5 +1,6 @@
 // The drawing page: draw an outline, get a chart from js/trace-design.js. Nothing leaves the browser.
 import { renderChart } from './diagram.js';
+import { attachFinishedToggle } from './finished-toggle.js';
 import { deleteDrawing, listDrawings, newDrawingId, saveDrawing } from './drawings.js';
 import { THREAD_SIZES } from './materials.js';
 import { summarize } from './pattern.js';
@@ -93,6 +94,10 @@ export function showDraw() {
     : '<p class="error" role="alert">这台设备存不下（可能空间满了，或者浏览器不让存）。现在可以照着编，但关掉页面就没了。</p>'}
       <section class="materials" id="materials"></section>
       <section><h2>针数</h2>${stitchTable(pattern)}${legendFor(pattern)}</section>`;
+    const figure = document.getElementById('chart');
+    attachFinishedToggle(figure, pattern, () => {
+      figure.innerHTML = renderChart(pattern, { title: `${pattern.title}图解` });
+    });
     const materials = document.getElementById('materials');
     const drawMaterials = () => {
       materials.innerHTML = materialsPanel(pattern, size, 1);

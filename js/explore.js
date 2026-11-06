@@ -1,3 +1,4 @@
+import { renderFinished } from './finished.js';
 import { app, escapeHtml, loadPattern } from './shared.js';
 
 // The inspiration library: old-book pages worth tatting. Each card is a crop of a public-domain page.
@@ -36,7 +37,7 @@ function pageText(card) {
 function cardHtml(card, patternTitles, wished) {
   const doable = Array.isArray(card.patterns) && card.patterns.length > 0;
   const action = doable
-    ? `<div class="explore-actions">${card.patterns.map((id) => `<a class="start" href="#/p/${escapeHtml(id)}">照着编 · ${escapeHtml(patternTitles.get(id) ?? id)}</a>`).join('')}</div>`
+    ? `<div class="explore-actions"><div class="finished-row">${card.patterns.map((id) => (patternTitles.get(id) ? `<span>${renderFinished(patternTitles.get(id))}</span>` : '')).join('')}</div>${card.patterns.map((id) => `<a class="start" href="#/p/${escapeHtml(id)}">照着编 · ${escapeHtml(patternTitles.get(id)?.title ?? id)}</a>`).join('')}</div>`
     : `<div class="explore-actions">${wished
       ? '<span class="wished">已记下</span><button type="button" class="ghost" data-unwish>取消</button>'
       : '<button type="button" class="wish" data-wish>想编这个</button>'}</div>`;
@@ -70,7 +71,7 @@ export async function showExplore() {
   const titles = new Map();
   await Promise.all(ids.map(async (id) => {
     try {
-      titles.set(id, (await loadPattern(id)).title);
+      titles.set(id, await loadPattern(id));
     } catch (error) {
       console.error(error);
     }

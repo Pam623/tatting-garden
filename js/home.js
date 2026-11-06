@@ -1,5 +1,6 @@
 import { structureProblems, summarize } from './pattern.js';
 import { renderChart } from './diagram.js';
+import { renderFinished } from './finished.js';
 import { deleteDrawing, listDrawings } from './drawings.js';
 import { app, embedded, escapeHtml, forgetPattern, loadIndex, loadPattern, studio } from './shared.js';
 import { studioNoticeHtml } from './studio.js';
@@ -85,7 +86,7 @@ export async function showHome(isCurrent) {
             <a class="plate-card" href="#/p/${escapeHtml(p.id)}">
               <figure class="paper">
                 ${renderChart(p, { counts: [], title: `${p.title}图解` })}
-                ${p.photo ? `<img class="inset" src="${escapeHtml(p.photo)}" alt="" loading="lazy">` : ''}
+                ${p.photo ? `<img class="inset" src="${escapeHtml(p.photo)}" alt="" loading="lazy">` : `<span class="inset finished-inset">${renderFinished(p)}</span>`}
               </figure>
               <div class="plate-caption">
                 <span class="plate-no">图版 ${String(i + 1).padStart(2, '0')}</span>

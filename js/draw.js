@@ -5,7 +5,7 @@ import { deleteDrawing, listDrawings, newDrawingId, saveDrawing } from './drawin
 import { THREAD_SIZES } from './materials.js';
 import { summarize } from './pattern.js';
 import {
-  app, escapeHtml, forgetPattern, legendFor, materialsPanel, readSetting, rememberPattern, saveSetting, setCleanup, stitchTable,
+  app, embedded, escapeHtml, forgetPattern, legendFor, materialsPanel, readSetting, rememberPattern, saveSetting, setCleanup, stitchTable,
 } from './shared.js';
 import { setupPadReference } from './pad-reference.js';
 import { startSketchPad } from './sketch-pad.js';
@@ -61,7 +61,7 @@ export function showDraw() {
       clear.disabled = empty;
     },
   });
-  const reference = setupPadReference(document.getElementById('ref-slot'), document.getElementById('pad-wrap'));
+  const reference = setupPadReference(document.getElementById('ref-slot'), document.getElementById('pad-wrap'), { library: !embedded });
   setCleanup(() => {
     reference.stop();
     clearTimeout(timer);

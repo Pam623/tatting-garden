@@ -50,29 +50,47 @@ export function renderFinished(pattern, { color = 'ivory' } = {}) {
           const there = spot(target, picot.from);
           links.push(`<path d="M${f(at.x)} ${f(at.y)}L${f(there.x)} ${f(there.y)}"/>`);
         }
-        ties.push(`<circle cx="${f(at.x)}" cy="${f(at.y)}" r="${f(w * 0.7)}"/>`);
+        // Two small interlocked loops where the thread is pulled through the picot.
+        ties.push(`<circle cx="${f(at.x - at.along.x * w * 0.3)}" cy="${f(at.y - at.along.y * w * 0.3)}" r="${f(w * 0.55)}"/><circle cx="${f(at.x + at.out.x * w * 0.5)}" cy="${f(at.y + at.out.y * w * 0.5)}" r="${f(w * 0.55)}"/>`);
         return;
       }
-      const r = w * 1.25;
-      const cx = at.x + at.out.x * (r + w * 0.2);
-      const cy = at.y + at.out.y * (r + w * 0.2);
+      const r = w * 0.62;
+      const cx = at.x + at.out.x * r * 0.9;
+      const cy = at.y + at.out.y * r * 0.9;
       loops.push(`<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}"/>`);
     });
   });
 
-    return `<svg class="finished" xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${width} ${height}" role="img" aria-label="${palette.label}线的模拟完成图">
+  // Crop to the thread itself, so the cloth fills the picture whatever the layout box was.
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  parsed.forEach((p) => {
+    for (let i = 0; i <= 48; i++) {
+      const q = p.geo.pointAt(i / 48);
+      x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
+    }
+  });
+  const pad = Math.max(x1 - x0, y1 - y0) * 0.1 + w * 3;
+  const cx0 = x0 - pad;
+  const cy0 = y0 - pad;
+  const cw = x1 - x0 + 2 * pad;
+  const ch = y1 - y0 + 2 * pad;
+  return `<svg class="finished" xmlns="http://www.w3.org/2000/svg" viewBox="${f(cx0)} ${f(cy0)} ${f(cw)} ${f(ch)}" role="img" aria-label="${palette.label}线的模拟完成图">
 <defs>
 <radialGradient id="${uid}-bg" cx="50%" cy="45%" r="75%"><stop offset="0" stop-color="${mix(palette.cloth, '#ffffff', 0.08)}"/><stop offset="1" stop-color="${mix(palette.cloth, '#000000', 0.18)}"/></radialGradient>
 <pattern id="${uid}-weave" width="${f(w * 0.9)}" height="${f(w * 0.9)}" patternUnits="userSpaceOnUse"><path d="M0 0H${f(w * 0.9)}M0 0V${f(w * 0.9)}" stroke="${mix(palette.cloth, '#000000', 0.25)}" stroke-width="${f(w * 0.08)}" opacity="0.35"/></pattern>
 </defs>
-<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="url(#${uid}-bg)"/>
-<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="url(#${uid}-weave)"/>
+<rect x="${f(cx0)}" y="${f(cy0)}" width="${f(cw)}" height="${f(ch)}" fill="url(#${uid}-bg)"/>
+<rect x="${f(cx0)}" y="${f(cy0)}" width="${f(cw)}" height="${f(ch)}" fill="url(#${uid}-weave)"/>
 <g stroke="#000" stroke-opacity="0.35" stroke-width="${f(w * 1.1)}" fill="none" stroke-linecap="round" stroke-linejoin="round">${shadow.join('')}</g>
-<g fill="none" stroke="#000" stroke-opacity="0.3" stroke-width="${f(w * 0.5)}">${loops.join('')}</g>
-<g fill="none" stroke="${shade}" stroke-width="${f(w * 0.95)}">${loops.join('')}</g>
-<g fill="none" stroke="${mid}" stroke-width="${f(w * 0.6)}" stroke-dasharray="${dash}">${loops.join('')}</g>
+<g fill="none" stroke="#000" stroke-opacity="0.3" stroke-width="${f(w * 0.8)}" transform="translate(${f(w * 0.25)} ${f(w * 0.45)})">${loops.join('')}</g>
+<g fill="none" stroke="${shade}" stroke-width="${f(w * 0.8)}">${loops.join('')}</g>
+<g fill="none" stroke="${mid}" stroke-width="${f(w * 0.55)}">${loops.join('')}</g>
 <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="${shade}" stroke-width="${f(w * 0.6)}">${links.join('')}</g>
 <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="${f(w)}"><style>#${uid} .base{stroke:${shade};stroke-width:${f(w)}}#${uid} .knots{stroke:${mid};stroke-width:${f(w * 0.78)};stroke-dasharray:${dash}}#${uid} .gleam{stroke:${light};stroke-width:${f(w * 0.2)};stroke-dasharray:${f(w * 0.35)} ${f(w * 0.55)};stroke-dashoffset:${f(w * 0.2)};opacity:0.85}</style><g id="${uid}">${body.join('')}</g></g>
-<g fill="${shade}" stroke="${light}" stroke-width="${f(w * 0.15)}">${ties.join('')}</g>
+<g fill="none" stroke="${shade}" stroke-width="${f(w * 0.8)}">${ties.join('')}</g>
+<g fill="none" stroke="${mid}" stroke-width="${f(w * 0.55)}">${ties.join('')}</g>
 </svg>`;
 }

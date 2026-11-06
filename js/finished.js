@@ -14,7 +14,8 @@ export const THREAD_COLORS = [
 
 const hex = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
 const mix = (a, b, t) => `#${hex(a).map((v, i) => Math.round(v + (hex(b)[i] - v) * t).toString(16).padStart(2, '0')).join('')}`;
-const f = (v) => v.toFixed(1);
+// Significant digits, not decimals, so a pattern with tiny coordinates keeps its line widths.
+const f = (v) => String(Number(v.toPrecision(4)));
 
 export function renderFinished(pattern, { color = 'ivory' } = {}) {
   const palette = THREAD_COLORS.find((c) => c.id === color) ?? THREAD_COLORS[0];

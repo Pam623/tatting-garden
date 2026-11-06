@@ -68,3 +68,16 @@ test('renderFinished draws every pattern in every colour, with no text', () => {
   });
   assert.equal(THREAD_COLORS.length, 5);
 });
+
+test('renderFinished keeps visible line widths on a pattern with tiny coordinates', () => {
+  const pattern = JSON.parse(readFileSync(new URL('../patterns/little-flower.json', import.meta.url), 'utf8'));
+  const shrink = (value) => {
+    if (typeof value === 'number') return value / 1000;
+    if (Array.isArray(value)) return value.map(shrink);
+    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, shrink(v)]));
+    return value;
+  };
+  pattern.elements = pattern.elements.map((element) => ({ ...element, place: shrink(element.place) }));
+  pattern.layout = { ...pattern.layout, viewBox: shrink(pattern.layout.viewBox) };
+  assert.doesNotMatch(renderFinished(pattern), /stroke-width="0(\.0*)?"/);
+});

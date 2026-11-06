@@ -14,7 +14,9 @@ function escapeXml(text) {
 
 const n = (value) => value.toFixed(1);
 
-function ringPoints({ base, tip, width, dir }) {
+// place.shape "round" is a ring with no corner (only picots): an ellipse through base and tip.
+// Without it the ring is a teardrop, which is how every other pattern is drawn.
+function ringPoints({ base, tip, width, dir, shape }) {
   const dx = tip[0] - base[0];
   const dy = tip[1] - base[1];
   const length = Math.hypot(dx, dy);
@@ -25,7 +27,9 @@ function ringPoints({ base, tip, width, dir }) {
   for (let i = 0; i <= SAMPLES; i++) {
     const t = (i / SAMPLES) * 2 * Math.PI;
     const u = (length * (1 - Math.cos(t))) / 2;
-    const v = (side * (width / 2) * Math.sin(t) * Math.sin(t / 2)) / TEARDROP_PEAK;
+    const v = shape === 'round'
+      ? side * (width / 2) * Math.sin(t)
+      : (side * (width / 2) * Math.sin(t) * Math.sin(t / 2)) / TEARDROP_PEAK;
     points.push({ x: base[0] + axis.x * u + left.x * v, y: base[1] + axis.y * u + left.y * v });
   }
   return { points, outSide: side };

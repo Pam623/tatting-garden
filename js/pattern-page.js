@@ -1,5 +1,6 @@
 import { clampProgress, structureProblems, summarize } from './pattern.js';
 import { renderChart } from './diagram.js';
+import { attachFinishedToggle } from './finished-toggle.js';
 import { THREAD_SIZES } from './materials.js';
 import { originalUrl } from './saved.js';
 import { originalCaption } from './upload-file.js';
@@ -102,7 +103,11 @@ export async function showPattern(id) {
   }
   const chart = document.getElementById('chart');
   const rows = [...document.querySelectorAll('.row')];
+  let shown = null;
+  let view = null;
   const draw = (ids) => {
+    shown = ids;
+    if (view?.isFinished()) return;
     chart.innerHTML = renderChart(pattern, {
       highlight: ids,
       counts: ids ?? null,
@@ -118,6 +123,7 @@ export async function showPattern(id) {
     });
   });
   draw(null);
+  view = attachFinishedToggle(chart, pattern, () => draw(shown));
 
   const materials = document.getElementById('materials');
   let size = readSetting('size', 20);

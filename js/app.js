@@ -1,4 +1,5 @@
 import { rememberDrawings, showDraw } from './draw.js';
+import { showExplore } from './explore.js';
 import { showHome } from './home.js';
 import { showPattern } from './pattern-page.js';
 import { app, embedded, loadPattern, runCleanup } from './shared.js';
@@ -26,6 +27,7 @@ async function route() {
     if (thisRoute !== routeCount) return;
     if (location.hash === '#/upload') await showUpload();
     else if (location.hash === '#/draw') await showDraw();
+    else if (location.hash === '#/explore') await showExplore(() => thisRoute === routeCount);
     else if (match?.[2]) await showWork(match[1]);
     else if (match) await showPattern(match[1]);
     else await showHome(() => thisRoute === routeCount);

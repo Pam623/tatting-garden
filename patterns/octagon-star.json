@@ -1,0 +1,22 @@
+{
+  "schema": 2,
+  "id": "octagon-star",
+  "title": "八角星",
+  "craft": "梭编",
+  "difficulty": "入门",
+  "tier": "checked",
+  "reviewedBy": ["Kimi K3.1 Pro 只按数据模拟编完，PASS"],
+  "rights": { "kind": "public-domain", "note": "1861 年出版的古书，已过版权期" },
+  "source": "Golden Stars in Tatting and Crochet（Mlle Riego，1861）第 5 页 Octagon Star",
+  "summary": "一个环，八个耳，编完拉紧，两个线头打结收尾。书里把它缀在袖子和垫子上。",
+  "layout": { "viewBox": [-100, -100, 200, 200], "closed": true },
+  "threadNote": "书里说金线要打两次结才牢。",
+  "elements": [
+    {
+      "id": "A",
+      "type": "ring",
+      "parts": ["1", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "1"],
+      "place": { "base": [0, 66], "tip": [0, -66], "width": 132, "dir": "cw", "shape": "round" }
+    }
+  ]
+}

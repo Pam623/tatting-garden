@@ -1,11 +1,13 @@
 // The drawing page: draw an outline, get a chart from js/trace-design.js. Nothing leaves the browser.
 import { renderChart } from './diagram.js';
+import { attachFinishedToggle } from './finished-toggle.js';
 import { deleteDrawing, listDrawings, newDrawingId, saveDrawing } from './drawings.js';
 import { THREAD_SIZES } from './materials.js';
 import { summarize } from './pattern.js';
 import {
-  app, escapeHtml, forgetPattern, legendFor, materialsPanel, readSetting, rememberPattern, saveSetting, setCleanup, stitchTable,
+  app, embedded, escapeHtml, forgetPattern, legendFor, materialsPanel, readSetting, rememberPattern, saveSetting, setCleanup, stitchTable,
 } from './shared.js';
+import { setupPadReference } from './pad-reference.js';
 import { startSketchPad } from './sketch-pad.js';
 import { traceDesign } from './trace-design.js';
 
@@ -22,7 +24,8 @@ export function showDraw() {
       <div id="board">
         <h1 class="pattern-title">画一个</h1>
         <p class="lede">画一个简单的封闭轮廓，比如爱心、星星或蝴蝶。线条不用好看，看得出形状就行。</p>
-        <canvas class="sketch-pad" id="pad" role="img" aria-label="画板"></canvas>
+        <div class="pad-wrap" id="pad-wrap"><canvas class="sketch-pad" id="pad" role="img" aria-label="画板"></canvas></div>
+        <div class="pad-ref-slot" id="ref-slot"></div>
         <div class="pad-tools">
           <button type="button" class="ghost" id="undo" disabled>撤销</button>
           <button type="button" class="ghost" id="clear" disabled>清空</button>
@@ -58,7 +61,9 @@ export function showDraw() {
       clear.disabled = empty;
     },
   });
+  const reference = setupPadReference(document.getElementById('ref-slot'), document.getElementById('pad-wrap'), { library: !embedded });
   setCleanup(() => {
+    reference.stop();
     clearTimeout(timer);
     pad.stop();
   });
@@ -93,6 +98,10 @@ export function showDraw() {
     : '<p class="error" role="alert">这台设备存不下（可能空间满了，或者浏览器不让存）。现在可以照着编，但关掉页面就没了。</p>'}
       <section class="materials" id="materials"></section>
       <section><h2>针数</h2>${stitchTable(pattern)}${legendFor(pattern)}</section>`;
+    const figure = document.getElementById('chart');
+    attachFinishedToggle(figure, pattern, () => {
+      figure.innerHTML = renderChart(pattern, { title: `${pattern.title}图解` });
+    });
     const materials = document.getElementById('materials');
     const drawMaterials = () => {
       materials.innerHTML = materialsPanel(pattern, size, 1);

@@ -131,7 +131,10 @@ export function partsInWords(pattern, element, { pass = 1 } = {}) {
   let joinNoteDone = false;
   return readElement(element).items.map((item, index) => {
     let words = wordsFor(pattern, item);
-    if (item.kind === 'join' && repeat?.includes(element.id) && pass >= 2 && !joinNoteDone) {
+    // A join to an element already worked in this same pass stays in this group.
+    const targetAt = repeat?.indexOf(item.element) ?? -1;
+    const sameGroup = targetAt >= 0 && targetAt < (repeat?.indexOf(element.id) ?? -1);
+    if (item.kind === 'join' && repeat?.includes(element.id) && pass >= 2 && !joinNoteDone && !sameGroup) {
       joinNoteDone = true;
       words += '，再来时接上一组对应的耳';
     }

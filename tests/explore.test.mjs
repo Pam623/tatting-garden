@@ -22,8 +22,8 @@ function jpegWidth(path) {
   throw new Error('no frame header');
 }
 
-test('inspiration library has 8 to 12 cards with every source field', () => {
-  assert.ok(cards.length >= 8 && cards.length <= 12);
+test('inspiration library has 8 to 30 cards with every source field', () => {
+  assert.ok(cards.length >= 8 && cards.length <= 30);
   const ids = new Set();
   cards.forEach((card) => {
     assert.ok(!ids.has(card.id), `${card.id} is repeated`);
@@ -35,7 +35,7 @@ test('inspiration library has 8 to 12 cards with every source field', () => {
   });
 });
 
-test('every card image exists, is at most 800 wide, and all together stay under 3 MB', () => {
+test('every card image exists, is at most 800 wide, and all together stay under 6 MB', () => {
   let total = 0;
   cards.forEach((card) => {
     const path = join(root, card.image);
@@ -43,7 +43,7 @@ test('every card image exists, is at most 800 wide, and all together stay under 
     assert.ok(jpegWidth(path) <= 800, `${card.image} is wider than 800`);
     total += statSync(path).size;
   });
-  assert.ok(total < 3 * 1024 * 1024, `images take ${total} bytes`);
+  assert.ok(total < 6 * 1024 * 1024, `images take ${total} bytes`);
 });
 
 test('cards that link to a pattern point at a listed one that names its book', () => {

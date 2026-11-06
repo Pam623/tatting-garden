@@ -381,3 +381,19 @@ test('a malformed repeat cannot make the checks throw', () => {
     assert.doesNotThrow(() => checkPattern(pattern([ring('A', ['5'])], { repeat })));
   }
 });
+
+test('a repeat join to a ring from the same group does not point at the previous group', () => {
+  const pattern = JSON.parse(readFileSync(new URL('../patterns/arch-edging.json', import.meta.url), 'utf8'));
+  const last = pattern.elements.find((element) => element.id === 'F');
+  const words = partsInWords(pattern, last, { pass: 2 }).map((part) => part.words).join('');
+  assert.match(words, /接到 D/);
+  assert.doesNotMatch(words, /再来时/);
+});
+
+test('a repeat join to a later ring still points at the previous group', () => {
+  const pattern = JSON.parse(readFileSync(new URL('../patterns/leaf-braid.json', import.meta.url), 'utf8'));
+  const annotated = pattern.elements
+    .filter((element) => pattern.repeat.elements.includes(element.id))
+    .some((element) => partsInWords(pattern, element, { pass: 2 }).some((part) => /再来时/.test(part.words)));
+  assert.ok(annotated);
+});

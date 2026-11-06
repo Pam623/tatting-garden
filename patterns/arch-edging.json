@@ -1,0 +1,208 @@
+{
+  "schema": 2,
+  "id": "arch-edging",
+  "title": "拱形手帕花边",
+  "craft": "梭编",
+  "difficulty": "入门",
+  "tier": "checked",
+  "reviewedBy": [
+    "Kimi K3.1 Pro 只按数据模拟编完，PASS"
+  ],
+  "rights": {
+    "kind": "public-domain",
+    "note": "1915 年出版的古书，已过版权期"
+  },
+  "source": "Priscilla Tatting Book No. 2（1915）第 22 页 Figure 52 Border for Handkerchief 的第一行，照片是同页图 52",
+  "summary": "带七个耳的拱，脚下两个环尖对尖接住。一拱接一拱编下去，做手帕或领口的边。",
+  "layout": {
+    "viewBox": [
+      -40,
+      -205,
+      420,
+      330
+    ]
+  },
+  "repeat": {
+    "elements": [
+      "D",
+      "E",
+      "F"
+    ],
+    "defaultTimes": 6,
+    "open": []
+  },
+  "threadNote": "1 个梭子加线团。从右往左编。环和拱分在线的两侧，所以从环到拱、从拱到环都要翻面；相邻两拱脚下的两个环之间不翻，也不留线。",
+  "finish": "编够长度后，在最后一个环的根部打结，藏好线尾",
+  "elements": [
+    {
+      "id": "A",
+      "type": "ring",
+      "group": "first",
+      "parts": [
+        "8",
+        "p:tip",
+        "8"
+      ],
+      "place": {
+        "base": [
+          340,
+          0
+        ],
+        "tip": [
+          262,
+          25
+        ],
+        "width": 40,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "B",
+      "type": "bridge",
+      "group": "arch",
+      "parts": [
+        "3",
+        "o",
+        "3",
+        "o",
+        "3",
+        "o",
+        "3",
+        "o",
+        "3",
+        "o",
+        "3",
+        "o",
+        "3",
+        "o",
+        "3"
+      ],
+      "place": {
+        "from": [
+          340,
+          0
+        ],
+        "to": [
+          170,
+          0
+        ],
+        "bulge": -140
+      },
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      }
+    },
+    {
+      "id": "C",
+      "type": "ring",
+      "group": "second",
+      "parts": [
+        "8",
+        "j:A.tip",
+        "8"
+      ],
+      "place": {
+        "base": [
+          170,
+          0
+        ],
+        "tip": [
+          248,
+          25
+        ],
+        "width": 40,
+        "dir": "cw"
+      },
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      }
+    },
+    {
+      "id": "D",
+      "type": "ring",
+      "group": "first",
+      "parts": [
+        "8",
+        "p:tip",
+        "8"
+      ],
+      "place": {
+        "base": [
+          170,
+          0
+        ],
+        "tip": [
+          92,
+          25
+        ],
+        "width": 40,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "E",
+      "type": "bridge",
+      "group": "arch",
+      "parts": [
+        "3",
+        "o",
+        "3",
+        "o",
+        "3",
+        "o",
+        "3",
+        "o",
+        "3",
+        "o",
+        "3",
+        "o",
+        "3",
+        "o",
+        "3"
+      ],
+      "place": {
+        "from": [
+          170,
+          0
+        ],
+        "to": [
+          0,
+          0
+        ],
+        "bulge": -140
+      },
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      }
+    },
+    {
+      "id": "F",
+      "type": "ring",
+      "group": "second",
+      "parts": [
+        "8",
+        "j:D.tip",
+        "8"
+      ],
+      "place": {
+        "base": [
+          0,
+          0
+        ],
+        "tip": [
+          78,
+          25
+        ],
+        "width": 40,
+        "dir": "cw"
+      },
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      }
+    }
+  ]
+}

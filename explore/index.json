@@ -85,16 +85,17 @@
   "bookUrl": "https://antiquepatternlibrary.org/html/warm/B-JA034.htm"
  },
  {
-  "id": "pris-collar-detail",
-  "image": "assets/explore/pris-collar-detail.jpg",
-  "kind": "花边",
-  "title": "图 37 领子的局部",
-  "note": "领子下缘的花瓣和格子网眼的近照。",
+  "id": "pris-collar-medallion",
+  "image": "assets/explore/pris-collar-medallion.jpg",
+  "kind": "花片",
+  "title": "图 66 领子尖角上的花片",
+  "note": "一个小环加五朵三叶草，缀在图 65 领子的尖角上。",
   "book": "Priscilla Tatting Book No. 2",
   "year": 1915,
-  "page": 17,
-  "sourceUrl": "https://www.antiquepatternlibrary.org/pub/IMG/B/B-JA034/18.jpg",
-  "bookUrl": "https://antiquepatternlibrary.org/html/warm/B-JA034.htm"
+  "page": 27,
+  "sourceUrl": "https://www.antiquepatternlibrary.org/pub/IMG/B/B-JA034/28.jpg",
+  "bookUrl": "https://antiquepatternlibrary.org/html/warm/B-JA034.htm",
+  "patterns": ["clover-medallion"]
  },
  {
   "id": "pris-collar-section",

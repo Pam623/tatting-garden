@@ -1,0 +1,614 @@
+{
+  "schema": 2,
+  "id": "clover-medallion",
+  "title": "五叶圆花片",
+  "craft": "梭编",
+  "difficulty": "进阶",
+  "tier": "checked",
+  "reviewedBy": [
+    "Kimi K3.1 Pro 只按数据模拟编完，PASS"
+  ],
+  "rights": {
+    "kind": "public-domain",
+    "note": "1915 年出版的古书，已过版权期"
+  },
+  "source": "Priscilla Tatting Book No. 2（1915）第 27 页 图 65、图 66 领子上的花片（Medallions）",
+  "summary": "中间一个小环，外面五朵三叶草，三叶草之间用桥连起来，桥的中点接到小环的耳上。书里把它缀在领子的尖角上。",
+  "layout": {
+    "viewBox": [
+      -190,
+      -190,
+      380,
+      380
+    ]
+  },
+  "threadNote": "1 个梭子加线团。图上 A 到 B 的虚线不用编：A 环拉紧后打结剪线，从 B 环重新起头。之后环和桥之间都不留线，也不翻面。",
+  "finish": "最后一段桥回到 B 环的起点，线头打结，藏好线尾",
+  "elements": [
+    {
+      "id": "A",
+      "type": "ring",
+      "parts": [
+        "1",
+        "p:a",
+        "2",
+        "p:b",
+        "2",
+        "p:c",
+        "2",
+        "p:d",
+        "2",
+        "p:e",
+        "1"
+      ],
+      "place": {
+        "base": [
+          0,
+          24
+        ],
+        "tip": [
+          0,
+          -24
+        ],
+        "width": 48,
+        "dir": "cw",
+        "shape": "round"
+      }
+    },
+    {
+      "id": "B",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "o",
+        "2",
+        "p:near",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          0,
+          74
+        ],
+        "tip": [
+          55.4,
+          106
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "C",
+      "type": "ring",
+      "group": "mid",
+      "parts": [
+        "4",
+        "j:B.next",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          0,
+          74
+        ],
+        "tip": [
+          0,
+          144
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "D",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "j:C.next",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:far",
+        "2",
+        "o",
+        "4"
+      ],
+      "place": {
+        "base": [
+          0,
+          74
+        ],
+        "tip": [
+          -55.4,
+          106
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "E",
+      "type": "bridge",
+      "group": "arc",
+      "parts": [
+        "7",
+        "j:A.a",
+        "7"
+      ],
+      "place": {
+        "from": [
+          0,
+          74
+        ],
+        "to": [
+          -70.4,
+          22.9
+        ],
+        "bulge": 16
+      }
+    },
+    {
+      "id": "F",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "o",
+        "2",
+        "j:D.far",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          -70.4,
+          22.9
+        ],
+        "tip": [
+          -83.7,
+          85.5
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "G",
+      "type": "ring",
+      "group": "mid",
+      "parts": [
+        "4",
+        "j:F.next",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          -70.4,
+          22.9
+        ],
+        "tip": [
+          -137,
+          44.5
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "H",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "j:G.next",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:far",
+        "2",
+        "o",
+        "4"
+      ],
+      "place": {
+        "base": [
+          -70.4,
+          22.9
+        ],
+        "tip": [
+          -118,
+          -19.9
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "I",
+      "type": "bridge",
+      "group": "arc",
+      "parts": [
+        "7",
+        "j:A.b",
+        "7"
+      ],
+      "place": {
+        "from": [
+          -70.4,
+          22.9
+        ],
+        "to": [
+          -43.5,
+          -59.9
+        ],
+        "bulge": 16
+      }
+    },
+    {
+      "id": "J",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "o",
+        "2",
+        "j:H.far",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          -43.5,
+          -59.9
+        ],
+        "tip": [
+          -107.1,
+          -53.2
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "K",
+      "type": "ring",
+      "group": "mid",
+      "parts": [
+        "4",
+        "j:J.next",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          -43.5,
+          -59.9
+        ],
+        "tip": [
+          -84.6,
+          -116.5
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "L",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "j:K.next",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:far",
+        "2",
+        "o",
+        "4"
+      ],
+      "place": {
+        "base": [
+          -43.5,
+          -59.9
+        ],
+        "tip": [
+          -17.5,
+          -118.4
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "M",
+      "type": "bridge",
+      "group": "arc",
+      "parts": [
+        "7",
+        "j:A.c",
+        "7"
+      ],
+      "place": {
+        "from": [
+          -43.5,
+          -59.9
+        ],
+        "to": [
+          43.5,
+          -59.9
+        ],
+        "bulge": 16
+      }
+    },
+    {
+      "id": "N",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "o",
+        "2",
+        "j:L.far",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          43.5,
+          -59.9
+        ],
+        "tip": [
+          17.5,
+          -118.4
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "O",
+      "type": "ring",
+      "group": "mid",
+      "parts": [
+        "4",
+        "j:N.next",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          43.5,
+          -59.9
+        ],
+        "tip": [
+          84.6,
+          -116.5
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "P",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "j:O.next",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:far",
+        "2",
+        "o",
+        "4"
+      ],
+      "place": {
+        "base": [
+          43.5,
+          -59.9
+        ],
+        "tip": [
+          107.1,
+          -53.2
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "Q",
+      "type": "bridge",
+      "group": "arc",
+      "parts": [
+        "7",
+        "j:A.d",
+        "7"
+      ],
+      "place": {
+        "from": [
+          43.5,
+          -59.9
+        ],
+        "to": [
+          70.4,
+          22.9
+        ],
+        "bulge": 16
+      }
+    },
+    {
+      "id": "R",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "o",
+        "2",
+        "j:P.far",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          70.4,
+          22.9
+        ],
+        "tip": [
+          118,
+          -19.9
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "S",
+      "type": "ring",
+      "group": "mid",
+      "parts": [
+        "4",
+        "j:R.next",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          70.4,
+          22.9
+        ],
+        "tip": [
+          137,
+          44.5
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "T",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "j:S.next",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "j:B.near",
+        "2",
+        "o",
+        "4"
+      ],
+      "place": {
+        "base": [
+          70.4,
+          22.9
+        ],
+        "tip": [
+          83.7,
+          85.5
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "U",
+      "type": "bridge",
+      "group": "arc",
+      "parts": [
+        "7",
+        "j:A.e",
+        "7"
+      ],
+      "place": {
+        "from": [
+          70.4,
+          22.9
+        ],
+        "to": [
+          0,
+          74
+        ],
+        "bulge": 16
+      }
+    }
+  ]
+}

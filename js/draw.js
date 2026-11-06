@@ -7,6 +7,7 @@ import { summarize } from './pattern.js';
 import {
   app, escapeHtml, forgetPattern, legendFor, materialsPanel, readSetting, rememberPattern, saveSetting, setCleanup, stitchTable,
 } from './shared.js';
+import { setupPadReference } from './pad-reference.js';
 import { startSketchPad } from './sketch-pad.js';
 import { traceDesign } from './trace-design.js';
 
@@ -23,7 +24,8 @@ export function showDraw() {
       <div id="board">
         <h1 class="pattern-title">画一个</h1>
         <p class="lede">画一个简单的封闭轮廓，比如爱心、星星或蝴蝶。线条不用好看，看得出形状就行。</p>
-        <canvas class="sketch-pad" id="pad" role="img" aria-label="画板"></canvas>
+        <div class="pad-wrap" id="pad-wrap"><canvas class="sketch-pad" id="pad" role="img" aria-label="画板"></canvas></div>
+        <div class="pad-ref-slot" id="ref-slot"></div>
         <div class="pad-tools">
           <button type="button" class="ghost" id="undo" disabled>撤销</button>
           <button type="button" class="ghost" id="clear" disabled>清空</button>
@@ -59,7 +61,9 @@ export function showDraw() {
       clear.disabled = empty;
     },
   });
+  const reference = setupPadReference(document.getElementById('ref-slot'), document.getElementById('pad-wrap'));
   setCleanup(() => {
+    reference.stop();
     clearTimeout(timer);
     pad.stop();
   });

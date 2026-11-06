@@ -180,7 +180,8 @@
   "year": 1915,
   "page": 12,
   "sourceUrl": "https://www.antiquepatternlibrary.org/pub/IMG/B/B-JA034/13.jpg",
-  "bookUrl": "https://antiquepatternlibrary.org/html/warm/B-JA034.htm"
+  "bookUrl": "https://antiquepatternlibrary.org/html/warm/B-JA034.htm",
+  "patterns": ["spoke-medallion"]
  },
  {
   "id": "pris-jabot",
@@ -240,7 +241,8 @@
   "year": 1915,
   "page": 22,
   "sourceUrl": "https://www.antiquepatternlibrary.org/pub/IMG/B/B-JA034/23.jpg",
-  "bookUrl": "https://antiquepatternlibrary.org/html/warm/B-JA034.htm"
+  "bookUrl": "https://antiquepatternlibrary.org/html/warm/B-JA034.htm",
+  "patterns": ["arch-edging"]
  },
  {
   "id": "pris-buckle",

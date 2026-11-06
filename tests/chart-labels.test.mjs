@@ -64,7 +64,8 @@ function labelsOnLines({ elements, named, scale }) {
   return hits;
 }
 
-for (const path of ['patterns/leaf-braid.json', 'patterns/little-flower.json', 'patterns/letter-motif.json']) {
+for (const id of read('patterns/index.json')) {
+  const path = `patterns/${id}.json`;
   test(`${path}: no label touches another or lies on a line`, () => {
     const layout = labelsOf(read(path));
     assert.deepEqual(labelsTouching(layout), []);
@@ -167,7 +168,8 @@ const fittedFixture = (name) => {
   return applyLayout(pattern, fitLayout(pattern, { aspect: 1 }));
 };
 
-for (const path of ['patterns/leaf-braid.json', 'patterns/little-flower.json', 'patterns/letter-motif.json']) {
+for (const id of read('patterns/index.json')) {
+  const path = `patterns/${id}.json`;
   test(`${path}: every number and letter sits right beside what it describes`, () => {
     const pattern = read(path);
     assert.deepEqual(labelFaults(pattern, firstOfEachGroup()), []);

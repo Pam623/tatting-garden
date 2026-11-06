@@ -75,7 +75,7 @@ export async function showHome(isCurrent) {
       <header class="masthead">
         <h1>${embedded ? '梭编实验室' : '梭编花园'}</h1>
         <p>${embedded ? '只有你能打开。这里的花样还不能公开，或者还在验证。' : '少而精的梭编图解。每一张都能照着编完。'}</p>
-        <div class="start-actions">${studio.sample ? '<a class="start" href="#/upload">上传图片，转成图解</a>' : ''}<a class="start" href="#/draw">画一个</a></div>
+        <div class="start-actions">${studio.sample ? '<a class="start" href="#/upload">上传图片，转成图解</a>' : ''}<a class="start" href="#/draw">画一个</a><a class="start" href="#/explore">灵感库</a></div>
         ${studioNoticeHtml()}
       </header>
       ${mineSection()}

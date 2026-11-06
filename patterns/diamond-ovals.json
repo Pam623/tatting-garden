@@ -1,0 +1,42 @@
+{
+  "schema": 2,
+  "id": "diamond-ovals",
+  "title": "菱形四环",
+  "craft": "梭编",
+  "difficulty": "入门",
+  "tier": "sorted",
+  "rights": { "kind": "public-domain", "note": "1861 年出版的古书，已过版权期" },
+  "source": "Golden Stars in Tatting and Crochet（Mlle Riego，1861）第 5 页 The Diamond",
+  "summary": "四个一样的环，一个紧挨一个编，每环三个耳。收尾时第一个线头穿过最后一个环，再穿过另外三个，和另一头打结。",
+  "layout": { "viewBox": [-110, -110, 220, 220], "closed": true },
+  "elements": [
+    {
+      "id": "A",
+      "type": "ring",
+      "group": "oval",
+      "parts": ["4", "o", "2", "o", "2", "o", "4"],
+      "place": { "base": [0, -8], "tip": [0, -100], "width": 54, "dir": "cw" }
+    },
+    {
+      "id": "B",
+      "type": "ring",
+      "group": "oval",
+      "parts": ["4", "o", "2", "o", "2", "o", "4"],
+      "place": { "base": [8, 0], "tip": [100, 0], "width": 54, "dir": "cw" }
+    },
+    {
+      "id": "C",
+      "type": "ring",
+      "group": "oval",
+      "parts": ["4", "o", "2", "o", "2", "o", "4"],
+      "place": { "base": [0, 8], "tip": [0, 100], "width": 54, "dir": "cw" }
+    },
+    {
+      "id": "D",
+      "type": "ring",
+      "group": "oval",
+      "parts": ["4", "o", "2", "o", "2", "o", "4"],
+      "place": { "base": [-8, 0], "tip": [-100, 0], "width": 54, "dir": "cw" }
+    }
+  ]
+}

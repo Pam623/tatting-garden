@@ -339,3 +339,16 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 #result .upload-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0; }
 #result .upload-actions button { min-height: 44px; padding: 0 18px; border-radius: 4px; }
 #result .upload-actions .start { margin: 0; }
+
+/* Inspiration library */
+.explore-card { list-style: none; }
+.explore-card .paper { padding: 10px; background: #14130f; }
+.explore-card img { display: block; width: 100%; height: auto; max-height: 360px; object-fit: contain; }
+.explore-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+.explore-actions .start { margin: 0; flex: 1 1 100%; }
+.explore-actions button { min-height: 44px; padding: 0 18px; border-radius: 4px; }
+.explore-actions .wish { background: var(--button); color: var(--button-ink); border: 0; font-weight: 600; }
+.explore-actions .wished { font-weight: 600; color: var(--madder); }
+.wish-list { margin: 0 0 32px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 4px; }
+.wish-list ul { margin: 10px 0 0 1.2em; }
+.start-actions .start { margin: 26px 0 40px; }

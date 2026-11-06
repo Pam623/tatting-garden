@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "id": "sexagon-star",
+  "title": "六角星",
+  "craft": "梭编",
+  "difficulty": "入门",
+  "tier": "sorted",
+  "rights": { "kind": "public-domain", "note": "1861 年出版的古书，已过版权期" },
+  "source": "Golden Stars in Tatting and Crochet（Mlle Riego，1861）第 5 页 Sexagon Star",
+  "summary": "一个环，六个耳，编完拉紧，两个线头打结收尾。比八角星小一点。",
+  "layout": { "viewBox": [-100, -100, 200, 200], "closed": true },
+  "elements": [
+    {
+      "id": "A",
+      "type": "ring",
+      "parts": ["1", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "1"],
+      "place": { "base": [0, 70], "tip": [0, -70], "width": 116, "dir": "cw" }
+    }
+  ]
+}

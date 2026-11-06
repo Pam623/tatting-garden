@@ -31,7 +31,7 @@
     "defaultTimes": 6,
     "open": []
   },
-  "threadNote": "1 个梭子加线团。从右往左编。环和桥之间都不留线，也不翻面。相邻两拱脚下的环背靠背，中间不留线。",
+  "threadNote": "1 个梭子加线团。从右往左编。环和拱分在线的两侧，所以从环到拱、从拱到环都要翻面；相邻两拱脚下的两个环之间不翻，也不留线。",
   "finish": "编够长度后，在最后一个环的根部打结，藏好线尾",
   "elements": [
     {
@@ -86,7 +86,11 @@
           170,
           0
         ],
-        "bulge": -110
+        "bulge": -140
+      },
+      "flip": {
+        "value": true,
+        "source": "inferred"
       }
     },
     {
@@ -109,6 +113,10 @@
         ],
         "width": 40,
         "dir": "cw"
+      },
+      "flip": {
+        "value": true,
+        "source": "inferred"
       }
     },
     {
@@ -163,7 +171,11 @@
           0,
           0
         ],
-        "bulge": -110
+        "bulge": -140
+      },
+      "flip": {
+        "value": true,
+        "source": "inferred"
       }
     },
     {
@@ -186,6 +198,10 @@
         ],
         "width": 40,
         "dir": "cw"
+      },
+      "flip": {
+        "value": true,
+        "source": "inferred"
       }
     }
   ]

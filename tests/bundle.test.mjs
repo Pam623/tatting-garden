@@ -102,4 +102,5 @@ test('the bundled page runs and draws the home page without any upload entry', a
   assert.ok(app.innerHTML.includes(pattern.title), app.innerHTML);
   assert.ok(!app.innerHTML.includes('#/upload'), 'no upload link without the artifact capabilities');
   assert.ok(app.innerHTML.includes('#/draw'), 'drawing needs nothing from the artifact');
+  assert.ok(!app.innerHTML.includes('#/explore'), 'the lab page cannot fetch the inspiration library');
 });

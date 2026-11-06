@@ -65,7 +65,7 @@ function wishSection(cards, wishes) {
     </section>`;
 }
 
-export async function showExplore() {
+export async function showExplore(isCurrent = () => true) {
   const cards = await loadExplore();
   const ids = [...new Set(cards.flatMap((c) => c.patterns ?? []))];
   const titles = new Map();
@@ -76,6 +76,7 @@ export async function showExplore() {
       console.error(error);
     }
   }));
+  if (!isCurrent()) return;
   const wishes = readWishes();
   document.title = '梭编花园 · 灵感库';
   app.innerHTML = `

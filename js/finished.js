@@ -12,7 +12,6 @@ export const THREAD_COLORS = [
   { id: 'green', label: '墨绿', thread: '#2f5a46', cloth: '#e9e2d2' },
 ];
 
-const THREAD_SCALE = 370;
 const hex = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
 const mix = (a, b, t) => `#${hex(a).map((v, i) => Math.round(v + (hex(b)[i] - v) * t).toString(16).padStart(2, '0')).join('')}`;
 const f = (v) => v.toFixed(1);
@@ -20,13 +19,24 @@ const f = (v) => v.toFixed(1);
 export function renderFinished(pattern, { color = 'ivory' } = {}) {
   const palette = THREAD_COLORS.find((c) => c.id === color) ?? THREAD_COLORS[0];
   const [minX, minY, width, height] = pattern.layout.viewBox;
-  const s = width / THREAD_SCALE;
-  const w = 8 * s;
   const shade = mix(palette.thread, '#000000', 0.55);
   const mid = mix(palette.thread, '#000000', 0.12);
   const light = mix(palette.thread, '#ffffff', 0.55);
   const uid = `fin-${String(pattern.id ?? 'x').replace(/[^\w-]/g, '')}-${palette.id}`;
   const parsed = pattern.elements.map((element) => ({ element, read: readElement(element), geo: elementGeometry(element) }));
+  // Crop to the thread itself, so the cloth fills the picture whatever the layout box was.
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  parsed.forEach((p) => {
+    for (let i = 0; i <= 48; i++) {
+      const q = p.geo.pointAt(i / 48);
+      x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
+    }
+  });
+  // Thread width follows the size of the piece, so a big medallion is still drawn with fine thread.
+  const w = Math.max(x1 - x0, y1 - y0) * 0.014;
   const byId = new Map(parsed.map((p) => [p.element.id, p]));
   const spot = (p, stitches) => p.geo.pointAt(p.read.stitches ? stitches / p.read.stitches : 0);
 
@@ -53,24 +63,13 @@ export function renderFinished(pattern, { color = 'ivory' } = {}) {
         ties.push(`<circle cx="${f(at.x - at.along.x * w * 0.3)}" cy="${f(at.y - at.along.y * w * 0.3)}" r="${f(w * 0.55)}"/><circle cx="${f(at.x + at.out.x * w * 0.5)}" cy="${f(at.y + at.out.y * w * 0.5)}" r="${f(w * 0.55)}"/>`);
         return;
       }
-      const r = w * 0.62;
+      const r = w * 0.85;
       const cx = at.x + at.out.x * r * 0.9;
       const cy = at.y + at.out.y * r * 0.9;
       loops.push(`<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r)}"/>`);
     });
   });
 
-  // Crop to the thread itself, so the cloth fills the picture whatever the layout box was.
-  let x0 = Infinity;
-  let y0 = Infinity;
-  let x1 = -Infinity;
-  let y1 = -Infinity;
-  parsed.forEach((p) => {
-    for (let i = 0; i <= 48; i++) {
-      const q = p.geo.pointAt(i / 48);
-      x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y);
-    }
-  });
   const pad = Math.max(x1 - x0, y1 - y0) * 0.1 + w * 3;
   const cx0 = x0 - pad;
   const cy0 = y0 - pad;

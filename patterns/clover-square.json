@@ -1,0 +1,418 @@
+{
+  "schema": 2,
+  "id": "clover-square",
+  "title": "四叶方花片",
+  "craft": "梭编",
+  "difficulty": "进阶",
+  "tier": "checked",
+  "reviewedBy": [
+    "Kimi K3.1 Pro 只按数据模拟编完，PASS"
+  ],
+  "rights": {
+    "kind": "public-domain",
+    "note": "1915 年出版的古书，已过版权期"
+  },
+  "source": "Priscilla Tatting Book No. 2（1915）第 27 页 Medallion on Edge，照片是第 26 页图 63 的中心",
+  "summary": "四朵三叶草，四段短桥围成一个小方块，相邻三叶草的叶子互相接住。书里用它做圆形花片的中心。",
+  "layout": {
+    "viewBox": [
+      -145,
+      -145,
+      290,
+      290
+    ],
+    "closed": true
+  },
+  "threadNote": "1 个梭子加线团。三叶草的环之间、环和桥之间都不留线，也不翻面。",
+  "finish": "最后一段桥回到 A 环的起点，线头打结，藏好线尾",
+  "elements": [
+    {
+      "id": "A",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "p:near",
+        "4",
+        "o",
+        "4",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          0,
+          -54
+        ],
+        "tip": [
+          -48.5,
+          -77.7
+        ],
+        "width": 38,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "B",
+      "type": "ring",
+      "group": "mid",
+      "parts": [
+        "5",
+        "j:A.next",
+        "5",
+        "o",
+        "5",
+        "p:next",
+        "5"
+      ],
+      "place": {
+        "base": [
+          0,
+          -54
+        ],
+        "tip": [
+          0,
+          -116
+        ],
+        "width": 40,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "C",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "j:B.next",
+        "4",
+        "o",
+        "4",
+        "p:far",
+        "4"
+      ],
+      "place": {
+        "base": [
+          0,
+          -54
+        ],
+        "tip": [
+          48.5,
+          -77.7
+        ],
+        "width": 38,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "D",
+      "type": "bridge",
+      "group": "side-bridge",
+      "parts": [
+        "7"
+      ],
+      "place": {
+        "from": [
+          0,
+          -54
+        ],
+        "to": [
+          54,
+          0
+        ],
+        "bulge": 3
+      }
+    },
+    {
+      "id": "E",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "j:C.far",
+        "4",
+        "o",
+        "4",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          54,
+          0
+        ],
+        "tip": [
+          77.7,
+          -48.5
+        ],
+        "width": 38,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "F",
+      "type": "ring",
+      "group": "mid",
+      "parts": [
+        "5",
+        "j:E.next",
+        "5",
+        "o",
+        "5",
+        "p:next",
+        "5"
+      ],
+      "place": {
+        "base": [
+          54,
+          0
+        ],
+        "tip": [
+          116,
+          0
+        ],
+        "width": 40,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "G",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "j:F.next",
+        "4",
+        "o",
+        "4",
+        "p:far",
+        "4"
+      ],
+      "place": {
+        "base": [
+          54,
+          0
+        ],
+        "tip": [
+          77.7,
+          48.5
+        ],
+        "width": 38,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "H",
+      "type": "bridge",
+      "group": "side-bridge",
+      "parts": [
+        "7"
+      ],
+      "place": {
+        "from": [
+          54,
+          0
+        ],
+        "to": [
+          0,
+          54
+        ],
+        "bulge": 3
+      }
+    },
+    {
+      "id": "I",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "j:G.far",
+        "4",
+        "o",
+        "4",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          0,
+          54
+        ],
+        "tip": [
+          48.5,
+          77.7
+        ],
+        "width": 38,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "J",
+      "type": "ring",
+      "group": "mid",
+      "parts": [
+        "5",
+        "j:I.next",
+        "5",
+        "o",
+        "5",
+        "p:next",
+        "5"
+      ],
+      "place": {
+        "base": [
+          0,
+          54
+        ],
+        "tip": [
+          0,
+          116
+        ],
+        "width": 40,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "K",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "j:J.next",
+        "4",
+        "o",
+        "4",
+        "p:far",
+        "4"
+      ],
+      "place": {
+        "base": [
+          0,
+          54
+        ],
+        "tip": [
+          -48.5,
+          77.7
+        ],
+        "width": 38,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "L",
+      "type": "bridge",
+      "group": "side-bridge",
+      "parts": [
+        "7"
+      ],
+      "place": {
+        "from": [
+          0,
+          54
+        ],
+        "to": [
+          -54,
+          0
+        ],
+        "bulge": 3
+      }
+    },
+    {
+      "id": "M",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "j:K.far",
+        "4",
+        "o",
+        "4",
+        "p:next",
+        "4"
+      ],
+      "place": {
+        "base": [
+          -54,
+          0
+        ],
+        "tip": [
+          -77.7,
+          48.5
+        ],
+        "width": 38,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "N",
+      "type": "ring",
+      "group": "mid",
+      "parts": [
+        "5",
+        "j:M.next",
+        "5",
+        "o",
+        "5",
+        "p:next",
+        "5"
+      ],
+      "place": {
+        "base": [
+          -54,
+          0
+        ],
+        "tip": [
+          -116,
+          0
+        ],
+        "width": 40,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "O",
+      "type": "ring",
+      "group": "side",
+      "parts": [
+        "4",
+        "j:N.next",
+        "4",
+        "o",
+        "4",
+        "j:A.near",
+        "4"
+      ],
+      "place": {
+        "base": [
+          -54,
+          0
+        ],
+        "tip": [
+          -77.7,
+          -48.5
+        ],
+        "width": 38,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "P",
+      "type": "bridge",
+      "group": "side-bridge",
+      "parts": [
+        "7"
+      ],
+      "place": {
+        "from": [
+          -54,
+          0
+        ],
+        "to": [
+          0,
+          -54
+        ],
+        "bulge": 3
+      }
+    }
+  ]
+}

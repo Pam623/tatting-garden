@@ -98,16 +98,17 @@
   "patterns": ["clover-medallion"]
  },
  {
-  "id": "pris-collar-section",
-  "image": "assets/explore/pris-collar-section.jpg",
-  "kind": "花边",
-  "title": "图 26 领子的一段",
-  "note": "领子上带蝴蝶的一段花边近照。",
+  "id": "pris-medallion-square",
+  "image": "assets/explore/pris-medallion-square.jpg",
+  "kind": "花片",
+  "title": "图 63 圆花片中心的方块",
+  "note": "四朵三叶草围成的小方块，是图 63 圆花片的中心。",
   "book": "Priscilla Tatting Book No. 2",
   "year": 1915,
-  "page": 11,
-  "sourceUrl": "https://www.antiquepatternlibrary.org/pub/IMG/B/B-JA034/12.jpg",
-  "bookUrl": "https://antiquepatternlibrary.org/html/warm/B-JA034.htm"
+  "page": 26,
+  "sourceUrl": "https://www.antiquepatternlibrary.org/pub/IMG/B/B-JA034/27.jpg",
+  "bookUrl": "https://antiquepatternlibrary.org/html/warm/B-JA034.htm",
+  "patterns": ["clover-square"]
  },
  {
   "id": "pris-necklace",

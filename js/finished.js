@@ -35,7 +35,6 @@ export function renderFinished(pattern, { color = 'ivory' } = {}) {
   const loops = [];
   const ties = [];
   const links = [];
-  const dash = `${f(w * 0.42)} ${f(w * 0.22)}`;
   parsed.forEach((p) => {
     const d = p.geo.subPath(0, 1);
     shadow.push(`<path d="${d}" transform="translate(${f(w * 0.3)} ${f(w * 0.55)})"/>`);
@@ -89,7 +88,7 @@ export function renderFinished(pattern, { color = 'ivory' } = {}) {
 <g fill="none" stroke="${shade}" stroke-width="${f(w * 0.8)}">${loops.join('')}</g>
 <g fill="none" stroke="${mid}" stroke-width="${f(w * 0.55)}">${loops.join('')}</g>
 <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke="${shade}" stroke-width="${f(w * 0.6)}">${links.join('')}</g>
-<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="${f(w)}"><style>#${uid} .base{stroke:${shade};stroke-width:${f(w)}}#${uid} .knots{stroke:${mid};stroke-width:${f(w * 0.78)};stroke-dasharray:${dash}}#${uid} .gleam{stroke:${light};stroke-width:${f(w * 0.2)};stroke-dasharray:${f(w * 0.35)} ${f(w * 0.55)};stroke-dashoffset:${f(w * 0.2)};opacity:0.85}</style><g id="${uid}">${body.join('')}</g></g>
+<g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="${f(w)}"><style>#${uid} .base{stroke:${shade};stroke-width:${f(w)}}#${uid} .knots{stroke:${mid};stroke-width:${f(w * 0.72)}}#${uid} .gleam{stroke:${light};stroke-width:${f(w * 0.22)};opacity:0.7;transform:translate(${f(-w * 0.12)}px,${f(-w * 0.14)}px)}</style><g id="${uid}">${body.join('')}</g></g>
 <g fill="none" stroke="${shade}" stroke-width="${f(w * 0.8)}">${ties.join('')}</g>
 <g fill="none" stroke="${mid}" stroke-width="${f(w * 0.55)}">${ties.join('')}</g>
 </svg>`;

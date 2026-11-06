@@ -15,7 +15,7 @@
       "id": "A",
       "type": "ring",
       "parts": ["1", "o", "2", "o", "2", "o", "2", "o", "2", "o", "2", "o", "1"],
-      "place": { "base": [0, 54], "tip": [0, -54], "width": 132, "dir": "cw" }
+      "place": { "base": [0, 56], "tip": [0, -56], "width": 112, "dir": "cw", "shape": "round" }
     }
   ]
 }

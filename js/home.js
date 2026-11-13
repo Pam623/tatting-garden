@@ -86,9 +86,9 @@ export async function showHome(isCurrent) {
             <a class="plate-card" href="#/p/${escapeHtml(p.id)}">
               <figure class="paper">
                 ${renderChart(p, { counts: [], title: `${p.title}图解` })}
-                ${p.photo ? `<img class="inset" src="${escapeHtml(p.photo)}" alt="" loading="lazy">` : `<span class="inset finished-inset">${renderFinished(p)}</span>`}
               </figure>
               <div class="plate-caption">
+                ${p.photo ? `<img class="inset" src="${escapeHtml(p.photo)}" alt="" loading="lazy">` : `<span class="inset finished-inset">${renderFinished(p)}</span>`}
                 <span class="plate-no">图版 ${String(i + 1).padStart(2, '0')}</span>
                 <h2>${escapeHtml(p.title)}</h2>
                 <p>${escapeHtml(p.craft)} · ${escapeHtml(p.difficulty)} · ${summarize(p)}</p>

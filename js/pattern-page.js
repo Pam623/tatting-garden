@@ -49,7 +49,7 @@ export async function showPattern(id) {
         <a class="back" href="#/">← 全部花样</a>
         <header>
           <h1 class="pattern-title">${escapeHtml(pattern.title)}</h1>
-          <p class="summary">${summarize(pattern)}</p>
+          <p class="summary" id="summary"></p>
           <p class="lede">${escapeHtml(pattern.summary ?? '')}</p>
         </header>
         <a class="start" id="start" href="#/p/${escapeHtml(pattern.id)}/work">${startLabel}</a>
@@ -123,12 +123,16 @@ export async function showPattern(id) {
     });
   });
   draw(null);
-  view = attachFinishedToggle(chart, pattern, () => draw(shown));
 
   const materials = document.getElementById('materials');
   let size = readSetting('size', 20);
   if (!THREAD_SIZES.includes(size)) size = 20;
   let repeats = readSetting(`repeat:${pattern.id}`, pattern.repeat?.defaultTimes ?? 1);
+  const summary = document.getElementById('summary');
+  const drawSummary = () => {
+    summary.textContent = summarize(pattern, pattern.repeat ? { repeats } : {});
+  };
+  view = attachFinishedToggle(chart, pattern, () => draw(shown), pattern.repeat ? { repeats: () => repeats } : {});
   const drawMaterials = () => {
     materials.innerHTML = materialsPanel(pattern, size, repeats);
     materials.querySelectorAll('input[name="size"]').forEach((input) => {
@@ -145,8 +149,11 @@ export async function showPattern(id) {
     repeats = Math.max(1, value);
     saveSetting(`repeat:${pattern.id}`, repeats);
     drawMaterials();
+    drawSummary();
+    view.refresh();
   };
   document.getElementById('repeat-less')?.addEventListener('click', () => setRepeats(repeats - 1));
   document.getElementById('repeat-more')?.addEventListener('click', () => setRepeats(repeats + 1));
   drawMaterials();
+  drawSummary();
 }

@@ -89,13 +89,104 @@ export function formulaGroups(pattern) {
   return [...groups.values()];
 }
 
-export function summarize(pattern) {
+// With repeats given, ring and bridge totals count every group, and the group count is named.
+export function summarize(pattern, { repeats } = {}) {
+  const repeated = pattern.repeat?.elements ?? [];
+  const times = repeated.length && repeats ? repeats : 1;
+  const countOf = (e) => (repeated.includes(e.id) ? times : 1);
   const rings = pattern.elements.filter((e) => e.type === 'ring');
   const bridges = pattern.elements.filter((e) => e.type === 'bridge');
   const ringFormulas = new Set(rings.map(plainFormula));
-  const parts = [`${rings.length} 环`, `${bridges.length} 桥`];
+  const sum = (list) => list.reduce((total, e) => total + countOf(e), 0);
+  const parts = [`${sum(rings)} 环`, `${sum(bridges)} 桥`];
   if (ringFormulas.size === 1) parts.push(`每环 ${readElement(rings[0]).stitches} 针`);
+  if (repeated.length && repeats) {
+    // Elements before the repeat are worked once, so say so; otherwise the opening looks like a group.
+    const opening = pattern.elements.slice(0, pattern.elements.findIndex((e) => e.id === repeated[0])).map((e) => e.id);
+    const head = opening.length ? `起头 ${opening.length > 1 ? `${opening[0]}–${opening.at(-1)}` : opening[0]}，` : '';
+    parts.push(`${head}${repeated[0]}–${repeated.at(-1)} 重复 ${times} 组`);
+  }
   return parts.join(' · ');
+}
+
+const startPoint = (place) => place.base ?? place.from;
+const endPoint = (place) => place.base ?? place.to;
+const movedPlace = (place, [dx, dy]) => Object.fromEntries(Object.entries(place).map(([key, value]) => (
+  ['base', 'tip', 'from', 'to'].includes(key) ? [key, [value[0] + dx, value[1] + dy]] : [key, value]
+)));
+
+function repeatSpan(pattern) {
+  const ids = pattern.repeat?.elements ?? [];
+  const first = pattern.elements.findIndex((e) => e.id === ids[0]);
+  const last = pattern.elements.findIndex((e) => e.id === ids.at(-1));
+  return ids.length && first >= 0 && last >= first ? { first, last, size: last - first + 1 } : null;
+}
+
+// The step from one group of a repeat to the next. The elements just before the repeat are
+// usually the same shapes one step back; otherwise the group's own start-to-end distance is used.
+export function repeatShift(pattern) {
+  const span = repeatSpan(pattern);
+  if (!span) return [0, 0];
+  const { elements } = pattern;
+  const head = elements[span.first];
+  const earlier = elements[span.first - span.size];
+  const at = startPoint(head.place);
+  if (earlier && earlier.type === head.type && earlier.group === head.group) {
+    const from = startPoint(earlier.place);
+    return [at[0] - from[0], at[1] - from[1]];
+  }
+  const end = endPoint(elements[span.last].place);
+  return [end[0] - at[0], end[1] - at[1]];
+}
+
+// The pattern with its repeat worked `times` times, for pictures of the whole piece.
+// Copies are named like "DR2". A join inside the repeat keeps pointing the same number of
+// elements back, so a later group joins the group before it just as the first group joins the start.
+export function expandRepeats(pattern, times) {
+  const span = repeatSpan(pattern);
+  if (!span || !(times > 1)) return pattern;
+  const { first, last, size } = span;
+  const { elements } = pattern;
+  const shift = repeatShift(pattern);
+  const flat = [];
+  elements.slice(0, last + 1).forEach((element, index) => flat.push({ element, index, pass: 1 }));
+  for (let pass = 2; pass <= times; pass++) {
+    for (let index = first; index <= last; index++) flat.push({ element: elements[index], index, pass });
+  }
+  elements.slice(last + 1).forEach((element, i) => flat.push({ element, index: last + 1 + i, pass: times }));
+  const inRepeat = (index) => index >= first && index <= last;
+  const nameOf = (entry) => (entry.pass > 1 && inRepeat(entry.index) ? `${entry.element.id}R${entry.pass}` : entry.element.id);
+  const indexById = new Map(elements.map((e, i) => [e.id, i]));
+  const extra = (index, pass) => {
+    if (inRepeat(index)) return (pass - 1) * size;
+    return index > last ? (times - 1) * size : 0;
+  };
+  // Picots left open for the next group are open only on the last group.
+  const open = (pattern.repeat.open ?? []).map((ref) => ref.replace(/^[^.]+/, (id) => (
+    inRepeat(indexById.get(id)) ? `${id}R${times}` : id
+  )));
+  return {
+    ...pattern,
+    repeat: { ...pattern.repeat, open },
+    elements: flat.map((entry) => {
+      const { element, index, pass } = entry;
+      const steps = extra(index, pass) / size;
+      const parts = element.parts.map((token) => {
+        const item = parseToken(token);
+        if (item.kind !== 'join' || !indexById.has(item.element)) return token;
+        const target = indexById.get(item.element);
+        // After the repeat, a join to the start stays on the start.
+        const moved = index > last && target < first ? target : target + extra(index, pass);
+        return String(token).replace(/^j:[^.]+/, `j:${nameOf(flat[moved] ?? flat[target])}`);
+      });
+      return {
+        ...element,
+        id: nameOf(entry),
+        parts,
+        place: steps ? movedPlace(element.place, shift.map((v) => v * steps)) : element.place,
+      };
+    }),
+  };
 }
 
 // The ordinal of a join picot among those its element left, counted the way it was worked.

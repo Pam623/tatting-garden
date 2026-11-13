@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import {
-  checkPattern, clampProgress, formulaGroups, groupChoice, handFormula, parseToken, partsInWords, readElement, structureProblems, summarize,
+  checkPattern, clampProgress, formulaGroups, groupChoice, hasStarted, handFormula, parseToken, partsInWords, readElement, structureProblems, summarize,
 } from '../js/pattern.js';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -325,6 +325,8 @@ test('the end of a repeat offers another group until all are done', () => {
   assert.equal(groupChoice(7, 8).again, '再来一组（第 8/8 组）');
   assert.equal(groupChoice(8, 8).more, false);
   assert.equal(groupChoice(9, 8).more, false);
+  assert.equal(groupChoice(8, 8).status, '8 组都编完了。');
+  assert.equal(groupChoice(9, 8).status, '9 组都编完了。');
 });
 
 test('reads positions along an element', () => {
@@ -410,4 +412,14 @@ test('a repeat join to a later ring still points at the previous group', () => {
     .filter((element) => pattern.repeat.elements.includes(element.id))
     .some((element) => partsInWords(pattern, element, { pass: 2 }).some((part) => /再来时/.test(part.words)));
   assert.ok(annotated);
+});
+
+test('a later repeat group counts as started even back at the first element', () => {
+  const fresh = clampProgress(null, 4);
+  assert.equal(hasStarted(fresh), false);
+  assert.equal(hasStarted(clampProgress({ index: 0, pass: 2 }, 4)), true);
+  assert.equal(hasStarted(clampProgress({ index: 0, asking: true }, 4)), true);
+  assert.equal(hasStarted(clampProgress({ index: 1 }, 4)), true);
+  assert.equal(hasStarted(clampProgress({ index: 0, part: 0 }, 4)), true);
+  assert.equal(hasStarted(clampProgress({ index: 0, finished: true }, 4)), true);
 });

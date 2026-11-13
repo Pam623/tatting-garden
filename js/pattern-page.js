@@ -1,4 +1,4 @@
-import { clampProgress, structureProblems, summarize } from './pattern.js';
+import { clampProgress, hasStarted, structureProblems, summarize } from './pattern.js';
 import { renderChart } from './diagram.js';
 import { attachFinishedToggle } from './finished-toggle.js';
 import { THREAD_SIZES } from './materials.js';
@@ -23,10 +23,6 @@ function originalSection(pattern) {
     </section>`;
 }
 
-function hasStarted(progress) {
-  return progress.index > 0 || progress.part !== null || progress.finished;
-}
-
 export async function showPattern(id) {
   const pattern = await loadPattern(id);
   const problems = structureProblems(pattern);
@@ -38,7 +34,7 @@ export async function showPattern(id) {
   document.title = `${pattern.title} · 梭编花园`;
   let startLabel = '开始编';
   if (progress.finished) startLabel = '重新开始编';
-  else if (hasStarted(progress)) startLabel = `继续编 · 第 ${progress.index + 1} 个`;
+  else if (hasStarted(progress)) startLabel = `继续编 · ${progress.pass > 1 ? `第 ${progress.pass} 组` : ''}第 ${progress.index + 1} 个`;
 
   app.innerHTML = `
     <div class="pattern">

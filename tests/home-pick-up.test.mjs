@@ -7,7 +7,7 @@ globalThis.window = {};
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {}, length: 0, key: () => null };
 const { pickUpSection, withRenamed, withoutPattern } = await import('../js/home.js');
 
-const resume = (id, title) => ({ pattern: { id, title }, index: 2, total: 6, at: 1 });
+const resume = (id, title) => ({ pattern: { id, title }, index: 2, pass: 1, place: '第 3 个', total: 6, at: 1 });
 const wish = { id: 'gs-sleeves', title: '星花装饰的袖子' };
 
 test('a deleted drawing leaves the resume list, and an empty list takes its heading with it', () => {
@@ -53,4 +53,9 @@ test('a renamed drawing shows its new name in the resume list', () => {
   assert.match(html, /继续编 · 给妈妈的蝴蝶 · 第 3 个/);
   assert.doesNotMatch(html, /手绘花片/);
   assert.equal(renamed.resumes[1], lists.resumes[1]);
+});
+
+test('the resume row names the group in a later repeat group, like the pattern page', () => {
+  const later = { pattern: { id: 'arch-edging', title: '拱形手帕花边' }, index: 4, pass: 2, place: '第 2 组第 5 个', total: 6, at: 1 };
+  assert.match(pickUpSection([later], []), /继续编 · 拱形手帕花边 · 第 2 组第 5 个/);
 });

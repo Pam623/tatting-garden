@@ -1,4 +1,4 @@
-import { groupChoice, handFormula, partsInWords, readElement, structureProblems } from './pattern.js';
+import { finishLine, groupChoice, handFormula, partsInWords, readElement, structureProblems } from './pattern.js';
 import { drawingShare, focusBox, renderChart } from './diagram.js';
 import {
   app, escapeHtml, loadPattern, readProgress, readSetting, repeatRange, saveProgress, setCleanup, showProblems,
@@ -171,7 +171,7 @@ export async function showWork(id) {
   }
 
   function drawFinish() {
-    position.textContent = `全部 ${elements.length} 个都编完了`;
+    position.textContent = finishLine(pattern, pass);
     bar.style.width = '100%';
     announce.innerHTML = '<h2 class="element-name">收尾</h2>';
     formula.innerHTML = '';
@@ -237,7 +237,9 @@ export async function showWork(id) {
     // At the first element of a later group, back still leads to the group before.
     prev.disabled = state.index === 0 && pass === 1;
     const following = elements[state.index + 1];
-    next.textContent = following ? `下一个 · ${following.id} ${unitName(following)}` : '收尾';
+    // The last element of a group leads to the "another group?" choice, so it never says 收尾.
+    if (state.index === repeatLast) next.textContent = '这组编完了';
+    else next.textContent = following ? `下一个 · ${following.id} ${unitName(following)}` : '收尾';
   }
 
   function draw() {

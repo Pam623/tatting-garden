@@ -124,3 +124,24 @@ test('leaving a repeat in the middle counts only the groups worked, and back kee
   assert.equal(saved('middle').pass, 2);
   assert.match($('position').textContent, /^第 2 组，共 5 组/);
 });
+
+test('three groups plus one extra: no 收尾 before the end, and the finish names 4 groups', async () => {
+  addPattern('extra', ['A', 'B', 'C'], ['B', 'C'], 3);
+  await open('extra');
+  $('next').click(); // A -> B
+  const labels = [];
+  for (let group = 1; group <= 4; group++) {
+    $('next').click(); // B -> C, the group's last element
+    labels.push($('next').textContent);
+    $('next').click(); // C -> the choice
+    if (group < 3) $('next').click(); // 再来一组 (primary)
+    else if (group === 3) $('other-choice').click(); // 再多编一组
+  }
+  assert.deepEqual(labels, ['这组编完了', '这组编完了', '这组编完了', '这组编完了']);
+  assert.equal($('next').textContent, '收尾');
+  $('next').click();
+  assert.equal(saved('extra').finished, true);
+  assert.equal($('position').textContent, '起头 A，B–C 共编了 4 组，都编完了');
+  await open('extra');
+  assert.equal($('position').textContent, '起头 A，B–C 共编了 4 组，都编完了');
+});

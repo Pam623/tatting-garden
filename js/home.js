@@ -51,8 +51,8 @@ export function pickUpSection(resumes, wished, { expanded = false } = {}) {
   const resumeHtml = resumes.length ? `<div class="resume-block">
     <h2>接着编</h2>
     <ul class="resume-list${folded ? ' is-folded' : ''}">
-      ${resumes.map(({ pattern, index }, i) => `
-        <li${i > 0 ? ' class="resume-more"' : ''}><a class="start resume" href="#/p/${escapeHtml(pattern.id)}/work">继续编 · ${escapeHtml(pattern.title)} · 第 ${index + 1} 个</a></li>`).join('')}
+      ${resumes.map(({ pattern, place }, i) => `
+        <li${i > 0 ? ' class="resume-more"' : ''}><a class="start resume" href="#/p/${escapeHtml(pattern.id)}/work">继续编 · ${escapeHtml(pattern.title)} · ${place}</a></li>`).join('')}
     </ul>
     ${folded ? `<button type="button" class="ghost resume-toggle" data-more>还有 ${resumes.length - 1} 个</button>` : ''}</div>` : '';
   const wishHtml = wished.length ? `
@@ -120,7 +120,7 @@ async function wishedForHome() {
 
 function progressNote(pattern) {
   const found = resumeList([pattern], readStoredProgress)[0];
-  return found ? ` · 编到第 ${found.index + 1} 个` : '';
+  return found ? ` · 编到${found.place}` : '';
 }
 
 // Deleting asks first, on the card itself. A browser's own confirm box can be blocked inside a frame.

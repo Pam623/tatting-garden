@@ -27,3 +27,9 @@ test('wished cards keep their order and drop ids no longer in the library', () =
   assert.deepEqual(wishedCards(cards, ['z', 'gone', 'x']).map((c) => c.id), ['z', 'x']);
   assert.deepEqual(wishedCards(cards, []), []);
 });
+
+test('a later repeat group back at the first element still comes back, with its group', () => {
+  const list = resumeList([pattern('a', 6)], () => ({ index: 0, pass: 2, at: 1 }));
+  assert.equal(list.length, 1);
+  assert.equal(list[0].place, '第 2 组第 1 个');
+});

@@ -360,6 +360,14 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .explore-actions button { min-height: 44px; padding: 0 18px; border-radius: 4px; }
 .explore-actions .wish { background: var(--button); color: var(--button-ink); border: 0; font-weight: 600; }
 .explore-actions .wished { font-weight: 600; color: var(--madder); }
+.pick-up { display: grid; gap: 10px; }
+.pick-up h2 { font-size: 1.15rem; }
+.resume-list, .wished-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.resume-list .start { margin: 0; text-align: left; }
+.wished-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.wished-list a { color: var(--ink); }
+.wished-list button { min-height: 44px; padding: 0 14px; }
+#wished { margin-top: 10px; }
 .wish-list { margin: 0 0 32px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 4px; }
 .wish-list ul { margin: 10px 0 0 1.2em; }
 .start-actions .start { margin: 26px 0 40px; }

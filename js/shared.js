@@ -68,9 +68,19 @@ export function readProgress(pattern) {
 
 export function saveProgress(pattern, progress) {
   try {
-    localStorage.setItem(`work:${pattern.id}`, JSON.stringify(progress));
+    // at: when it was last worked, so the home page can offer the latest first.
+    localStorage.setItem(`work:${pattern.id}`, JSON.stringify({ ...progress, at: Date.now() }));
   } catch {
     // Progress just won't be remembered in this browser.
+  }
+}
+
+// Progress exactly as stored, for lists across patterns; null when there is none or it can't be read.
+export function readStoredProgress(id) {
+  try {
+    return JSON.parse(localStorage.getItem(`work:${id}`));
+  } catch {
+    return null;
   }
 }
 

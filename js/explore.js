@@ -15,7 +15,7 @@ export function readWishes() {
   }
 }
 
-function saveWishes(list) {
+export function saveWishes(list) {
   try {
     localStorage.setItem(WISH_KEY, JSON.stringify(list));
     return true;

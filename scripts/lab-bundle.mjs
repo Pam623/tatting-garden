@@ -14,6 +14,7 @@ export const LAB_FILES = [
   'js/fit-layout.js',
   'js/trace-design.js',
   'js/drawings.js',
+  'js/resume.js',
   'js/convert.js',
   'js/saved.js',
   'js/upload-file.js',

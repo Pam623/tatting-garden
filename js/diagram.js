@@ -106,6 +106,16 @@ export function focusBox(pattern, ids, padding = 34) {
   return [minX, minY, Math.max(...xs) + padding - minX, Math.max(...ys) + padding - minY];
 }
 
+// How much of a frame the drawing covers when the view is fitted inside it, from 0 to 1.
+// view and drawing are [x, y, width, height]; an unknown frame size counts as fully covered.
+export function drawingShare(view, drawing, frameWidth, frameHeight) {
+  if (!(frameWidth > 0 && frameHeight > 0)) return 1;
+  const scale = Math.min(frameWidth / view[2], frameHeight / view[3]);
+  const width = Math.min(drawing[2], view[2]) * scale;
+  const height = Math.min(drawing[3], view[3]) * scale;
+  return (width * height) / (frameWidth * frameHeight);
+}
+
 // Label sizes, in the units marks are designed at. Wider than the ink, so labels keep a little air.
 const LABEL_BOXES = {
   count: (text) => ({ w: 7.5 * text.length + 3, h: 13 }),

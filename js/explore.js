@@ -34,15 +34,22 @@ function pageText(card) {
   return typeof card.page === 'number' ? `第 ${card.page} 页` : card.page ?? '';
 }
 
+const isDoable = (card) => Array.isArray(card.patterns) && card.patterns.length > 0;
+
+// Cards that can be worked from a chart come first, keeping the library's order within each kind.
+export function doableFirst(cards) {
+  return [...cards.filter(isDoable), ...cards.filter((card) => !isDoable(card))];
+}
+
 function cardHtml(card, patternTitles, wished) {
-  const doable = Array.isArray(card.patterns) && card.patterns.length > 0;
+  const doable = isDoable(card);
   const action = doable
     ? `<div class="explore-actions"><div class="finished-row">${card.patterns.map((id) => (patternTitles.get(id) ? `<span>${renderFinished(patternTitles.get(id))}</span>` : '')).join('')}</div>${card.patterns.map((id) => `<a class="start" href="#/p/${escapeHtml(id)}">照着编 · ${escapeHtml(patternTitles.get(id)?.title ?? id)}</a>`).join('')}</div>`
     : `<div class="explore-actions">${wished
       ? '<span class="wished">已记下</span><button type="button" class="ghost" data-unwish>取消</button>'
       : '<button type="button" class="wish" data-wish>想编这个</button>'}</div>`;
   return `
-    <li class="explore-card" data-card="${escapeHtml(card.id)}">
+    <li class="explore-card${doable ? ' is-doable' : ''}" data-card="${escapeHtml(card.id)}">
       <figure class="paper"><img src="${escapeHtml(card.image)}" alt="${escapeHtml(card.title)}" loading="lazy"></figure>
       <div class="plate-caption">
         <span class="plate-no">${escapeHtml(card.kind)}</span>
@@ -87,11 +94,22 @@ export async function showExplore(isCurrent = () => true) {
         <p class="hint"><a href="#/">回到全部花样</a></p>
       </header>
       <div id="wish-slot">${wishSection(cards, wishes)}</div>
+      <div class="finished-modes explore-filter" role="group" aria-label="显示哪些">
+        <button type="button" data-filter="doable" aria-pressed="false">能照着编的（${cards.filter(isDoable).length}）</button>
+        <button type="button" data-filter="all" aria-pressed="true">全部（${cards.length}）</button>
+      </div>
       <ul class="plates explore-grid">
-        ${cards.map((c) => cardHtml(c, titles, wishes.includes(c.id))).join('')}
+        ${doableFirst(cards).map((c) => cardHtml(c, titles, wishes.includes(c.id))).join('')}
       </ul>
     </div>`;
-  app.querySelector('.explore-grid').addEventListener('click', (event) => {
+  const grid = app.querySelector('.explore-grid');
+  app.querySelector('.explore-filter').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-filter]');
+    if (!button) return;
+    app.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+    grid.classList.toggle('only-doable', button.dataset.filter === 'doable');
+  });
+  grid.addEventListener('click', (event) => {
     const card = event.target.closest('[data-card]');
     if (!card) return;
     const id = card.dataset.card;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { elementGeometry, focusBox, renderChart } from '../js/diagram.js';
+import { drawingShare, elementGeometry, focusBox, renderChart } from '../js/diagram.js';
 import { checkPattern, readElement } from '../js/pattern.js';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -292,4 +292,16 @@ test('the private letter motif passes checks and renders', { skip: !existsSync(l
   assert.equal(motif.elements.filter((e) => e.type === 'bridge').length, 6);
   assert.doesNotMatch(JSON.stringify(motif), /~/);
   assert.doesNotMatch(renderChart(motif, { counts: 'all' }), /NaN/);
+});
+
+test('the edging covers little of a phone chart frame, a round motif covers much of it', () => {
+  const share = (id) => {
+    const pattern = JSON.parse(readFileSync(join(root, `patterns/${id}.json`), 'utf8'));
+    return drawingShare(pattern.layout.viewBox, focusBox(pattern, pattern.elements.map((e) => e.id), 0), 359, 330);
+  };
+  assert.ok(share('arch-edging') < 0.35);
+  assert.ok(share('little-flower') > 0.5);
+  assert.ok(share('leaf-braid') >= 0.35);
+  assert.equal(drawingShare([0, 0, 100, 100], [0, 0, 100, 100], 200, 200), 1);
+  assert.equal(drawingShare([0, 0, 100, 100], [0, 0, 50, 50], 0, 0), 1);
 });

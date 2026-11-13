@@ -1,10 +1,11 @@
 import { handFormula, partsInWords, readElement, structureProblems } from './pattern.js';
-import { focusBox, renderChart } from './diagram.js';
+import { drawingShare, focusBox, renderChart } from './diagram.js';
 import {
   app, escapeHtml, loadPattern, readProgress, repeatRange, saveProgress, setCleanup, showProblems,
 } from './shared.js';
 
 const LOCAL_VIEW_ABOVE = 8;
+const LEAST_SHARE = 0.35;     // of the chart frame the whole drawing must cover to be the first view
 
 function unitName(element) {
   return element.type === 'ring' ? '环' : '桥';
@@ -43,7 +44,8 @@ export async function showWork(id) {
   }
   const { elements } = pattern;
   const state = readProgress(pattern);
-  let wholeView = elements.length <= LOCAL_VIEW_ABOVE;
+  let wholeView = true;
+  let roomy = true;
   document.title = `编 ${pattern.title} · 梭编花园`;
 
   app.innerHTML = `
@@ -87,6 +89,22 @@ export async function showWork(id) {
   const next = document.getElementById('next');
   const toggle = document.getElementById('view-toggle');
   const jump = document.getElementById('jump');
+  // A small pattern shows whole, unless it is a long strip that would leave most of the frame
+  // empty, like an edging on a phone; that starts close up on the current element instead.
+  const frame = chart.getBoundingClientRect();
+  const share = drawingShare(pattern.layout.viewBox, focusBox(pattern, elements.map((e) => e.id), 0), frame.width, frame.height);
+  roomy = elements.length <= LOCAL_VIEW_ABOVE && (elements.length < 3 || share >= LEAST_SHARE);
+  wholeView = roomy;
+  if (elements.length <= LOCAL_VIEW_ABOVE && !roomy) {
+    // On a phone the frame takes the shape of a close-up, so a strip doesn't sit in a tall empty box.
+    const aspects = elements.map((e, i) => {
+      const box = focusBox(pattern, [e.id, elements[i - 1]?.id, elements[i + 1]?.id].filter(Boolean));
+      return box[2] / box[3];
+    }).sort((a, b) => a - b);
+    const work = app.querySelector('.work');
+    work.classList.add('is-strip');
+    work.style.setProperty('--chart-aspect', aspects[Math.floor(aspects.length / 2)].toFixed(3));
+  }
   const repeatIds = pattern.repeat?.elements ?? [];
   const repeatFirst = elements.findIndex((e) => e.id === repeatIds[0]);
   const repeatLast = elements.findIndex((e) => e.id === repeatIds.at(-1));
@@ -119,7 +137,7 @@ export async function showWork(id) {
     };
     if (!wholeView) options.viewBox = focusBox(pattern, [element.id, ...targets, ...neighbours]);
     chart.innerHTML = renderChart(pattern, options);
-    toggle.hidden = elements.length <= LOCAL_VIEW_ABOVE;
+    toggle.hidden = roomy;
     toggle.textContent = wholeView ? '看局部' : '看全图';
   }
 

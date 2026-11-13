@@ -123,13 +123,11 @@ export async function showWork(id) {
     return inRepeat(state.index) ? `第 ${pass} 组，共 ${Math.max(pass, repeats)} 组 · ${step}` : step;
   }
 
-  // Share of the whole piece done, counting every group that will be worked.
+  // Share of the whole piece done: the groups actually worked, out of the groups set.
+  // After the repeat, pass still holds how many groups were worked.
   function doneShare() {
-    const groups = Math.max(pass, repeats);
-    const all = elements.length + (groups - 1) * repeatSize;
-    let done = state.index;
-    if (state.index > repeatLast) done += (groups - 1) * repeatSize;
-    else if (inRepeat(state.index)) done += (pass - 1) * repeatSize;
+    const all = elements.length + (Math.max(pass, repeats) - 1) * repeatSize;
+    const done = state.index + (state.index >= repeatFirst && repeatFirst >= 0 ? (pass - 1) * repeatSize : 0);
     return all ? done / all : 0;
   }
 
@@ -180,7 +178,11 @@ export async function showWork(id) {
     formula.hidden = true;
     words.textContent = pattern.finish ?? '把线头收好。';
     total.innerHTML = '<button type="button" class="again" id="again">重新开始</button>';
-    document.getElementById('again').addEventListener('click', () => go(0));
+    document.getElementById('again').addEventListener('click', () => {
+      // A new piece starts at group 1, even when the repeat starts at the first element.
+      pass = 1;
+      go(0);
+    });
     next.textContent = '回到花样';
     prev.disabled = false;
   }
@@ -232,7 +234,8 @@ export async function showWork(id) {
     });
     drawWords(element);
     total.textContent = `${counts}。${element.type === 'ring' ? '编完拉紧成环。' : ''}`;
-    prev.disabled = state.index === 0;
+    // At the first element of a later group, back still leads to the group before.
+    prev.disabled = state.index === 0 && pass === 1;
     const following = elements[state.index + 1];
     next.textContent = following ? `下一个 · ${following.id} ${unitName(following)}` : '收尾';
   }
@@ -267,7 +270,9 @@ export async function showWork(id) {
     state.part = null;
     state.finished = false;
     asking = false;
-    if (!repeatIds.includes(elements[state.index].id)) pass = 1;
+    // Only going back before the repeat starts the group count again; after it, pass keeps
+    // the number of groups worked, so stepping back into the repeat lands in the right group.
+    if (repeatFirst < 0 || state.index < repeatFirst) pass = 1;
     jump.open = false;
     draw();
   }

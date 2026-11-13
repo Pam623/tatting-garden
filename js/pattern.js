@@ -247,14 +247,33 @@ export function partsInWords(pattern, element, { pass = 1 } = {}) {
 
 // A saved position is only trusted if it still fits the pattern.
 export function clampProgress(saved, count) {
-  const blank = { index: 0, part: null, finished: false };
+  const blank = { index: 0, part: null, finished: false, pass: 1, asking: false };
   if (!saved || typeof saved !== 'object') return blank;
   if (!Number.isInteger(saved.index) || saved.index < 0 || saved.index >= count) return blank;
   return {
     index: saved.index,
     part: Number.isInteger(saved.part) && saved.part >= 0 ? saved.part : null,
     finished: saved.finished === true,
+    pass: Number.isInteger(saved.pass) && saved.pass >= 1 ? saved.pass : 1,
+    asking: saved.asking === true,
   };
+}
+
+// What the end of a repeat offers: another group while some are still left, otherwise moving on.
+export function groupChoice(pass, repeats) {
+  const more = pass < repeats;
+  return {
+    more,
+    again: more ? `再来一组（第 ${pass + 1}/${repeats} 组）` : '再多编一组',
+    // Extra groups past the set number count too, so the total matches the position line.
+    status: more ? `已经编完第 ${pass} 组，共 ${repeats} 组，还剩 ${repeats - pass} 组。` : `${Math.max(pass, repeats)} 组都编完了。`,
+  };
+}
+
+// Whether saved progress means the piece is under way: past the first element, a part picked,
+// finished, or anywhere in a later repeat group (which can sit at element 0 again).
+export function hasStarted(progress) {
+  return progress.index > 0 || progress.part !== null || progress.finished || progress.pass > 1 || progress.asking === true;
 }
 
 // Parts that don't parse are left out here and reported by the structure check,

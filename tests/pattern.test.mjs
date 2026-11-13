@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import {
-  checkPattern, clampProgress, formulaGroups, handFormula, parseToken, partsInWords, readElement, structureProblems, summarize,
+  checkPattern, clampProgress, formulaGroups, groupChoice, hasStarted, handFormula, parseToken, partsInWords, readElement, structureProblems, summarize,
 } from '../js/pattern.js';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -303,14 +303,30 @@ test('words name bridges, and a join with no target does not throw', () => {
 });
 
 test('a saved position outside the pattern is ignored', () => {
-  const blank = { index: 0, part: null, finished: false };
+  const blank = { index: 0, part: null, finished: false, pass: 1, asking: false };
   assert.deepEqual(clampProgress(null, 5), blank);
   assert.deepEqual(clampProgress('3', 5), blank);
   assert.deepEqual(clampProgress({ index: 5 }, 5), blank);
   assert.deepEqual(clampProgress({ index: -1 }, 5), blank);
   assert.deepEqual(clampProgress({ index: 1.5 }, 5), blank);
-  assert.deepEqual(clampProgress({ index: 2, part: 1, finished: true }, 5), { index: 2, part: 1, finished: true });
-  assert.deepEqual(clampProgress({ index: 2, part: -1 }, 5), { index: 2, part: null, finished: false });
+  assert.deepEqual(clampProgress({ index: 2, part: 1, finished: true }, 5), { index: 2, part: 1, finished: true, pass: 1, asking: false });
+  assert.deepEqual(clampProgress({ index: 2, pass: 3, asking: true }, 5), { index: 2, part: null, finished: false, pass: 3, asking: true });
+  assert.equal(clampProgress({ index: 2, pass: 0 }, 5).pass, 1);
+  assert.equal(clampProgress({ index: 2, pass: 2.5 }, 5).pass, 1);
+  assert.deepEqual(clampProgress({ index: 2, part: -1 }, 5), { index: 2, part: null, finished: false, pass: 1, asking: false });
+});
+
+test('the end of a repeat offers another group until all are done', () => {
+  const first = groupChoice(1, 8);
+  assert.equal(first.more, true);
+  assert.equal(first.again, '再来一组（第 2/8 组）');
+  assert.match(first.status, /第 1 组，共 8 组/);
+  assert.equal(groupChoice(7, 8).more, true);
+  assert.equal(groupChoice(7, 8).again, '再来一组（第 8/8 组）');
+  assert.equal(groupChoice(8, 8).more, false);
+  assert.equal(groupChoice(9, 8).more, false);
+  assert.equal(groupChoice(8, 8).status, '8 组都编完了。');
+  assert.equal(groupChoice(9, 8).status, '9 组都编完了。');
 });
 
 test('reads positions along an element', () => {
@@ -396,4 +412,14 @@ test('a repeat join to a later ring still points at the previous group', () => {
     .filter((element) => pattern.repeat.elements.includes(element.id))
     .some((element) => partsInWords(pattern, element, { pass: 2 }).some((part) => /再来时/.test(part.words)));
   assert.ok(annotated);
+});
+
+test('a later repeat group counts as started even back at the first element', () => {
+  const fresh = clampProgress(null, 4);
+  assert.equal(hasStarted(fresh), false);
+  assert.equal(hasStarted(clampProgress({ index: 0, pass: 2 }, 4)), true);
+  assert.equal(hasStarted(clampProgress({ index: 0, asking: true }, 4)), true);
+  assert.equal(hasStarted(clampProgress({ index: 1 }, 4)), true);
+  assert.equal(hasStarted(clampProgress({ index: 0, part: 0 }, 4)), true);
+  assert.equal(hasStarted(clampProgress({ index: 0, finished: true }, 4)), true);
 });

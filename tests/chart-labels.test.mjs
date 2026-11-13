@@ -216,3 +216,39 @@ test('a label stays put whichever numbers are showing', () => {
   const letters = (options) => [...renderChart(pattern, options).matchAll(/class="letter[^"]*"[^>]*x="[^"]+" y="[^"]+"/g)].map((m) => m[0]);
   assert.deepEqual(letters({ counts: [] }), letters({ counts: 'all' }));
 });
+
+// The five-leaf medallion as the pattern page first shows it: numbers on the first element of each group.
+test('clover medallion: by default every number and letter is full size, apart, and off the lines', () => {
+  const pattern = read('patterns/clover-medallion.json');
+  const firstOfGroup = () => {
+    const seen = new Set();
+    return (element) => {
+      if (element.group === undefined) return true;
+      if (seen.has(element.group)) return false;
+      seen.add(element.group);
+      return true;
+    };
+  };
+  const [minX, minY, width, height] = pattern.layout.viewBox;
+  const s = width / 370;
+  const elements = readChartElements(pattern);
+  const labels = chartLabels(elements, leftPicotSpots(elements, s), s, { minX, minY, width, height }, firstOfGroup());
+  assert.deepEqual([...labels.count].filter(([, box]) => box.size).map(([key, box]) => `${key} ${box.size}`), []);
+  assert.deepEqual([...labels.letter].filter(([, box]) => box.size).map(([id, box]) => `${id} ${box.size}`), []);
+  const layout = labelsOf(pattern, firstOfGroup());
+  assert.deepEqual(labelsTouching(layout), []);
+  assert.deepEqual(labelsOnLines(layout), []);
+});
+
+// On a 375 by 812 phone the pattern page chart is wide enough that a full-size number (13 units) shows at 12px or more.
+test('the pattern page chart on a 375-wide phone shows full-size numbers at 12px or more', () => {
+  const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  const phone = css.slice(css.indexOf('@media (max-width: 820px)'));
+  const plate = phone.match(/\.pattern-plate \{[^}]*padding: \d+px (\d+)px;/);
+  const paper = phone.match(/\.pattern-plate \.paper \{ padding: (\d+)px;/);
+  const tall = phone.match(/\.pattern-plate \.diagram \{ height: (\d+)dvh;/);
+  assert.ok(plate && paper && tall);
+  const wide = 375 - 2 * Number(plate[1]) - 2 * Number(paper[1]) - 2;
+  const shown = Math.min(wide, (812 * Number(tall[1])) / 100);
+  assert.ok((13 * shown) / 370 >= 12, `${shown}px wide gives ${((13 * shown) / 370).toFixed(2)}px numbers`);
+});

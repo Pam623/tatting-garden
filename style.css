@@ -284,9 +284,10 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   .home { gap: 40px; }
   .pattern { display: flex; flex-direction: column; gap: 0; align-items: stretch; }
   /* Stays on screen, so pressing a table row shows its highlight. */
-  .pattern-plate { position: sticky; top: 0; z-index: 2; margin: -28px -16px 8px; background: var(--linen); padding: 8px 16px; }
-  .pattern-plate .paper { padding: 8px; }
-  .pattern-plate .diagram { height: 40dvh; max-height: 40dvh; }
+  /* Nearly edge to edge, so a chart's 13-unit numbers show at 12px or more on a 375-wide phone. */
+  .pattern-plate { position: sticky; top: 0; z-index: 2; margin: -28px -16px 8px; background: var(--linen); padding: 8px 6px; }
+  .pattern-plate .paper { padding: 6px; outline-offset: -4px; }
+  .pattern-plate .diagram { height: 43dvh; max-height: 43dvh; }
   .in-work .page { padding: 0; }
   .work { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   .work-chart { padding: 8px 8px 0; }

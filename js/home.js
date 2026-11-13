@@ -44,14 +44,17 @@ function mineSection() {
 }
 
 // Shown first on the home page: where the thread was left, and what was wished for. Nothing when neither.
-export function pickUpSection(resumes, wished) {
+// On a phone only the latest resume entry shows until "还有 N 个" opens the rest; expanded keeps them open.
+export function pickUpSection(resumes, wished, { expanded = false } = {}) {
   if (!resumes.length && !wished.length) return '';
-  const resumeHtml = resumes.length ? `
+  const folded = resumes.length > 1 && !expanded;
+  const resumeHtml = resumes.length ? `<div class="resume-block">
     <h2>接着编</h2>
-    <ul class="resume-list">
-      ${resumes.map(({ pattern, index }) => `
-        <li><a class="start resume" href="#/p/${escapeHtml(pattern.id)}/work">继续编 · ${escapeHtml(pattern.title)} · 第 ${index + 1} 个</a></li>`).join('')}
-    </ul>` : '';
+    <ul class="resume-list${folded ? ' is-folded' : ''}">
+      ${resumes.map(({ pattern, index }, i) => `
+        <li${i > 0 ? ' class="resume-more"' : ''}><a class="start resume" href="#/p/${escapeHtml(pattern.id)}/work">继续编 · ${escapeHtml(pattern.title)} · 第 ${index + 1} 个</a></li>`).join('')}
+    </ul>
+    ${folded ? `<button type="button" class="ghost resume-toggle" data-more>还有 ${resumes.length - 1} 个</button>` : ''}</div>` : '';
   const wishHtml = wished.length ? `
     <div id="wished">
       <h2>想编的</h2>
@@ -67,22 +70,32 @@ export function pickUpSection(resumes, wished) {
 }
 
 // What the pick-up section shows now; it is drawn again from this whenever an entry goes.
-const pickUp = { resumes: [], wished: [] };
+const pickUp = { resumes: [], wished: [], expanded: false };
 
 // The pick-up lists once a pattern is gone, e.g. a deleted drawing, whose progress went with it.
 export function withoutPattern(lists, id) {
   return { ...lists, resumes: lists.resumes.filter((r) => r.pattern.id !== id) };
 }
 
+// The pick-up lists once a drawing is renamed, so its resume entry shows the new name.
+export function withRenamed(lists, pattern) {
+  return { ...lists, resumes: lists.resumes.map((r) => (r.pattern.id === pattern.id ? { ...r, pattern } : r)) };
+}
+
 function redrawPickUp() {
   const section = document.getElementById('pick-up');
   if (!section) return;
-  section.outerHTML = pickUpSection(pickUp.resumes, pickUp.wished);
+  section.outerHTML = pickUpSection(pickUp.resumes, pickUp.wished, pickUp);
   watchPickUp();
 }
 
 function watchPickUp() {
   document.getElementById('pick-up')?.addEventListener('click', (event) => {
+    if (event.target.matches('[data-more]')) {
+      pickUp.expanded = true;
+      redrawPickUp();
+      return;
+    }
     const item = event.target.closest('[data-wished]');
     if (!item || !event.target.matches('[data-unwish]')) return;
     if (!saveWishes(readWishes().filter((id) => id !== item.dataset.wished))) {
@@ -127,6 +140,8 @@ function watchMine() {
         if (pattern) {
           heading.textContent = pattern.title;
           relabelChart(card, pattern.title);
+          Object.assign(pickUp, withRenamed(pickUp, pattern));
+          redrawPickUp();
         }
         actions.innerHTML = MINE_BUTTONS;
       });
@@ -162,7 +177,7 @@ export async function showHome(isCurrent) {
   const resumes = resumeList([...drawn, ...patterns], readStoredProgress);
   const wished = await wishedForHome();
   if (!isCurrent()) return;
-  Object.assign(pickUp, { resumes, wished });
+  Object.assign(pickUp, { resumes, wished, expanded: false });
   app.innerHTML = `
     <div class="home">
       <header class="masthead">

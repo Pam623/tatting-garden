@@ -3,6 +3,7 @@ import { renderChart } from './diagram.js';
 import { renderFinished } from './finished.js';
 import { deleteDrawing, listDrawings } from './drawings.js';
 import { loadExplore, readWishes, saveWishes } from './explore.js';
+import { openRename } from './rename.js';
 import { resumeList, wishedCards } from './resume.js';
 import {
   app, embedded, escapeHtml, forgetPattern, loadIndex, loadPattern, readStoredProgress, studio,
@@ -13,6 +14,8 @@ function drawingDate(savedAt) {
   const date = new Date(savedAt);
   return Number.isNaN(date.getTime()) ? '' : ` · ${date.getMonth() + 1}月${date.getDate()}日`;
 }
+
+const MINE_BUTTONS = '<button type="button" class="ghost" data-rename>改名字</button><button type="button" class="ghost" data-ask>删除</button>';
 
 // What this browser has kept of the patterns drawn here. Nothing at all shows if nothing was drawn.
 function mineSection() {
@@ -33,7 +36,7 @@ function mineSection() {
                 <p>${escapeHtml(pattern.difficulty)} · ${summarize(pattern)}${drawingDate(savedAt)}</p>
               </div>
             </a>
-            <div class="mine-actions"><button type="button" class="ghost" data-ask>删除</button></div>
+            <div class="mine-actions">${MINE_BUTTONS}</div>
           </li>`).join('')}
       </ul>
     </section>`;
@@ -116,7 +119,14 @@ function watchMine() {
       actions.innerHTML = '<span>确定删除？编到哪里的记录也一起删。</span><button type="button" class="ghost" data-yes>删除</button><button type="button" class="ghost" data-no>取消</button>';
     };
     if (event.target.matches('[data-ask]')) ask();
-    if (event.target.matches('[data-no]')) actions.innerHTML = '<button type="button" class="ghost" data-ask>删除</button>';
+    if (event.target.matches('[data-no]')) actions.innerHTML = MINE_BUTTONS;
+    if (event.target.matches('[data-rename]')) {
+      const heading = card.querySelector('.plate-caption h2');
+      openRename(actions, card.dataset.drawing, heading.textContent, (pattern) => {
+        if (pattern) heading.textContent = pattern.title;
+        actions.innerHTML = MINE_BUTTONS;
+      });
+    }
     if (event.target.matches('[data-yes]')) {
       if (!deleteDrawing(card.dataset.drawing)) {
         actions.innerHTML = '<span class="error">没删掉，这个浏览器不让改本机保存。</span>';

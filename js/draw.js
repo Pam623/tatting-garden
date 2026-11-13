@@ -8,6 +8,7 @@ import {
   app, embedded, escapeHtml, forgetPattern, legendFor, materialsPanel, readSetting, rememberPattern, saveSetting, setCleanup, stitchTable,
 } from './shared.js';
 import { setupPadReference } from './pad-reference.js';
+import { openRename } from './rename.js';
 import { startSketchPad } from './sketch-pad.js';
 import { traceDesign } from './trace-design.js';
 
@@ -86,7 +87,8 @@ export function showDraw() {
     let size = readSetting('size', 20);
     if (!THREAD_SIZES.includes(size)) size = 20;
     result.innerHTML = `
-      <h1 class="pattern-title">${escapeHtml(pattern.title)}</h1>
+      <h1 class="pattern-title" id="result-title">${escapeHtml(pattern.title)}</h1>
+      ${saved ? '<div class="rename-slot" id="rename-slot"></div>' : ''}
       <p class="summary">${escapeHtml(pattern.difficulty)} · ${summarize(pattern)}</p>
       <figure class="paper" id="chart">${renderChart(pattern, { title: `${pattern.title}图解` })}</figure>
       <div class="upload-actions">
@@ -98,6 +100,20 @@ export function showDraw() {
     : '<p class="error" role="alert">这台设备存不下（可能空间满了，或者浏览器不让存）。现在可以照着编，但关掉页面就没了。</p>'}
       <section class="materials" id="materials"></section>
       <section><h2>针数</h2>${stitchTable(pattern)}${legendFor(pattern)}</section>`;
+    const renameSlot = document.getElementById('rename-slot');
+    const showRenameButton = () => {
+      renameSlot.innerHTML = '<button type="button" class="ghost" id="rename">改名字</button>';
+      document.getElementById('rename').addEventListener('click', () => {
+        openRename(renameSlot, pattern.id, pattern.title, (renamed) => {
+          if (renamed) {
+            pattern.title = renamed.title;
+            document.getElementById('result-title').textContent = renamed.title;
+          }
+          showRenameButton();
+        });
+      });
+    };
+    if (renameSlot) showRenameButton();
     const figure = document.getElementById('chart');
     attachFinishedToggle(figure, pattern, () => {
       figure.innerHTML = renderChart(pattern, { title: `${pattern.title}图解` });

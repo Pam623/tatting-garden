@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { deleteDrawing, listDrawings, newDrawingId, saveDrawing } from '../js/drawings.js';
+import {
+  cleanTitle, deleteDrawing, listDrawings, newDrawingId, renameDrawing, saveDrawing, TITLE_MAX,
+} from '../js/drawings.js';
 
 const memory = (seed = {}) => {
   const map = new Map(Object.entries(seed));
@@ -16,6 +18,33 @@ const memory = (seed = {}) => {
 const pattern = (id) => ({
   schema: 2, id, title: '手绘花片', craft: '梭编', difficulty: '入门', tier: 'sorted', rights: { kind: 'original' }, layout: { viewBox: [0, 0, 10, 10] },
   elements: [{ id: 'A', type: 'ring', parts: ['6'], place: { base: [0, 0], tip: [0, 5], width: 3, dir: 'cw' } }],
+});
+
+test('a drawing can be renamed, keeping its date and its place in the list', () => {
+  const storage = memory();
+  saveDrawing(pattern('draw-a'), storage, new Date('2026-01-01'));
+  saveDrawing(pattern('draw-b'), storage, new Date('2026-01-02'));
+  const renamed = renameDrawing('draw-a', '  给妈妈的   蝴蝶 ', storage);
+  assert.equal(renamed.title, '给妈妈的 蝴蝶');
+  const { drawings } = listDrawings(storage);
+  assert.deepEqual(drawings.map((d) => [d.id, d.pattern.title]), [['draw-b', '手绘花片'], ['draw-a', '给妈妈的 蝴蝶']]);
+  assert.equal(drawings[1].savedAt, new Date('2026-01-01').toISOString());
+});
+
+test('an empty, missing or blocked rename changes nothing', () => {
+  const storage = memory();
+  saveDrawing(pattern('draw-a'), storage);
+  assert.equal(renameDrawing('draw-a', '   ', storage), null);
+  assert.equal(renameDrawing('draw-zz', '爱心', storage), null);
+  assert.equal(renameDrawing('draw-a', '爱心', null), null);
+  const blocked = { ...storage, getItem: () => { throw new Error('blocked'); } };
+  assert.equal(renameDrawing('draw-a', '爱心', blocked), null);
+  assert.equal(listDrawings(storage).drawings[0].pattern.title, '手绘花片');
+});
+
+test('a long name is cut to the limit', () => {
+  assert.equal([...cleanTitle('蝴'.repeat(30))].length, TITLE_MAX);
+  assert.equal(cleanTitle(null), null);
 });
 
 test('a saved drawing comes back, newest first', () => {

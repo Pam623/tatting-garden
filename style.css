@@ -345,6 +345,25 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .mine .plates { margin-top: 16px; }
 .mine-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
 .mine-actions button { min-height: 44px; padding: 0 18px; border-radius: 4px; }
+.rename { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rename input { flex: 1 1 10em; min-width: 0; min-height: 44px; padding: 0 10px; font: inherit; border: 1px solid var(--ink); border-radius: 4px; background: transparent; color: var(--ink); }
+.rename button { min-height: 44px; padding: 0 16px; border-radius: 4px; font: inherit; }
+.rename .hint { flex: 1 1 100%; margin: 0; }
+.rename-slot { margin: 6px 0 10px; }
+.rename-slot > button { min-height: 44px; padding: 0 16px; border-radius: 4px; font: inherit; }
+@media (max-width: 820px) {
+  /* Drawings sit in one row of small cards that scrolls sideways, so the plates below stay in the first screen. */
+  .mine { margin-bottom: 0; }
+  .start-actions .start { margin: 20px 0 12px; }
+  .mine .plates { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px; }
+  .mine .plates > li { flex: 0 0 46%; scroll-snap-align: start; min-width: 0; }
+  .mine .plate-card .paper { padding: 6px; }
+  .mine .plate-caption h2 { font-size: 1rem; overflow-wrap: anywhere; }
+  .mine .plate-caption p { font-size: 0.8rem; }
+  .mine-actions { gap: 6px; font-size: 0.85rem; }
+  .mine-actions button { min-height: 40px; padding: 0 10px; }
+  .mine .rename button { min-height: 40px; padding: 0 10px; }
+}
 #result .upload-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0; }
 #result .upload-actions button { min-height: 44px; padding: 0 18px; border-radius: 4px; }
 #result .upload-actions .start { margin: 0; }

@@ -24,6 +24,7 @@ export const LAB_FILES = [
   'js/finished.js',
   'js/finished-toggle.js',
   'js/shared.js',
+  'js/rename.js',
   'js/explore.js',
   'js/pad-reference.js',
   'js/studio.js',

@@ -56,6 +56,30 @@ export function saveDrawing(pattern, storage = browserStorage(), now = new Date(
   }
 }
 
+export const TITLE_MAX = 20;
+
+// A name typed for a drawing: spaces tidied, at most TITLE_MAX characters; null when nothing is left.
+export function cleanTitle(text) {
+  const tidy = String(text ?? '').replace(/\s+/g, ' ').trim();
+  return tidy ? [...tidy].slice(0, TITLE_MAX).join('') : null;
+}
+
+// Gives a saved drawing a new name and keeps its date. Returns the renamed pattern, or null if it could not.
+export function renameDrawing(id, text, storage = browserStorage()) {
+  const title = cleanTitle(text);
+  if (!storage || !title) return null;
+  try {
+    const key = `${DRAWING_PREFIX}${id}`;
+    const entry = readDrawing(storage, key);
+    if (!entry) return null;
+    const pattern = { ...entry.pattern, title };
+    storage.setItem(key, JSON.stringify({ savedAt: entry.savedAt, pattern }));
+    return pattern;
+  } catch {
+    return null;
+  }
+}
+
 // Takes the place reached in work mode with it.
 export function deleteDrawing(id, storage = browserStorage()) {
   if (!storage) return false;

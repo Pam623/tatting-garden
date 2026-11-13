@@ -270,6 +270,30 @@ export function groupChoice(pass, repeats) {
   };
 }
 
+// Where saved progress stands, in the same words on the pattern page and the home page:
+// "第 2 组第 5 个" in a later repeat group, otherwise "第 5 个".
+export function progressPlace(progress) {
+  return `${progress.pass > 1 ? `第 ${progress.pass} 组` : ''}第 ${progress.index + 1} 个`;
+}
+
+// The line shown when the piece is finished. With a repeat it names the groups actually worked,
+// which can be more than the number set, e.g. "起头 A–C，D–F 共编了 4 组，都编完了".
+export function finishLine(pattern, pass) {
+  const { elements } = pattern;
+  const ids = pattern.repeat?.elements ?? [];
+  const first = elements.findIndex((e) => e.id === ids[0]);
+  const last = elements.findIndex((e) => e.id === ids.at(-1));
+  if (first < 0 || last < first) return `全部 ${elements.length} 个都编完了`;
+  const range = (list) => (list.length > 1 ? `${list[0].id}–${list.at(-1).id}` : list[0].id);
+  const before = elements.slice(0, first);
+  const after = elements.slice(last + 1);
+  return [
+    before.length ? `起头 ${range(before)}` : '',
+    `${range(elements.slice(first, last + 1))} 共编了 ${Math.max(1, pass)} 组`,
+    after.length ? `结尾 ${range(after)}` : '',
+  ].filter(Boolean).join('，') + '，都编完了';
+}
+
 // Whether saved progress means the piece is under way: past the first element, a part picked,
 // finished, or anywhere in a later repeat group (which can sit at element 0 again).
 export function hasStarted(progress) {

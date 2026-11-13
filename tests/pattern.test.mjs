@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import {
-  checkPattern, clampProgress, formulaGroups, groupChoice, hasStarted, handFormula, parseToken, partsInWords, readElement, structureProblems, summarize,
+  checkPattern, clampProgress, finishLine, formulaGroups, groupChoice, hasStarted, progressPlace, handFormula, parseToken, partsInWords, readElement, structureProblems, summarize,
 } from '../js/pattern.js';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -422,4 +422,19 @@ test('a later repeat group counts as started even back at the first element', ()
   assert.equal(hasStarted(clampProgress({ index: 1 }, 4)), true);
   assert.equal(hasStarted(clampProgress({ index: 0, part: 0 }, 4)), true);
   assert.equal(hasStarted(clampProgress({ index: 0, finished: true }, 4)), true);
+});
+
+test('progress reads the same wherever it is shown', () => {
+  assert.equal(progressPlace(clampProgress({ index: 4 }, 6)), '第 5 个');
+  assert.equal(progressPlace(clampProgress({ index: 4, pass: 2 }, 6)), '第 2 组第 5 个');
+});
+
+test('the finish line names the groups actually worked', () => {
+  const edging = JSON.parse(readFileSync(join(root, 'patterns/arch-edging.json'), 'utf8'));
+  assert.equal(finishLine(edging, 4), '起头 A–C，D–F 共编了 4 组，都编完了');
+  assert.equal(finishLine(edging, 3), '起头 A–C，D–F 共编了 3 组，都编完了');
+  assert.equal(finishLine(flower, 1), `全部 ${flower.elements.length} 个都编完了`);
+  const ids = ['A', 'B', 'C', 'D'].map((id) => ({ id }));
+  assert.equal(finishLine({ elements: ids, repeat: { elements: ['A', 'B'] } }, 2), 'A–B 共编了 2 组，结尾 C–D，都编完了');
+  assert.equal(finishLine({ elements: ids, repeat: { elements: ['B'] } }, 5), '起头 A，B 共编了 5 组，结尾 C–D，都编完了');
 });

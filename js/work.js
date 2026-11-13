@@ -1,7 +1,7 @@
-import { handFormula, partsInWords, readElement, structureProblems } from './pattern.js';
+import { groupChoice, handFormula, partsInWords, readElement, structureProblems } from './pattern.js';
 import { drawingShare, focusBox, renderChart } from './diagram.js';
 import {
-  app, escapeHtml, loadPattern, readProgress, repeatRange, saveProgress, setCleanup, showProblems,
+  app, escapeHtml, loadPattern, readProgress, readSetting, repeatRange, saveProgress, setCleanup, showProblems,
 } from './shared.js';
 
 const LOCAL_VIEW_ABOVE = 8;
@@ -108,8 +108,30 @@ export async function showWork(id) {
   const repeatIds = pattern.repeat?.elements ?? [];
   const repeatFirst = elements.findIndex((e) => e.id === repeatIds[0]);
   const repeatLast = elements.findIndex((e) => e.id === repeatIds.at(-1));
-  let pass = 1;
-  let asking = false;
+  // The number of groups set on the pattern page; extra groups are still allowed.
+  const repeats = pattern.repeat ? readSetting(`repeat:${pattern.id}`, pattern.repeat.defaultTimes ?? 1) : 1;
+  const repeatSize = repeatFirst >= 0 ? repeatLast - repeatFirst + 1 : 0;
+  let pass = state.pass;
+  let asking = state.asking && state.index === repeatLast;
+
+  function inRepeat(index) {
+    return repeatFirst >= 0 && index >= repeatFirst && index <= repeatLast;
+  }
+
+  function positionText() {
+    const step = `第 ${state.index + 1} 个，共 ${elements.length} 个`;
+    return inRepeat(state.index) ? `第 ${pass} 组，共 ${Math.max(pass, repeats)} 组 · ${step}` : step;
+  }
+
+  // Share of the whole piece done, counting every group that will be worked.
+  function doneShare() {
+    const groups = Math.max(pass, repeats);
+    const all = elements.length + (groups - 1) * repeatSize;
+    let done = state.index;
+    if (state.index > repeatLast) done += (groups - 1) * repeatSize;
+    else if (inRepeat(state.index)) done += (pass - 1) * repeatSize;
+    return all ? done / all : 0;
+  }
 
   function flipLine(element) {
     if (!element.flip) return '';
@@ -164,17 +186,17 @@ export async function showWork(id) {
   }
 
   function drawAsk() {
-    position.textContent = `第 ${state.index + 1} 个，共 ${elements.length} 个`;
-    announce.innerHTML = '<h2 class="element-name">再编一组？</h2>';
+    const choice = groupChoice(pass, repeats);
+    const leave = state.index === elements.length - 1 ? '收尾' : '接着往下编';
+    position.textContent = positionText();
+    bar.style.width = `${doneShare() * 100}%`;
+    announce.innerHTML = `<h2 class="element-name">${choice.more ? '再编一组' : '这一段编够了'}</h2>`;
     formula.innerHTML = '';
     formula.hidden = true;
-    words.textContent = `${repeatRange(pattern)} 已经编完第 ${pass} 组。`;
-    total.innerHTML = '<div class="again-choice"><button type="button" id="again-group">再来一组</button></div>';
-    document.getElementById('again-group').addEventListener('click', () => {
-      pass += 1;
-      go(repeatFirst);
-    });
-    next.textContent = state.index === elements.length - 1 ? '收尾' : '接着往下编';
+    words.textContent = `${repeatRange(pattern)} ${choice.status}`;
+    total.innerHTML = `<div class="again-choice"><button type="button" id="other-choice">${choice.more ? leave : choice.again}</button></div>`;
+    document.getElementById('other-choice').addEventListener('click', () => (choice.more ? leaveRepeat() : againGroup()));
+    next.textContent = choice.more ? choice.again : leave;
     prev.disabled = false;
   }
 
@@ -193,8 +215,8 @@ export async function showWork(id) {
     const deco = read.items.filter((i) => i.kind === 'deco').length;
     const counts = [`共 ${read.stitches} 针`, join ? `${join} 个接耳` : '', deco ? `${deco} 个装饰耳` : ''].filter(Boolean).join('，');
 
-    position.textContent = `第 ${state.index + 1} 个，共 ${elements.length} 个`;
-    bar.style.width = `${(state.index / elements.length) * 100}%`;
+    position.textContent = positionText();
+    bar.style.width = `${doneShare() * 100}%`;
     announce.innerHTML = `${flipLine(element)}<h2 class="element-name"><b>${element.id}</b> ${unitName(element)}</h2>`;
     formula.hidden = false;
     formula.setAttribute('aria-label', `${element.id} ${unitName(element)}的针数，${handFormula(element)}`);
@@ -217,9 +239,27 @@ export async function showWork(id) {
 
   function draw() {
     const element = elements[state.index];
+    state.pass = pass;
+    state.asking = asking;
     drawChart(element);
     drawPanel(element);
     saveProgress(pattern, state);
+  }
+
+  function againGroup() {
+    pass += 1;
+    go(repeatFirst);
+  }
+
+  function leaveRepeat() {
+    if (state.index === elements.length - 1) {
+      asking = false;
+      state.part = null;
+      state.finished = true;
+      draw();
+    } else {
+      go(state.index + 1);
+    }
   }
 
   function go(index) {
@@ -239,6 +279,9 @@ export async function showWork(id) {
       state.part = null;
       asking = true;
       draw();
+    } else if (asking) {
+      if (groupChoice(pass, repeats).more) againGroup();
+      else leaveRepeat();
     } else if (state.index === elements.length - 1) {
       asking = false;
       state.part = null;
@@ -254,7 +297,14 @@ export async function showWork(id) {
       asking = false;
       draw();
     } else if (state.finished) go(elements.length - 1);
-    else go(state.index - 1);
+    else if (state.index === repeatFirst && pass > 1) {
+      // Back from the start of a later group returns to the choice after the group before.
+      pass -= 1;
+      state.index = repeatLast;
+      state.part = null;
+      asking = true;
+      draw();
+    } else go(state.index - 1);
   }
 
   next.addEventListener('click', forward);

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import {
-  checkPattern, clampProgress, formulaGroups, handFormula, parseToken, partsInWords, readElement, structureProblems, summarize,
+  checkPattern, clampProgress, formulaGroups, groupChoice, handFormula, parseToken, partsInWords, readElement, structureProblems, summarize,
 } from '../js/pattern.js';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -303,14 +303,28 @@ test('words name bridges, and a join with no target does not throw', () => {
 });
 
 test('a saved position outside the pattern is ignored', () => {
-  const blank = { index: 0, part: null, finished: false };
+  const blank = { index: 0, part: null, finished: false, pass: 1, asking: false };
   assert.deepEqual(clampProgress(null, 5), blank);
   assert.deepEqual(clampProgress('3', 5), blank);
   assert.deepEqual(clampProgress({ index: 5 }, 5), blank);
   assert.deepEqual(clampProgress({ index: -1 }, 5), blank);
   assert.deepEqual(clampProgress({ index: 1.5 }, 5), blank);
-  assert.deepEqual(clampProgress({ index: 2, part: 1, finished: true }, 5), { index: 2, part: 1, finished: true });
-  assert.deepEqual(clampProgress({ index: 2, part: -1 }, 5), { index: 2, part: null, finished: false });
+  assert.deepEqual(clampProgress({ index: 2, part: 1, finished: true }, 5), { index: 2, part: 1, finished: true, pass: 1, asking: false });
+  assert.deepEqual(clampProgress({ index: 2, pass: 3, asking: true }, 5), { index: 2, part: null, finished: false, pass: 3, asking: true });
+  assert.equal(clampProgress({ index: 2, pass: 0 }, 5).pass, 1);
+  assert.equal(clampProgress({ index: 2, pass: 2.5 }, 5).pass, 1);
+  assert.deepEqual(clampProgress({ index: 2, part: -1 }, 5), { index: 2, part: null, finished: false, pass: 1, asking: false });
+});
+
+test('the end of a repeat offers another group until all are done', () => {
+  const first = groupChoice(1, 8);
+  assert.equal(first.more, true);
+  assert.equal(first.again, '再来一组（第 2/8 组）');
+  assert.match(first.status, /第 1 组，共 8 组/);
+  assert.equal(groupChoice(7, 8).more, true);
+  assert.equal(groupChoice(7, 8).again, '再来一组（第 8/8 组）');
+  assert.equal(groupChoice(8, 8).more, false);
+  assert.equal(groupChoice(9, 8).more, false);
 });
 
 test('reads positions along an element', () => {

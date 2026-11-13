@@ -40,7 +40,7 @@ function mineSection() {
 }
 
 // Shown first on the home page: where the thread was left, and what was wished for. Nothing when neither.
-function pickUpSection(resumes, wished) {
+export function pickUpSection(resumes, wished) {
   if (!resumes.length && !wished.length) return '';
   const resumeHtml = resumes.length ? `
     <h2>接着编</h2>
@@ -62,6 +62,21 @@ function pickUpSection(resumes, wished) {
   return `<section class="pick-up" id="pick-up">${resumeHtml}${wishHtml}</section>`;
 }
 
+// What the pick-up section shows now; it is drawn again from this whenever an entry goes.
+const pickUp = { resumes: [], wished: [] };
+
+// The pick-up lists once a pattern is gone, e.g. a deleted drawing, whose progress went with it.
+export function withoutPattern(lists, id) {
+  return { ...lists, resumes: lists.resumes.filter((r) => r.pattern.id !== id) };
+}
+
+function redrawPickUp() {
+  const section = document.getElementById('pick-up');
+  if (!section) return;
+  section.outerHTML = pickUpSection(pickUp.resumes, pickUp.wished);
+  watchPickUp();
+}
+
 function watchPickUp() {
   document.getElementById('pick-up')?.addEventListener('click', (event) => {
     const item = event.target.closest('[data-wished]');
@@ -70,11 +85,8 @@ function watchPickUp() {
       event.target.outerHTML = '<span class="error">没取消掉，这个浏览器不让改本机保存。</span>';
       return;
     }
-    const list = item.closest('#wished');
-    item.remove();
-    if (!list.querySelector('[data-wished]')) list.remove();
-    const section = document.getElementById('pick-up');
-    if (!section.querySelector('li')) section.remove();
+    pickUp.wished = pickUp.wished.filter((card) => card.id !== item.dataset.wished);
+    redrawPickUp();
   });
 }
 
@@ -111,6 +123,8 @@ function watchMine() {
         return;
       }
       forgetPattern(card.dataset.drawing);
+      Object.assign(pickUp, withoutPattern(pickUp, card.dataset.drawing));
+      redrawPickUp();
       const section = card.closest('.mine');
       card.remove();
       if (!section.querySelector('[data-drawing]')) section.remove();
@@ -134,6 +148,7 @@ export async function showHome(isCurrent) {
   const resumes = resumeList([...drawn, ...patterns], readStoredProgress);
   const wished = await wishedForHome();
   if (!isCurrent()) return;
+  Object.assign(pickUp, { resumes, wished });
   app.innerHTML = `
     <div class="home">
       <header class="masthead">

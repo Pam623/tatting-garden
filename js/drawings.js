@@ -45,6 +45,16 @@ export function listDrawings(storage = browserStorage()) {
   }
 }
 
+// True when this id is a drawing kept in this browser, so it can be renamed or deleted here.
+export function isSavedDrawing(id, storage = browserStorage()) {
+  if (!storage || !DRAWING_ID.test(String(id))) return false;
+  try {
+    return readDrawing(storage, `${DRAWING_PREFIX}${id}`) !== null;
+  } catch {
+    return false;
+  }
+}
+
 // False when it could not be kept: storage full, or blocked.
 export function saveDrawing(pattern, storage = browserStorage(), now = new Date()) {
   if (!storage) return false;

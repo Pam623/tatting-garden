@@ -1,7 +1,9 @@
 import { clampProgress, hasStarted, structureProblems, summarize } from './pattern.js';
 import { renderChart } from './diagram.js';
+import { isSavedDrawing } from './drawings.js';
 import { attachFinishedToggle } from './finished-toggle.js';
 import { THREAD_SIZES } from './materials.js';
+import { openRename, relabelChart } from './rename.js';
 import { originalUrl } from './saved.js';
 import { originalCaption } from './upload-file.js';
 import {
@@ -44,7 +46,8 @@ export async function showPattern(id) {
       <div class="pattern-side">
         <a class="back" href="#/">← 全部花样</a>
         <header>
-          <h1 class="pattern-title">${escapeHtml(pattern.title)}</h1>
+          <h1 class="pattern-title" id="pattern-title">${escapeHtml(pattern.title)}</h1>
+          ${isSavedDrawing(pattern.id) ? '<div class="rename-slot" id="rename-slot"></div>' : ''}
           <p class="summary" id="summary"></p>
           <p class="lede">${escapeHtml(pattern.summary ?? '')}</p>
         </header>
@@ -80,6 +83,23 @@ export async function showPattern(id) {
   document.querySelector('#original img')?.addEventListener('error', (event) => {
     event.target.outerHTML = '<p class="error">原图这次没读出来，花样不受影响。请刷新页面再看；一直这样就告诉 Claude。</p>';
   });
+  // A drawing kept in this browser can be renamed here too, with the same form as on the home page.
+  const renameSlot = document.getElementById('rename-slot');
+  const showRenameButton = () => {
+    renameSlot.innerHTML = '<button type="button" class="ghost" id="rename">改名字</button>';
+    document.getElementById('rename').addEventListener('click', () => {
+      openRename(renameSlot, pattern.id, pattern.title, (renamed) => {
+        if (renamed) {
+          pattern.title = renamed.title;
+          document.getElementById('pattern-title').textContent = renamed.title;
+          document.title = `${renamed.title} · 梭编花园`;
+          relabelChart(document.getElementById('chart'), renamed.title);
+        }
+        showRenameButton();
+      });
+    });
+  };
+  if (renameSlot) showRenameButton();
   const publish = document.getElementById('publish');
   publish?.addEventListener('click', async () => {
     publish.disabled = true;

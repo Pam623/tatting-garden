@@ -12,7 +12,8 @@ import { studioNoticeHtml } from './studio.js';
 
 function drawingDate(savedAt) {
   const date = new Date(savedAt);
-  return Number.isNaN(date.getTime()) ? '' : ` · ${date.getMonth() + 1}月${date.getDate()}日`;
+  // First on the card, so it stays in view when a narrow card cuts the line short.
+  return Number.isNaN(date.getTime()) ? '' : `${date.getMonth() + 1}月${date.getDate()}日 · `;
 }
 
 const MINE_BUTTONS = '<button type="button" class="ghost" data-rename>改名字</button><button type="button" class="ghost" data-ask>删除</button>';
@@ -33,7 +34,7 @@ function mineSection() {
               <figure class="paper">${renderChart(pattern, { counts: [], title: `${pattern.title}图解` })}</figure>
               <div class="plate-caption">
                 <h2>${escapeHtml(pattern.title)}</h2>
-                <p>${escapeHtml(pattern.difficulty)} · ${summarize(pattern)}${drawingDate(savedAt)}</p>
+                <p>${drawingDate(savedAt)}${escapeHtml(pattern.difficulty)} · ${summarize(pattern)}</p>
               </div>
             </a>
             <div class="mine-actions">${MINE_BUTTONS}</div>

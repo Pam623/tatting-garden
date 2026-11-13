@@ -1,4 +1,4 @@
-import { renderFinished, THREAD_COLORS } from './finished.js';
+import { MAX_DRAWN_GROUPS, renderFinished, THREAD_COLORS } from './finished.js';
 
 const COLOR_KEY = 'tatting.threadColor';
 
@@ -13,7 +13,8 @@ function savedColor() {
 
 // Puts a "chart / simulated finished piece" switch above a chart figure.
 // showChart() redraws the normal chart; the returned isFinished() tells callers to leave the figure alone.
-export function attachFinishedToggle(figure, pattern, showChart) {
+// repeats(), when given, is the number of groups to draw; call refresh() after it changes.
+export function attachFinishedToggle(figure, pattern, showChart, { repeats } = {}) {
   let on = false;
   let color = savedColor();
   const bar = document.createElement('div');
@@ -26,15 +27,20 @@ export function attachFinishedToggle(figure, pattern, showChart) {
     <label class="finished-color" hidden>线色
       <select>${THREAD_COLORS.map((c) => `<option value="${c.id}">${c.label}</option>`).join('')}</select>
     </label>
-    <p class="hint" hidden>照着数据画的示意，不是实物照片。</p>`;
+    <p class="hint" hidden></p>`;
   figure.insertAdjacentElement('beforebegin', bar);
   const select = bar.querySelector('select');
   select.value = color;
   const paint = () => {
     bar.querySelectorAll('[data-mode]').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.mode === 'finished') === on)));
     bar.querySelector('.finished-color').hidden = !on;
-    bar.querySelector('.hint').hidden = !on;
-    if (on) figure.innerHTML = renderFinished(pattern, { color });
+    const hint = bar.querySelector('.hint');
+    const times = repeats?.();
+    hint.hidden = !on;
+    hint.textContent = times > MAX_DRAWN_GROUPS
+      ? `照着数据画的示意，不是实物照片。图里画了 ${MAX_DRAWN_GROUPS} 组，实际 ${times} 组。`
+      : '照着数据画的示意，不是实物照片。';
+    if (on) figure.innerHTML = renderFinished(pattern, { color, repeats: times });
     else showChart();
   };
   bar.addEventListener('click', (event) => {
@@ -52,5 +58,5 @@ export function attachFinishedToggle(figure, pattern, showChart) {
     }
     paint();
   });
-  return { isFinished: () => on };
+  return { isFinished: () => on, refresh: () => { if (on) paint(); } };
 }

@@ -2,7 +2,10 @@
 // Rings and bridges become a thread of tiny knots, picots become small loops, joins are tied points.
 // Pure function, no text in the output; each element costs four paths plus a few small circles.
 import { elementGeometry } from './diagram.js';
-import { readElement } from './pattern.js';
+import { expandRepeats, readElement } from './pattern.js';
+
+// A long edging is drawn up to this many groups, so the picture stays light and readable on a phone.
+export const MAX_DRAWN_GROUPS = 12;
 
 export const THREAD_COLORS = [
   { id: 'ivory', label: '象牙白', thread: '#f2ebd9', cloth: '#3d4654' },
@@ -17,7 +20,9 @@ const mix = (a, b, t) => `#${hex(a).map((v, i) => Math.round(v + (hex(b)[i] - v)
 // Significant digits, not decimals, so a pattern with tiny coordinates keeps its line widths.
 const f = (v) => String(Number(v.toPrecision(4)));
 
-export function renderFinished(pattern, { color = 'ivory' } = {}) {
+// repeats: draw the repeat that many times (capped at MAX_DRAWN_GROUPS); left out, the file's elements as they are.
+export function renderFinished(source, { color = 'ivory', repeats } = {}) {
+  const pattern = repeats ? expandRepeats(source, Math.min(repeats, MAX_DRAWN_GROUPS)) : source;
   const palette = THREAD_COLORS.find((c) => c.id === color) ?? THREAD_COLORS[0];
   const [minX, minY, width, height] = pattern.layout.viewBox;
   const shade = mix(palette.thread, '#000000', 0.55);

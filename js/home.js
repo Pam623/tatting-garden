@@ -2,7 +2,11 @@ import { structureProblems, summarize } from './pattern.js';
 import { renderChart } from './diagram.js';
 import { renderFinished } from './finished.js';
 import { deleteDrawing, listDrawings } from './drawings.js';
-import { app, embedded, escapeHtml, forgetPattern, loadIndex, loadPattern, studio } from './shared.js';
+import { loadExplore, readWishes, saveWishes } from './explore.js';
+import { resumeList, wishedCards } from './resume.js';
+import {
+  app, embedded, escapeHtml, forgetPattern, loadIndex, loadPattern, readStoredProgress, studio,
+} from './shared.js';
 import { studioNoticeHtml } from './studio.js';
 
 function drawingDate(savedAt) {
@@ -35,6 +39,73 @@ function mineSection() {
     </section>`;
 }
 
+// Shown first on the home page: where the thread was left, and what was wished for. Nothing when neither.
+export function pickUpSection(resumes, wished) {
+  if (!resumes.length && !wished.length) return '';
+  const resumeHtml = resumes.length ? `
+    <h2>接着编</h2>
+    <ul class="resume-list">
+      ${resumes.map(({ pattern, index }) => `
+        <li><a class="start resume" href="#/p/${escapeHtml(pattern.id)}/work">继续编 · ${escapeHtml(pattern.title)} · 第 ${index + 1} 个</a></li>`).join('')}
+    </ul>` : '';
+  const wishHtml = wished.length ? `
+    <div id="wished">
+      <h2>想编的</h2>
+      <ul class="wished-list">
+        ${wished.map((card) => `
+          <li data-wished="${escapeHtml(card.id)}">
+            <a href="#/explore">${escapeHtml(card.title)}</a>
+            <button type="button" class="ghost" data-unwish>取消</button>
+          </li>`).join('')}
+      </ul>
+    </div>` : '';
+  return `<section class="pick-up" id="pick-up">${resumeHtml}${wishHtml}</section>`;
+}
+
+// What the pick-up section shows now; it is drawn again from this whenever an entry goes.
+const pickUp = { resumes: [], wished: [] };
+
+// The pick-up lists once a pattern is gone, e.g. a deleted drawing, whose progress went with it.
+export function withoutPattern(lists, id) {
+  return { ...lists, resumes: lists.resumes.filter((r) => r.pattern.id !== id) };
+}
+
+function redrawPickUp() {
+  const section = document.getElementById('pick-up');
+  if (!section) return;
+  section.outerHTML = pickUpSection(pickUp.resumes, pickUp.wished);
+  watchPickUp();
+}
+
+function watchPickUp() {
+  document.getElementById('pick-up')?.addEventListener('click', (event) => {
+    const item = event.target.closest('[data-wished]');
+    if (!item || !event.target.matches('[data-unwish]')) return;
+    if (!saveWishes(readWishes().filter((id) => id !== item.dataset.wished))) {
+      event.target.outerHTML = '<span class="error">没取消掉，这个浏览器不让改本机保存。</span>';
+      return;
+    }
+    pickUp.wished = pickUp.wished.filter((card) => card.id !== item.dataset.wished);
+    redrawPickUp();
+  });
+}
+
+async function wishedForHome() {
+  const wishes = readWishes();
+  if (!wishes.length || embedded) return [];
+  try {
+    return wishedCards(await loadExplore(), wishes);
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+}
+
+function progressNote(pattern) {
+  const found = resumeList([pattern], readStoredProgress)[0];
+  return found ? ` · 编到第 ${found.index + 1} 个` : '';
+}
+
 // Deleting asks first, on the card itself. A browser's own confirm box can be blocked inside a frame.
 function watchMine() {
   document.getElementById('mine')?.addEventListener('click', (event) => {
@@ -52,6 +123,8 @@ function watchMine() {
         return;
       }
       forgetPattern(card.dataset.drawing);
+      Object.assign(pickUp, withoutPattern(pickUp, card.dataset.drawing));
+      redrawPickUp();
       const section = card.closest('.mine');
       card.remove();
       if (!section.querySelector('[data-drawing]')) section.remove();
@@ -71,6 +144,11 @@ export async function showHome(isCurrent) {
     .filter((r) => r.status === 'fulfilled')
     .map((r) => r.value)
     .filter((p) => structureProblems(p).length === 0);
+  const drawn = listDrawings().drawings.map((d) => d.pattern);
+  const resumes = resumeList([...drawn, ...patterns], readStoredProgress);
+  const wished = await wishedForHome();
+  if (!isCurrent()) return;
+  Object.assign(pickUp, { resumes, wished });
   app.innerHTML = `
     <div class="home">
       <header class="masthead">
@@ -79,6 +157,7 @@ export async function showHome(isCurrent) {
         <div class="start-actions">${studio.sample ? '<a class="start" href="#/upload">上传图片，转成图解</a>' : ''}<a class="start" href="#/draw">画一个</a>${embedded ? '' : '<a class="start" href="#/explore">灵感库</a>'}</div>
         ${studioNoticeHtml()}
       </header>
+      ${pickUpSection(resumes, wished)}
       ${mineSection()}
       <ul class="plates">
         ${patterns.map((p, i) => `
@@ -91,11 +170,12 @@ export async function showHome(isCurrent) {
                 ${p.photo ? `<img class="inset" src="${escapeHtml(p.photo)}" alt="" loading="lazy">` : `<span class="inset finished-inset">${renderFinished(p)}</span>`}
                 <span class="plate-no">图版 ${String(i + 1).padStart(2, '0')}</span>
                 <h2>${escapeHtml(p.title)}</h2>
-                <p>${escapeHtml(p.craft)} · ${escapeHtml(p.difficulty)} · ${summarize(p)}</p>
+                <p>${escapeHtml(p.craft)} · ${escapeHtml(p.difficulty)} · ${summarize(p)}${progressNote(p)}</p>
               </div>
             </a>
           </li>`).join('')}
       </ul>
     </div>`;
   watchMine();
+  watchPickUp();
 }

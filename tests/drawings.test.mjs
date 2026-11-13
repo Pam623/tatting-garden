@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  cleanTitle, deleteDrawing, listDrawings, newDrawingId, renameDrawing, saveDrawing, TITLE_MAX,
+  cleanTitle, deleteDrawing, isSavedDrawing, listDrawings, newDrawingId, renameDrawing, saveDrawing, TITLE_MAX,
 } from '../js/drawings.js';
 
 const memory = (seed = {}) => {
@@ -87,4 +87,20 @@ test('damaged or foreign entries are skipped, the good ones still listed', () =>
 
 test('a new id fits the page address', () => {
   assert.match(newDrawingId(), /^draw-[\w-]+$/);
+});
+
+test('only a drawing kept in this browser offers renaming on its pattern page', () => {
+  const storage = memory();
+  saveDrawing(pattern('draw-a'), storage);
+  assert.equal(isSavedDrawing('draw-a', storage), true);
+  assert.equal(isSavedDrawing('draw-b', storage), false);
+  assert.equal(isSavedDrawing('arch-edging', storage), false);
+  assert.equal(isSavedDrawing('draw-a', null), false);
+  const blocked = { ...storage, getItem: () => { throw new Error('blocked'); } };
+  assert.equal(isSavedDrawing('draw-a', blocked), false);
+  // Renamed there, the new name is what the page and the list read back.
+  renameDrawing('draw-a', '爱心', storage);
+  assert.equal(listDrawings(storage).drawings[0].pattern.title, '爱心');
+  deleteDrawing('draw-a', storage);
+  assert.equal(isSavedDrawing('draw-a', storage), false);
 });

@@ -132,7 +132,8 @@
   "year": 1915,
   "page": 30,
   "sourceUrl": "https://www.antiquepatternlibrary.org/pub/IMG/B/B-JA034/31.jpg",
-  "bookUrl": "https://antiquepatternlibrary.org/html/warm/B-JA034.htm"
+  "bookUrl": "https://antiquepatternlibrary.org/html/warm/B-JA034.htm",
+  "patterns": ["alphabet-a", "alphabet-b", "alphabet-c", "alphabet-d"]
  },
  {
   "id": "pris-tray",

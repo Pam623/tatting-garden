@@ -3,7 +3,7 @@ import { renderChart } from './diagram.js';
 import { renderFinished } from './finished.js';
 import { deleteDrawing, listDrawings } from './drawings.js';
 import { loadExplore, readWishes, saveWishes } from './explore.js';
-import { openRename } from './rename.js';
+import { openRename, relabelChart } from './rename.js';
 import { resumeList, wishedCards } from './resume.js';
 import {
   app, embedded, escapeHtml, forgetPattern, loadIndex, loadPattern, readStoredProgress, studio,
@@ -123,7 +123,10 @@ function watchMine() {
     if (event.target.matches('[data-rename]')) {
       const heading = card.querySelector('.plate-caption h2');
       openRename(actions, card.dataset.drawing, heading.textContent, (pattern) => {
-        if (pattern) heading.textContent = pattern.title;
+        if (pattern) {
+          heading.textContent = pattern.title;
+          relabelChart(card, pattern.title);
+        }
         actions.innerHTML = MINE_BUTTONS;
       });
     }

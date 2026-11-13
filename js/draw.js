@@ -8,7 +8,7 @@ import {
   app, embedded, escapeHtml, forgetPattern, legendFor, materialsPanel, readSetting, rememberPattern, saveSetting, setCleanup, stitchTable,
 } from './shared.js';
 import { setupPadReference } from './pad-reference.js';
-import { openRename } from './rename.js';
+import { openRename, relabelChart } from './rename.js';
 import { startSketchPad } from './sketch-pad.js';
 import { traceDesign } from './trace-design.js';
 
@@ -108,6 +108,7 @@ export function showDraw() {
           if (renamed) {
             pattern.title = renamed.title;
             document.getElementById('result-title').textContent = renamed.title;
+            relabelChart(document.getElementById('chart'), renamed.title);
           }
           showRenameButton();
         });

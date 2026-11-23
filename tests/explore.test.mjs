@@ -22,14 +22,15 @@ function jpegWidth(path) {
   throw new Error('no frame header');
 }
 
-test('inspiration library has 8 to 30 cards with every source field', () => {
-  assert.ok(cards.length >= 8 && cards.length <= 30);
+test('inspiration library has 8 to 40 cards with every source field', () => {
+  assert.ok(cards.length >= 8 && cards.length <= 40);
   const ids = new Set();
   cards.forEach((card) => {
     assert.ok(!ids.has(card.id), `${card.id} is repeated`);
     ids.add(card.id);
     ['title', 'note', 'kind', 'book', 'sourceUrl', 'bookUrl'].forEach((key) => assert.ok(card[key], `${card.id} lacks ${key}`));
-    assert.ok(Number.isInteger(card.year), `${card.id} lacks a year`);
+    // A book has a year; a chart shared online names its author instead.
+    assert.ok(Number.isInteger(card.year) || card.author, `${card.id} lacks a year or an author`);
     assert.ok(card.page, `${card.id} lacks a page`);
     assert.match(card.sourceUrl, /^https:\/\//);
   });

@@ -8,9 +8,12 @@
 //
 // Any part may end in a source mark: "?" inferred, "~" estimated from a photo.
 // A stitch estimate may give its error: "16~3" is 16 plus or minus 3.
+//
+// An element may carry "round": 2 when it starts a new piece of thread (rounds ② onwards),
+// and "note": a sentence shown while working it.
 
 const TIERS = ['reconstruction', 'sorted', 'checked', 'made'];
-const RIGHTS = ['original', 'public-domain', 'private'];
+const RIGHTS = ['original', 'public-domain', 'credited', 'private'];
 const TYPES = ['ring', 'bridge'];
 const SOURCES = ['source', 'inferred', 'estimated'];
 
@@ -316,7 +319,7 @@ function readSafely(raw) {
   });
   const stitches = items.filter((i) => i.kind === 'stitch').reduce((total, i) => total + i.count, 0);
   return {
-    id: element.id, type: element.type, group: element.group, flip: element.flip, place: element.place, items, bad, stitches, missingParts: parts.length === 0,
+    id: element.id, type: element.type, group: element.group, flip: element.flip, round: element.round, note: element.note, place: element.place, items, bad, stitches, missingParts: parts.length === 0,
   };
 }
 
@@ -367,6 +370,10 @@ function checkStructure(pattern, read) {
     if (element.flip !== undefined && (typeof element.flip?.value !== 'boolean' || !SOURCES.includes(element.flip?.source))) {
       fail(`${element.id} 的翻面写法无效`, [element.id]);
     }
+    if (element.round !== undefined && !(Number.isInteger(element.round) && element.round >= 2 && index > 0)) {
+      fail(`${element.id} 的分段写法无效`, [element.id]);
+    }
+    if (element.note !== undefined && (typeof element.note !== 'string' || !element.note.trim())) fail(`${element.id} 的提示无效`, [element.id]);
     if (!TYPES.includes(element.type)) fail(`${element.id} 的类型无效：${element.type}`, [element.id]);
     if (element.missingParts) fail(`${element.id} 没有内容`, [element.id]);
     else if (element.stitches <= 0) fail(`${element.id} 没有针数`, [element.id]);
@@ -481,6 +488,7 @@ function checkTier(pattern, read) {
 }
 
 // A bridge starts where the ring before it was based and ends at the next ring's base.
+// An element with a round starts new thread, so it is not tied to the element before it.
 function checkBridgeEnds(pattern, read) {
   const problems = [];
   const close = (a, b) => isPoint(a) && isPoint(b) && Math.hypot(a[0] - b[0], a[1] - b[1]) <= 1;
@@ -488,8 +496,10 @@ function checkBridgeEnds(pattern, read) {
   read.forEach((element, index) => {
     if (element.type !== 'bridge' || !element.place) return;
     const wrap = pattern.layout?.closed === true;
-    const before = index > 0 ? read[index - 1] : wrap ? read[count - 1] : null;
-    const after = index < count - 1 ? read[index + 1] : wrap ? read[0] : null;
+    let before = index > 0 ? read[index - 1] : wrap ? read[count - 1] : null;
+    let after = index < count - 1 ? read[index + 1] : wrap ? read[0] : null;
+    if (element.round !== undefined) before = null;
+    if (after?.round !== undefined) after = null;
     if (before?.type === 'ring' && !close(element.place.from, before.place?.base)) {
       problems.push({ text: `${element.id} 的起点没接到 ${before.id} 环`, elements: [element.id] });
     }

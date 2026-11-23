@@ -13,7 +13,7 @@ const bridge = (id, parts) => ({ id, type: 'bridge', place: { from: [0, 0], to: 
 
 test('the flower at size 20 is pinned', () => {
   assert.deepEqual(estimateThread(flower, { size: 20 }), {
-    shuttleCm: 170, ballCm: 0, shuttles: 1, ballNeeded: false, totalStitches: 110, picots: 30,
+    shuttleCm: 170, ballCm: 0, shuttles: 1, rounds: 1, ballNeeded: false, totalStitches: 110, picots: 30,
   });
 });
 
@@ -21,7 +21,7 @@ test('a bridge takes ball thread for its stitches and picots, and core from the 
   const result = estimateThread({ elements: [ring('A', ['10']), bridge('B', ['100', 'o', 'p:x'])] });
   // shuttle: 10 + 100 * 0.1 = 20 cm, * 1.15 + 20 = 43, up to 50
   // ball: 100 + 2 * 0.6 = 101.2 cm, * 1.15 + 20 = 136.38, up to 140
-  assert.deepEqual(result, { shuttleCm: 50, ballCm: 140, shuttles: 1, ballNeeded: true, totalStitches: 110, picots: 2 });
+  assert.deepEqual(result, { shuttleCm: 50, ballCm: 140, shuttles: 1, rounds: 1, ballNeeded: true, totalStitches: 110, picots: 2 });
 });
 
 test('joins add nothing', () => {
@@ -51,4 +51,12 @@ test('finer thread takes less', () => {
 
 test('an unknown size throws', () => {
   assert.throws(() => estimateThread(flower, { size: 30 }), /size/);
+});
+
+test('each round that starts new thread adds its own tails', () => {
+  const one = estimateThread({ elements: [ring('A', ['10']), bridge('B', ['20'])] });
+  const two = estimateThread({ elements: [ring('A', ['10']), { ...bridge('B', ['20']), round: 2 }] });
+  assert.equal(two.rounds, 2);
+  assert.equal(two.shuttleCm - one.shuttleCm, 20);
+  assert.equal(two.ballCm - one.ballCm, 20);
 });

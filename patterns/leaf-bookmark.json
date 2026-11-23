@@ -1,0 +1,738 @@
+{
+  "schema": 2,
+  "id": "leaf-bookmark",
+  "title": "秋叶书签",
+  "craft": "梭编",
+  "difficulty": "进阶",
+  "tier": "sorted",
+  "rights": {
+    "kind": "credited",
+    "note": "小红书作者 好奇害死喵嗷呜 的图解，注明出处，非盈利分享"
+  },
+  "source": "小红书 好奇害死喵嗷呜 的笔记「100-71｜梭编-秋天的金黄色叶片书签（附图解）」第 5 页图解",
+  "summary": "一片带卷曲叶柄的秋叶，分四段编：① 左半片叶子，② 中心带 4 个长耳的小环连着叶柄，③ 右半片里的一排小扇，④ 外圈三道大弧。原图成品约 6.7 × 5.1 厘米。",
+  "layout": {
+    "viewBox": [
+      25,
+      415,
+      1080,
+      835
+    ]
+  },
+  "threadNote": "分 4 段编，每段都是 1 个梭子加线团，梭子线和线团线不剪开。一段编完打结剪线，下一段重新起头，按 ①②③④ 的顺序编，后一段要接前一段的耳。环和桥分在线的两侧，所以从环到桥、从桥到环都要翻面；N 桥接着编 O 桥时不翻面。M 环的 4 个长耳每个留 5 毫米，H 桥中间的装饰耳留 1 毫米。",
+  "elements": [
+    {
+      "id": "A",
+      "type": "ring",
+      "note": "第 ① 段，左半片叶子：从 A 环起头，最后 L 桥回到 A 环根部。",
+      "parts": [
+        "3",
+        "p:tip",
+        "3"
+      ],
+      "place": {
+        "base": [
+          423.5,
+          1129.8
+        ],
+        "tip": [
+          444.7,
+          1060.7
+        ],
+        "width": 26,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "B",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "5",
+        "p:low",
+        "1?",
+        "p:up",
+        "5"
+      ],
+      "place": {
+        "from": [
+          423.5,
+          1129.8
+        ],
+        "to": [
+          503.4,
+          998.2
+        ],
+        "bulge": -232.6
+      }
+    },
+    {
+      "id": "C",
+      "type": "ring",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "3",
+        "j:A.tip",
+        "3"
+      ],
+      "place": {
+        "base": [
+          503.4,
+          998.2
+        ],
+        "tip": [
+          460.6,
+          1023.2
+        ],
+        "width": 26,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "D",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "15"
+      ],
+      "place": {
+        "from": [
+          503.4,
+          998.2
+        ],
+        "to": [
+          357.9,
+          909
+        ],
+        "bulge": -121.4
+      }
+    },
+    {
+      "id": "E",
+      "type": "ring",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "7",
+        "p:tip",
+        "6"
+      ],
+      "place": {
+        "base": [
+          357.9,
+          909
+        ],
+        "tip": [
+          343.2,
+          1002.2
+        ],
+        "width": 36,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "F",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "12"
+      ],
+      "place": {
+        "from": [
+          357.9,
+          909
+        ],
+        "to": [
+          198.3,
+          851.9
+        ],
+        "bulge": -65
+      }
+    },
+    {
+      "id": "G",
+      "type": "ring",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "6",
+        "p:tip",
+        "4"
+      ],
+      "place": {
+        "base": [
+          198.3,
+          851.9
+        ],
+        "tip": [
+          212.8,
+          930.5
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "H",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "13",
+        "o",
+        "13"
+      ],
+      "place": {
+        "from": [
+          198.3,
+          851.9
+        ],
+        "to": [
+          152.4,
+          1000.4
+        ],
+        "bulge": -275.4
+      }
+    },
+    {
+      "id": "I",
+      "type": "ring",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "5",
+        "j:G.tip",
+        "7"
+      ],
+      "place": {
+        "base": [
+          152.4,
+          1000.4
+        ],
+        "tip": [
+          199.7,
+          962.6
+        ],
+        "width": 36,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "J",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "12"
+      ],
+      "place": {
+        "from": [
+          152.4,
+          1000.4
+        ],
+        "to": [
+          267.3,
+          1079.2
+        ],
+        "bulge": -20.8
+      }
+    },
+    {
+      "id": "K",
+      "type": "ring",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "6",
+        "j:E.tip",
+        "7"
+      ],
+      "place": {
+        "base": [
+          267.3,
+          1079.2
+        ],
+        "tip": [
+          305,
+          999
+        ],
+        "width": 36,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "L",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "13"
+      ],
+      "place": {
+        "from": [
+          267.3,
+          1079.2
+        ],
+        "to": [
+          423.5,
+          1129.8
+        ],
+        "bulge": -71.5
+      }
+    },
+    {
+      "id": "M",
+      "type": "ring",
+      "round": 2,
+      "note": "第 ② 段，中心和叶柄：第 ① 段打结剪线，重新起头编 M 环。4 个长耳每个留 5 毫米。",
+      "parts": [
+        "3",
+        "p:l1",
+        "1",
+        "p:l2",
+        "1",
+        "p:l3",
+        "1",
+        "p:l4",
+        "3"
+      ],
+      "place": {
+        "base": [
+          701.8,
+          993.5
+        ],
+        "tip": [
+          709.6,
+          896.6
+        ],
+        "width": 44,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "N",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "11",
+        "j:B.up",
+        "2",
+        "j:B.low"
+      ],
+      "place": {
+        "from": [
+          701.8,
+          993.5
+        ],
+        "to": [
+          607,
+          1103.7
+        ],
+        "bulge": -17.8
+      }
+    },
+    {
+      "id": "O",
+      "type": "bridge",
+      "note": "不翻面，接着 N 桥往下编，弯成叶柄的卷，编完打结剪线。",
+      "parts": [
+        "19"
+      ],
+      "place": {
+        "from": [
+          607,
+          1103.7
+        ],
+        "to": [
+          771.7,
+          1094.1
+        ],
+        "bulge": -218.5
+      }
+    },
+    {
+      "id": "P",
+      "type": "ring",
+      "round": 3,
+      "note": "第 ③ 段，右半片里的小扇：重新起头编 P 环。",
+      "parts": [
+        "3",
+        "j:M.l4",
+        "1",
+        "p:side",
+        "2"
+      ],
+      "place": {
+        "base": [
+          875.8,
+          849.5
+        ],
+        "tip": [
+          785.2,
+          874.9
+        ],
+        "width": 48,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "Q",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "5",
+        "p:a",
+        "4",
+        "p:b",
+        "11"
+      ],
+      "place": {
+        "from": [
+          875.8,
+          849.5
+        ],
+        "to": [
+          792.8,
+          742.9
+        ],
+        "bulge": -284.7
+      }
+    },
+    {
+      "id": "R",
+      "type": "ring",
+      "group": "fan",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "2",
+        "j:P.side",
+        "1",
+        "j:M.l3",
+        "1",
+        "p:side",
+        "2"
+      ],
+      "place": {
+        "base": [
+          792.8,
+          742.9
+        ],
+        "tip": [
+          731.4,
+          820.3
+        ],
+        "width": 48,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "S",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "11",
+        "p:top",
+        "9"
+      ],
+      "place": {
+        "from": [
+          792.8,
+          742.9
+        ],
+        "to": [
+          624.7,
+          724.2
+        ],
+        "bulge": -261.1
+      }
+    },
+    {
+      "id": "T",
+      "type": "ring",
+      "group": "fan",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "2",
+        "j:R.side",
+        "1",
+        "j:M.l2",
+        "1",
+        "p:side",
+        "2"
+      ],
+      "place": {
+        "base": [
+          624.7,
+          724.2
+        ],
+        "tip": [
+          655.8,
+          816.4
+        ],
+        "width": 48,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "U",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "11",
+        "p:c",
+        "4",
+        "p:d",
+        "4"
+      ],
+      "place": {
+        "from": [
+          624.7,
+          724.2
+        ],
+        "to": [
+          532.3,
+          843.3
+        ],
+        "bulge": -246.3
+      }
+    },
+    {
+      "id": "V",
+      "type": "ring",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "2",
+        "j:T.side",
+        "1",
+        "j:M.l1",
+        "3"
+      ],
+      "place": {
+        "base": [
+          532.3,
+          843.3
+        ],
+        "tip": [
+          615.2,
+          885.5
+        ],
+        "width": 48,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "W",
+      "type": "bridge",
+      "round": 4,
+      "note": "第 ④ 段，右半片外圈：重新起头。先把梭子线和线团线一起接到 Q 桥的 a 耳上，再编桥。",
+      "parts": [
+        "j:Q.a",
+        "19"
+      ],
+      "place": {
+        "from": [
+          937.1,
+          820.3
+        ],
+        "to": [
+          992.3,
+          603.4
+        ],
+        "bulge": -203.3
+      }
+    },
+    {
+      "id": "X",
+      "type": "ring",
+      "group": "outer",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "3",
+        "j:Q.b",
+        "3"
+      ],
+      "place": {
+        "base": [
+          992.3,
+          603.4
+        ],
+        "tip": [
+          946.3,
+          699
+        ],
+        "width": 56,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "Y",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "18"
+      ],
+      "place": {
+        "from": [
+          992.3,
+          603.4
+        ],
+        "to": [
+          679,
+          463.5
+        ],
+        "bulge": -154.5
+      }
+    },
+    {
+      "id": "Z",
+      "type": "ring",
+      "group": "outer",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "3",
+        "j:S.top",
+        "3"
+      ],
+      "place": {
+        "base": [
+          679,
+          463.5
+        ],
+        "tip": [
+          706.3,
+          559.5
+        ],
+        "width": 56,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "AA",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "17"
+      ],
+      "place": {
+        "from": [
+          679,
+          463.5
+        ],
+        "to": [
+          426,
+          624
+        ],
+        "bulge": -119.3
+      }
+    },
+    {
+      "id": "AB",
+      "type": "ring",
+      "group": "outer",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "3",
+        "j:U.c",
+        "3"
+      ],
+      "place": {
+        "base": [
+          426,
+          624
+        ],
+        "tip": [
+          482,
+          707
+        ],
+        "width": 56,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "AC",
+      "type": "bridge",
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      },
+      "parts": [
+        "14",
+        "j:U.d"
+      ],
+      "place": {
+        "from": [
+          426,
+          624
+        ],
+        "to": [
+          474.6,
+          797.6
+        ],
+        "bulge": -165.9
+      }
+    }
+  ],
+  "finish": "AC 桥最后接到 U 桥的 d 耳，打结剪线。四段的线尾都藏好，书签就完成了。"
+}

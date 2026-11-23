@@ -438,3 +438,19 @@ test('the finish line names the groups actually worked', () => {
   assert.equal(finishLine({ elements: ids, repeat: { elements: ['A', 'B'] } }, 2), 'A–B 共编了 2 组，结尾 C–D，都编完了');
   assert.equal(finishLine({ elements: ids, repeat: { elements: ['B'] } }, 5), '起头 A，B 共编了 5 组，结尾 C–D，都编完了');
 });
+
+test('a round starts new thread, so its bridge need not start at the ring before', () => {
+  const away = { from: [40, 40], to: [10, 0], bulge: 2 };
+  const plain = pattern([ring('A', ['5']), { id: 'B', type: 'bridge', place: away, parts: ['5'] }]);
+  assert.equal(check(plain, '桥两端接上了').ok, false);
+  const round = pattern([ring('A', ['5']), { id: 'B', type: 'bridge', place: away, parts: ['5'], round: 2 }]);
+  assert.equal(check(round, '桥两端接上了').ok, true);
+  assert.equal(check(round, '结构完整').ok, true);
+});
+
+test('a round on the first element, a round below 2 or an empty note is refused', () => {
+  assert.equal(check(pattern([ring('A', ['5'], { round: 2 })]), '结构完整').ok, false);
+  assert.equal(check(pattern([ring('A', ['5']), ring('B', ['5'], { round: 1 })]), '结构完整').ok, false);
+  assert.equal(check(pattern([ring('A', ['5'], { note: ' ' })]), '结构完整').ok, false);
+  assert.equal(check(pattern([ring('A', ['5'], { note: '从这里起头' })]), '结构完整').ok, true);
+});

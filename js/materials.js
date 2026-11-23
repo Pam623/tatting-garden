@@ -10,7 +10,8 @@ const TAIL_CM = 20;
 
 export const THREAD_SIZES = Object.keys(SIZE_FACTOR).map(Number);
 
-const withSlack = (cm) => Math.ceil((cm * SLACK + TAIL_CM) / 10) * 10;
+// Each round starts new thread, so each leaves its own tails.
+const withSlack = (cm, rounds = 1) => Math.ceil((cm * SLACK + TAIL_CM * rounds) / 10) * 10;
 
 export function estimateThread(pattern, { size = 20, repeats } = {}) {
   const factor = SIZE_FACTOR[size];
@@ -36,10 +37,12 @@ export function estimateThread(pattern, { size = 20, repeats } = {}) {
       shuttle += (stitches * STITCH_CM + marks * PICOT_CM) * factor * count;
     }
   });
+  const rounds = 1 + pattern.elements.slice(1).filter((element) => element.round !== undefined).length;
   return {
-    shuttleCm: withSlack(shuttle),
-    ballCm: ballNeeded ? withSlack(ball) : 0,
+    shuttleCm: withSlack(shuttle, rounds),
+    ballCm: ballNeeded ? withSlack(ball, rounds) : 0,
     shuttles: 1,
+    rounds,
     ballNeeded,
     totalStitches,
     picots,

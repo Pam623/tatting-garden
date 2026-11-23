@@ -121,7 +121,13 @@ const LABEL_BOXES = {
   count: (text) => ({ w: 7.5 * text.length + 3, h: 13 }),
   flip: () => ({ w: 14, h: 13 }),
   start: () => ({ w: 22, h: 12 }),
+  round: () => ({ w: 14, h: 14 }),
 };
+
+// A round's number as the reference charts write it: ② for the second piece of thread.
+export function roundMark(round) {
+  return round >= 1 && round <= 20 ? String.fromCodePoint(0x2460 + round - 1) : String(round);
+}
 // The sizes a label may shrink to, largest first. A smaller label beside its line beats a bigger one away from it.
 const COUNT_SIZES = [{ scale: 1 }, { scale: 0.8, name: 'small' }, { scale: 0.68, name: 'tiny' }];
 const LETTER_SIZES = [{ scale: 1 }, { scale: 0.7, name: 'small' }, { scale: 0.56, name: 'tiny' }];
@@ -414,6 +420,26 @@ function placeArrow(element, elements, s, context) {
   return scored.reduce((a, b) => (b.penalty < a.penalty ? b : a));
 }
 
+// The arrow's own room, so labels placed after it keep clear.
+function arrowBox(arrow, s) {
+  const { along, out } = arrow.p;
+  return {
+    x: arrow.x,
+    y: arrow.y,
+    w: (Math.abs(along.x) * 26 + Math.abs(out.x) * 12) * s,
+    h: (Math.abs(along.y) * 26 + Math.abs(out.y) * 12) * s,
+  };
+}
+
+// Spots for a label beside an arrow, nearest first.
+function besideArrow(arrow, s) {
+  const { p, side } = arrow;
+  return [17, 24, -17, -24, 32, -32].flatMap((off) => [0, 12, -12].map((along) => ({
+    x: arrow.x + side * p.out.x * off * s + p.along.x * along * s,
+    y: arrow.y + side * p.out.y * off * s + p.along.y * along * s,
+  })));
+}
+
 // Every label's spot, in order of importance: flip marks, letters, the start, then the numbers on show.
 // Numbers come last, so letters stay put whichever numbers are showing.
 export function chartLabels(elements, leftPicots, s, view, showsCounts = () => true) {
@@ -424,7 +450,7 @@ export function chartLabels(elements, leftPicots, s, view, showsCounts = () => t
     outline: Array.from({ length: 40 }, (_, i) => e.geometry.pointAt(i / 40)),
   }));
   const context = { obstacles, placed, view, rings };
-  const labels = { flip: new Map(), letter: new Map(), count: new Map(), arrow: null, start: null };
+  const labels = { flip: new Map(), letter: new Map(), count: new Map(), arrow: null, start: null, rounds: new Map() };
   const sized = (make, text) => {
     const box = make(text);
     return { w: box.w * s, h: box.h * s };
@@ -447,20 +473,34 @@ export function chartLabels(elements, leftPicots, s, view, showsCounts = () => t
   if (elements.length) {
     const first = elements[0];
     labels.arrow = placeArrow(first, elements, s, context);
-    const { along, out } = labels.arrow.p;
-    placed.push({
-      x: labels.arrow.x,
-      y: labels.arrow.y,
-      w: (Math.abs(along.x) * 26 + Math.abs(out.x) * 12) * s,
-      h: (Math.abs(along.y) * 26 + Math.abs(out.y) * 12) * s,
-    });
-    const { p, side } = labels.arrow;
-    const options = [17, 24, -17, -24, 32, -32].flatMap((off) => [0, 12, -12].map((along) => ({
-      x: labels.arrow.x + side * p.out.x * off * s + p.along.x * along * s,
-      y: labels.arrow.y + side * p.out.y * off * s + p.along.y * along * s,
-    })));
-    labels.start = placeLabel(options, sized(LABEL_BOXES.start), context);
+    placed.push(arrowBox(labels.arrow, s));
+    labels.start = placeLabel(besideArrow(labels.arrow, s), sized(LABEL_BOXES.start), context);
   }
+  // Each later round starts new thread: it gets its own arrow and its number, like ②.
+  // The arrows go down first, so each number can then keep clear of the other arrows.
+  const roundArrows = elements.slice(1).filter((e) => e.round !== undefined).map((element) => {
+    const arrow = placeArrow(element, elements, s, context);
+    placed.push(arrowBox(arrow, s));
+    return [element.id, arrow];
+  });
+  const allArrows = [...(labels.arrow ? [labels.arrow] : []), ...roundArrows.map(([, arrow]) => arrow)];
+  roundArrows.forEach(([id, arrow]) => {
+    // Behind the arrow's tail first, so the number reads as the start of that arrow, and never
+    // where another arrow is about as near, so ③ can't be read as ④'s.
+    const behind = [22, 28, 34].map((back) => ({ x: arrow.x - arrow.p.along.x * back * s, y: arrow.y - arrow.p.along.y * back * s }));
+    const around = [20, 28, 36].flatMap((r) => Array.from({ length: 12 }, (_, i) => ({
+      x: arrow.x + Math.cos((i * Math.PI) / 6) * r * s,
+      y: arrow.y + Math.sin((i * Math.PI) / 6) * r * s,
+    })));
+    const candidates = [...behind, ...besideArrow(arrow, s), ...around];
+    const away = (spot) => {
+      const own = Math.hypot(spot.x - arrow.x, spot.y - arrow.y);
+      return allArrows.every((other) => other === arrow || Math.hypot(spot.x - other.x, spot.y - other.y) > own * 1.8);
+    };
+    const clear = candidates.filter(away);
+    const mark = placeLabel(clear.length ? clear : candidates, sized(LABEL_BOXES.round), context);
+    labels.rounds.set(id, { arrow, mark });
+  });
   // A bridge's numbers can only go on its one side, so they choose before the rings'.
   // Then the smallest elements, which have the least room around them.
   [...elements].filter(showsCounts)
@@ -484,6 +524,7 @@ export function readChartElements(pattern) {
     ...readElement(element),
     place: element.place,
     flip: element.flip,
+    round: element.round,
     geometry: elementGeometry(element),
   }));
 }
@@ -552,7 +593,7 @@ export function renderChart(pattern, options = {}) {
     const { geometry } = element;
     const attrs = `data-el="${element.id}"`;
     const before = elements[index - 1];
-    if (element.type === 'ring' && before?.type === 'ring') {
+    if (element.type === 'ring' && before?.type === 'ring' && element.round === undefined) {
       const [bx, by] = element.place.base;
       const [px, py] = before.place.base;
       if (Math.hypot(bx - px, by - py) > 1) {
@@ -611,8 +652,9 @@ export function renderChart(pattern, options = {}) {
     }
 
     // The start of the piece, and the direction of whichever element is being worked.
-    if (index === 0 || element.id === current) {
-      const arrow = index === 0 ? labels.arrow : placeArrow(element, elements, s, labels.context);
+    const roundStart = labels.rounds.get(element.id);
+    if (index === 0 || element.id === current || roundStart) {
+      const arrow = index === 0 ? labels.arrow : roundStart?.arrow ?? placeArrow(element, elements, s, labels.context);
       const { p } = arrow;
       const tipX = arrow.x + p.along.x * 12 * s;
       const tipY = arrow.y + p.along.y * 12 * s;
@@ -622,6 +664,9 @@ export function renderChart(pattern, options = {}) {
       marks += `<path class="start-arrow" d="M${n(tailX)} ${n(tailY)}L${n(tipX)} ${n(tipY)}M${wing(1)}L${n(tipX)} ${n(tipY)}L${wing(-1)}"/>`;
       if (index === 0) {
         marks += `<text class="start-label" x="${n(labels.start.x)}" y="${n(labels.start.y)}">起点</text>`;
+      }
+      if (roundStart) {
+        marks += `<text class="start-label round-label" x="${n(roundStart.mark.x)}" y="${n(roundStart.mark.y)}">${roundMark(element.round)}</text>`;
       }
     }
   });

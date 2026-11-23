@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import {
-  checkPattern, clampProgress, finishLine, formulaGroups, groupChoice, hasStarted, progressPlace, handFormula, parseToken, partsInWords, readElement, structureProblems, summarize,
+  checkPattern, clampProgress, expandRepeats, finishLine, formulaGroups, groupChoice, hasStarted, progressPlace, handFormula, parseToken, partsInWords, readElement, roundNumber, structureProblems, summarize,
 } from '../js/pattern.js';
 
 const root = new URL('..', import.meta.url).pathname;
@@ -437,4 +437,50 @@ test('the finish line names the groups actually worked', () => {
   const ids = ['A', 'B', 'C', 'D'].map((id) => ({ id }));
   assert.equal(finishLine({ elements: ids, repeat: { elements: ['A', 'B'] } }, 2), 'A–B 共编了 2 组，结尾 C–D，都编完了');
   assert.equal(finishLine({ elements: ids, repeat: { elements: ['B'] } }, 5), '起头 A，B 共编了 5 组，结尾 C–D，都编完了');
+});
+
+test('a round starts new thread, so its bridge need not start at the ring before', () => {
+  const away = { from: [40, 40], to: [10, 0], bulge: 2 };
+  const plain = pattern([ring('A', ['5']), { id: 'B', type: 'bridge', place: away, parts: ['5'] }]);
+  assert.equal(check(plain, '桥两端接上了').ok, false);
+  const round = pattern([ring('A', ['5']), { id: 'B', type: 'bridge', place: away, parts: ['5'], round: 2 }]);
+  assert.equal(check(round, '桥两端接上了').ok, true);
+  assert.equal(check(round, '结构完整').ok, true);
+});
+
+test('a round on the first element, a round below 2 or an empty note is refused', () => {
+  assert.equal(check(pattern([ring('A', ['5'], { round: 2 })]), '结构完整').ok, false);
+  assert.equal(check(pattern([ring('A', ['5']), ring('B', ['5'], { round: 1 })]), '结构完整').ok, false);
+  assert.equal(check(pattern([ring('A', ['5'], { note: ' ' })]), '结构完整').ok, false);
+  assert.equal(check(pattern([ring('A', ['5'], { note: '从这里起头' })]), '结构完整').ok, true);
+});
+
+test('round starts must run 2, 3, 4 in working order', () => {
+  const rounds = (...numbers) => pattern([ring('A', ['5']), ...numbers.map((n, i) => ring(`R${i}`, ['5'], { round: n }))]);
+  assert.equal(check(rounds(2, 3, 4), '结构完整').ok, true);
+  assert.match(check(rounds(2, 2), '结构完整').detail, /R1 的分段号应该是 3，写的是 2/);
+  assert.match(check(rounds(2, 4), '结构完整').detail, /R1 的分段号应该是 3，写的是 4/);
+  assert.match(check(rounds(3), '结构完整').detail, /R0 的分段号应该是 2，写的是 3/);
+  assert.match(check(rounds(2, 3, 2), '结构完整').detail, /R2 的分段号应该是 4，写的是 2/);
+  assert.equal(check(rounds(2.5), '结构完整').ok, false);
+});
+
+test('worked out, a repeat holding a round start numbers its rounds on, and so does what follows', () => {
+  const p = pattern([ring('A', ['5']), ring('B', ['5'], { round: 2 }), ring('C', ['5'], { round: 3 })], { repeat: { elements: ['B'], defaultTimes: 3 } });
+  assert.equal(check(p, '结构完整').ok, true);
+  const whole = expandRepeats(p, 3);
+  assert.deepEqual(whole.elements.map((e) => `${e.id}:${e.round ?? '-'}`), ['A:-', 'B:2', 'BR2:3', 'BR3:4', 'C:5']);
+  assert.equal(new Set(whole.elements.filter((e) => e.round).map((e) => e.round)).size, 4);
+});
+
+test('working mode names the round an element starts, counting earlier groups', () => {
+  const p = pattern([ring('A', ['5']), ring('B', ['5'], { round: 2 }), ring('C', ['5']), ring('D', ['5'], { round: 3 })], { repeat: { elements: ['B', 'C'], defaultTimes: 3 } });
+  assert.equal(roundNumber(p, 0, 1), null);
+  assert.equal(roundNumber(p, 1, 1), 2);
+  assert.equal(roundNumber(p, 1, 2), 3);
+  assert.equal(roundNumber(p, 1, 3), 4);
+  assert.equal(roundNumber(p, 2, 3), null);
+  // After three groups, D is the fifth round.
+  assert.equal(roundNumber(p, 3, 3), 5);
+  assert.equal(roundNumber(pattern([ring('A', ['5']), ring('B', ['5'], { round: 2 })]), 1), 2);
 });

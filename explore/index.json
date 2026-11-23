@@ -364,5 +364,18 @@
   "page": 48,
   "sourceUrl": "https://www.gutenberg.org/files/15147/15147-h/images/image045.jpg",
   "bookUrl": "https://www.gutenberg.org/ebooks/15147"
+ },
+ {
+  "id": "xhs-leaf-bookmark",
+  "image": "assets/explore/xhs-leaf-bookmark.jpg",
+  "kind": "书签",
+  "title": "100-71 秋天的金黄色叶片书签",
+  "note": "一片带卷曲叶柄的秋叶：左半片两排环，右半片一排小扇加外圈大弧，中心四个 5 毫米长耳。",
+  "book": "小红书 · 好奇害死喵嗷呜",
+  "author": "好奇害死喵嗷呜",
+  "page": "笔记第 5 张图（图解）",
+  "sourceUrl": "https://www.xiaohongshu.com/search_result?keyword=%E5%A5%BD%E5%A5%87%E5%AE%B3%E6%AD%BB%E5%96%B5%E5%97%B7%E5%91%9C%20%E7%A7%8B%E5%A4%A9%E7%9A%84%E9%87%91%E9%BB%84%E8%89%B2%E5%8F%B6%E7%89%87%E4%B9%A6%E7%AD%BE",
+  "bookUrl": "https://www.xiaohongshu.com/search_result?keyword=%E5%A5%BD%E5%A5%87%E5%AE%B3%E6%AD%BB%E5%96%B5%E5%97%B7%E5%91%9C%20%E7%A7%8B%E5%A4%A9%E7%9A%84%E9%87%91%E9%BB%84%E8%89%B2%E5%8F%B6%E7%89%87%E4%B9%A6%E7%AD%BE",
+  "patterns": ["leaf-bookmark"]
  }
 ]

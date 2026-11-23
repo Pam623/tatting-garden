@@ -1,5 +1,5 @@
-import { finishLine, groupChoice, handFormula, partsInWords, readElement, structureProblems } from './pattern.js';
-import { drawingShare, focusBox, renderChart } from './diagram.js';
+import { finishLine, groupChoice, handFormula, partsInWords, readElement, roundNumber, structureProblems } from './pattern.js';
+import { drawingShare, focusBox, renderChart, roundMark } from './diagram.js';
 import {
   app, escapeHtml, loadPattern, readProgress, readSetting, repeatRange, saveProgress, setCleanup, showProblems,
 } from './shared.js';
@@ -136,6 +136,13 @@ export async function showWork(id) {
     return element.flip.value ? '<p class="flip">先翻面</p>' : '';
   }
 
+  // A new round starts new thread; a note says how to start it or carry on.
+  function startLine(element) {
+    const number = roundNumber(pattern, state.index, pass);
+    const round = number ? `<p class="flip">剪线，新起头第 ${roundMark(number)} 段</p>` : '';
+    return `${round}${element.note ? `<p class="element-note">${escapeHtml(element.note)}</p>` : ''}`;
+  }
+
   function drawChart(element) {
     if (state.finished) {
       chart.innerHTML = renderChart(pattern, { title: `${pattern.title}图解，已编完` });
@@ -219,7 +226,7 @@ export async function showWork(id) {
 
     position.textContent = positionText();
     bar.style.width = `${doneShare() * 100}%`;
-    announce.innerHTML = `${flipLine(element)}<h2 class="element-name"><b>${element.id}</b> ${unitName(element)}</h2>`;
+    announce.innerHTML = `${startLine(element)}${flipLine(element)}<h2 class="element-name"><b>${element.id}</b> ${unitName(element)}</h2>`;
     formula.hidden = false;
     formula.setAttribute('aria-label', `${element.id} ${unitName(element)}的针数，${handFormula(element)}`);
     formula.innerHTML = parts.map((p) => `<button type="button" class="part part-${p.kind}" data-part="${p.index}" aria-pressed="false" aria-label="${escapeHtml(p.words)}">${p.text}</button>`).join('');

@@ -8,9 +8,12 @@
 //
 // Any part may end in a source mark: "?" inferred, "~" estimated from a photo.
 // A stitch estimate may give its error: "16~3" is 16 plus or minus 3.
+//
+// An element may carry "round": 2 when it starts a new piece of thread (rounds ② onwards),
+// and "note": a sentence shown while working it.
 
 const TIERS = ['reconstruction', 'sorted', 'checked', 'made'];
-const RIGHTS = ['original', 'public-domain', 'private'];
+const RIGHTS = ['original', 'public-domain', 'credited', 'private'];
 const TYPES = ['ring', 'bridge'];
 const SOURCES = ['source', 'inferred', 'estimated'];
 
@@ -165,6 +168,8 @@ export function expandRepeats(pattern, times) {
   const open = (pattern.repeat.open ?? []).map((ref) => ref.replace(/^[^.]+/, (id) => (
     inRepeat(indexById.get(id)) ? `${id}R${times}` : id
   )));
+  // Every round start worked is a new round, so later groups and what follows count on from it.
+  let nextRound = 2;
   return {
     ...pattern,
     repeat: { ...pattern.repeat, open },
@@ -179,14 +184,44 @@ export function expandRepeats(pattern, times) {
         const moved = index > last && target < first ? target : target + extra(index, pass);
         return String(token).replace(/^j:[^.]+/, `j:${nameOf(flat[moved] ?? flat[target])}`);
       });
-      return {
+      const expanded = {
         ...element,
         id: nameOf(entry),
         parts,
         place: steps ? movedPlace(element.place, shift.map((v) => v * steps)) : element.place,
       };
+      if (element.round !== undefined) expanded.round = nextRound++;
+      return expanded;
     }),
   };
+}
+
+// The elements in the order they are worked, with the repeat worked `times` times.
+// Only ids and order matter here, so nothing is moved or renamed.
+export function workedSequence(pattern, times = 1) {
+  const span = repeatSpan(pattern);
+  const { elements } = pattern;
+  if (!span || !(times > 1)) return [...elements];
+  const block = elements.slice(span.first, span.last + 1);
+  return [
+    ...elements.slice(0, span.first),
+    ...Array.from({ length: times }, () => block).flat(),
+    ...elements.slice(span.last + 1),
+  ];
+}
+
+// The round number an element starts in working mode, counting the round starts of earlier
+// groups: in group 2 a repeat holding one round start begins the round after group 1's.
+// After the repeat, pass is the number of groups worked. Null when the element starts no round.
+export function roundNumber(pattern, index, pass = 1) {
+  const element = pattern.elements[index];
+  if (element?.round === undefined) return null;
+  const span = repeatSpan(pattern);
+  const starts = (list) => list.filter((e) => e.round !== undefined).length;
+  const before = starts(pattern.elements.slice(0, index));
+  const perGroup = span ? starts(pattern.elements.slice(span.first, span.last + 1)) : 0;
+  const laterGroups = span && index >= span.first ? Math.max(pass, 1) - 1 : 0;
+  return 2 + before + perGroup * laterGroups;
 }
 
 // The ordinal of a join picot among those its element left, counted the way it was worked.
@@ -316,7 +351,7 @@ function readSafely(raw) {
   });
   const stitches = items.filter((i) => i.kind === 'stitch').reduce((total, i) => total + i.count, 0);
   return {
-    id: element.id, type: element.type, group: element.group, flip: element.flip, place: element.place, items, bad, stitches, missingParts: parts.length === 0,
+    id: element.id, type: element.type, group: element.group, flip: element.flip, round: element.round, note: element.note, place: element.place, items, bad, stitches, missingParts: parts.length === 0,
   };
 }
 
@@ -367,6 +402,13 @@ function checkStructure(pattern, read) {
     if (element.flip !== undefined && (typeof element.flip?.value !== 'boolean' || !SOURCES.includes(element.flip?.source))) {
       fail(`${element.id} 的翻面写法无效`, [element.id]);
     }
+    if (element.round !== undefined) {
+      // Rounds start at ② and go up by one, in working order: no repeats, gaps or going back.
+      const expected = 2 + read.slice(0, index).filter((e) => e.round !== undefined).length;
+      if (!Number.isInteger(element.round) || index === 0) fail(`${element.id} 的分段写法无效`, [element.id]);
+      else if (element.round !== expected) fail(`${element.id} 的分段号应该是 ${expected}，写的是 ${element.round}`, [element.id]);
+    }
+    if (element.note !== undefined && (typeof element.note !== 'string' || !element.note.trim())) fail(`${element.id} 的提示无效`, [element.id]);
     if (!TYPES.includes(element.type)) fail(`${element.id} 的类型无效：${element.type}`, [element.id]);
     if (element.missingParts) fail(`${element.id} 没有内容`, [element.id]);
     else if (element.stitches <= 0) fail(`${element.id} 没有针数`, [element.id]);
@@ -481,6 +523,7 @@ function checkTier(pattern, read) {
 }
 
 // A bridge starts where the ring before it was based and ends at the next ring's base.
+// An element with a round starts new thread, so it is not tied to the element before it.
 function checkBridgeEnds(pattern, read) {
   const problems = [];
   const close = (a, b) => isPoint(a) && isPoint(b) && Math.hypot(a[0] - b[0], a[1] - b[1]) <= 1;
@@ -488,8 +531,10 @@ function checkBridgeEnds(pattern, read) {
   read.forEach((element, index) => {
     if (element.type !== 'bridge' || !element.place) return;
     const wrap = pattern.layout?.closed === true;
-    const before = index > 0 ? read[index - 1] : wrap ? read[count - 1] : null;
-    const after = index < count - 1 ? read[index + 1] : wrap ? read[0] : null;
+    let before = index > 0 ? read[index - 1] : wrap ? read[count - 1] : null;
+    let after = index < count - 1 ? read[index + 1] : wrap ? read[0] : null;
+    if (element.round !== undefined) before = null;
+    if (after?.round !== undefined) after = null;
     if (before?.type === 'ring' && !close(element.place.from, before.place?.base)) {
       problems.push({ text: `${element.id} 的起点没接到 ${before.id} 环`, elements: [element.id] });
     }

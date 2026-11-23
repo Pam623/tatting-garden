@@ -230,6 +230,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .formula[hidden] { display: none; }
 .total { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
 .flip { margin-bottom: 12px; padding: 8px 12px; border: 2px solid var(--ink); border-radius: 2px; font-family: var(--serif); font-size: 1.2rem; font-weight: 700; text-align: center; }
+.element-note { margin-bottom: 10px; color: var(--ink); font-size: 0.98rem; line-height: 1.5; }
 .element-name { font-size: 1.3rem; font-weight: 400; }
 .element-name b { font-size: 2.6rem; font-weight: 700; margin-right: 4px; }
 .formula { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 12px; }
@@ -278,6 +279,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .flip-mark rect { fill: var(--chart-paper); stroke: var(--chart-ink); stroke-width: calc(1.2px * var(--s)); }
 .flip-mark text { font-size: calc(9.5px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 600; }
 .start-label { font-size: calc(10px * var(--s)); text-anchor: middle; dominant-baseline: central; fill: var(--chart-ink); font-weight: 700; paint-order: stroke; stroke: var(--chart-paper); stroke-width: calc(3px * var(--s)); }
+.round-label { font-size: calc(12px * var(--s)); }
 .start-arrow { stroke: var(--chart-ink); stroke-width: calc(1.8px * var(--s)); fill: none; stroke-linecap: round; stroke-linejoin: round; }
 
 @media (max-width: 820px) {

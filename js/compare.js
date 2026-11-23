@@ -15,6 +15,7 @@ function readAll(transcription) {
     if (!['ring', 'bridge'].includes(element.type)) throw new Error(`${element.id} 的类型无效`);
     if (!Array.isArray(element.parts)) throw new Error(`${element.id} 没有内容`);
     if (element.flip !== undefined && typeof element.flip?.value !== 'boolean') throw new Error(`${element.id} 的翻面写法无效`);
+    if (element.round !== undefined && !Number.isInteger(element.round)) throw new Error(`${element.id} 的分段写法无效`);
   });
   const leftOrder = new Map();
   transcription.elements.forEach((element) => {
@@ -25,6 +26,7 @@ function readAll(transcription) {
     id: element.id,
     type: element.type,
     flip: element.flip?.value ?? null,
+    round: element.round ?? null,
     parts: element.parts.map(parseToken).map((part) => ({
       ...part,
       key: partKey(part, leftOrder, element.id),
@@ -43,6 +45,7 @@ function partKey(part, leftOrder, owner) {
 
 const formula = (parts) => parts.map((p) => p.key).join(' ');
 const flipText = (flip) => (flip === null ? '没说' : flip ? '翻' : '不翻');
+const roundText = (round) => (round === null ? '不新起头' : `新起头第 ${round} 段`);
 
 export function compareTranscriptions(a, b) {
   const left = readAll(a);
@@ -76,6 +79,8 @@ export function compareTranscriptions(a, b) {
         }
       });
     }
+    // Where a new piece of thread starts changes how the piece is made, so it is a difference.
+    if (x.round !== y.round) differences.push({ id, text: `${id}：分段不同，${roundText(x.round)} 和 ${roundText(y.round)}` });
     if (x.flip !== null && y.flip !== null && x.flip !== y.flip) {
       differences.push({ id, text: `${id}：翻面不同，${flipText(x.flip)} 和 ${flipText(y.flip)}` });
     } else if (x.flip !== y.flip) {

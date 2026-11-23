@@ -25,6 +25,7 @@ function labelsOf(pattern, shows) {
   labels.letter.forEach((box, id) => named.push({ ...box, name: `字母 ${id}`, own: null }));
   labels.count.forEach((box, key) => named.push({ ...box, name: `数字 ${key}`, own: null }));
   named.push({ ...labels.start, name: '起点', own: null });
+  labels.rounds.forEach(({ mark }, id) => named.push({ ...mark, name: `段号 ${id}`, own: null }));
   return { elements, named, scale: s };
 }
 

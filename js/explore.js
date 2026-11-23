@@ -1,7 +1,8 @@
 import { renderFinished } from './finished.js';
 import { app, escapeHtml, loadPattern } from './shared.js';
 
-// The inspiration library: old-book pages worth tatting. Each card is a crop of a public-domain page.
+// The inspiration library: old-book pages worth tatting, each a crop of a public-domain page,
+// and a few charts shared by today's tatters, credited to their author.
 // Cards with a converted pattern link to the step-by-step chart; the rest can be wished for,
 // and wishes stay on this device so Pam can tell the team which one to convert next.
 const WISH_KEY = 'tatting.wishes';
@@ -30,6 +31,11 @@ export async function loadExplore() {
   return response.json();
 }
 
+// Where a card comes from: book and year, or for a shared chart its author and post.
+function sourceText(card) {
+  return Number.isInteger(card.year) ? `${card.book}，${card.year} 年` : card.book;
+}
+
 function pageText(card) {
   return typeof card.page === 'number' ? `第 ${card.page} 页` : card.page ?? '';
 }
@@ -55,7 +61,7 @@ function cardHtml(card, patternTitles, wished) {
         <span class="plate-no">${escapeHtml(card.kind)}</span>
         <h2>${escapeHtml(card.title)}</h2>
         <p>${escapeHtml(card.note)}</p>
-        <p class="hint">${escapeHtml(card.book)}，${card.year} 年，${escapeHtml(pageText(card))} · <a href="${escapeHtml(card.sourceUrl)}" target="_blank" rel="noopener noreferrer">来源页面</a></p>
+        <p class="hint">${escapeHtml(sourceText(card))}，${escapeHtml(pageText(card))} · <a href="${escapeHtml(card.sourceUrl)}" target="_blank" rel="noopener noreferrer">来源页面</a></p>
         ${action}
       </div>
     </li>`;
@@ -90,7 +96,7 @@ export async function showExplore(isCurrent = () => true) {
     <div class="home explore">
       <header class="masthead">
         <h1>灵感库</h1>
-        <p>从古书里挑出来的花样。能照着编的，点「照着编」；还想编别的，点「想编这个」记下来。</p>
+        <p>从古书和作者分享的图解里挑出来的花样。能照着编的，点「照着编」；还想编别的，点「想编这个」记下来。</p>
         <p class="hint"><a href="#/">回到全部花样</a></p>
       </header>
       <div id="wish-slot">${wishSection(cards, wishes)}</div>

@@ -305,3 +305,12 @@ test('the edging covers little of a phone chart frame, a round motif covers much
   assert.equal(drawingShare([0, 0, 100, 100], [0, 0, 100, 100], 200, 200), 1);
   assert.equal(drawingShare([0, 0, 100, 100], [0, 0, 50, 50], 0, 0), 1);
 });
+
+test('a new round gets its own arrow and number, and no thread from the round before', () => {
+  const a = ringEl(['5']);
+  const b = { ...ringEl(['5'], { base: [50, 80], tip: [150, 80] }), id: 'B', round: 2 };
+  const svg = renderChart(pattern([a, b]));
+  assert.equal(count(svg, /<line class="thread/g), 0);
+  assert.equal(count(svg, /class="start-arrow"/g), 2);
+  assert.match(svg, /class="start-label round-label"[^>]*>②</);
+});

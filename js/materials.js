@@ -1,5 +1,5 @@
 // Estimates how much thread a pattern takes, from a measured 4 inches for 10 double stitches at size 20.
-import { readElement } from './pattern.js';
+import { readElement, workedSequence } from './pattern.js';
 
 const SIZE_FACTOR = { 20: 1.0, 40: 0.7, 80: 0.5 };
 const STITCH_CM = 1.0;
@@ -16,30 +16,33 @@ export function estimateThread(pattern, { size = 20, repeats } = {}) {
   const factor = SIZE_FACTOR[size];
   if (factor === undefined) throw new Error(`Unknown thread size: ${size}`);
   const times = repeats ?? pattern.repeat?.defaultTimes ?? 1;
-  const repeated = pattern.repeat?.elements ?? [];
-  let shuttle = 0;
-  let ball = 0;
+  // Each round is its own piece of thread, so each gets its own slack, tails and rounding up.
+  // A round start inside a repeat starts a new round every time the group is worked.
+  const pieces = [];
   let totalStitches = 0;
   let picots = 0;
-  let ballNeeded = false;
-  pattern.elements.forEach((element) => {
+  workedSequence(pattern, times).forEach((element, index) => {
+    if (index === 0 || element.round !== undefined) pieces.push({ shuttle: 0, ball: 0, bridges: false });
+    const piece = pieces.at(-1);
     const { items, stitches } = readElement(element);
-    const count = repeated.includes(element.id) ? times : 1;
     const marks = items.filter((item) => item.kind === 'deco' || item.kind === 'leave').length;
-    totalStitches += stitches * count;
-    picots += marks * count;
+    totalStitches += stitches;
+    picots += marks;
     if (element.type === 'bridge') {
-      ballNeeded = true;
-      ball += (stitches * STITCH_CM + marks * PICOT_CM) * factor * count;
-      shuttle += stitches * CORE_CM * factor * count;
+      piece.bridges = true;
+      piece.ball += (stitches * STITCH_CM + marks * PICOT_CM) * factor;
+      piece.shuttle += stitches * CORE_CM * factor;
     } else {
-      shuttle += (stitches * STITCH_CM + marks * PICOT_CM) * factor * count;
+      piece.shuttle += (stitches * STITCH_CM + marks * PICOT_CM) * factor;
     }
   });
+  const ballNeeded = pieces.some((piece) => piece.bridges);
+  const sum = (thread) => pieces.reduce((total, piece) => total + thread(piece), 0);
   return {
-    shuttleCm: withSlack(shuttle),
-    ballCm: ballNeeded ? withSlack(ball) : 0,
+    shuttleCm: sum((piece) => withSlack(piece.shuttle)),
+    ballCm: sum((piece) => (piece.bridges ? withSlack(piece.ball) : 0)),
     shuttles: 1,
+    rounds: pieces.length,
     ballNeeded,
     totalStitches,
     picots,

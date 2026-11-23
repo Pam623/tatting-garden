@@ -1,4 +1,4 @@
-import { finishLine, groupChoice, handFormula, partsInWords, readElement, structureProblems } from './pattern.js';
+import { finishLine, groupChoice, handFormula, partsInWords, readElement, roundNumber, structureProblems } from './pattern.js';
 import { drawingShare, focusBox, renderChart, roundMark } from './diagram.js';
 import {
   app, escapeHtml, loadPattern, readProgress, readSetting, repeatRange, saveProgress, setCleanup, showProblems,
@@ -138,7 +138,8 @@ export async function showWork(id) {
 
   // A new round starts new thread; a note says how to start it or carry on.
   function startLine(element) {
-    const round = element.round ? `<p class="flip">剪线，新起头第 ${roundMark(element.round)} 段</p>` : '';
+    const number = roundNumber(pattern, state.index, pass);
+    const round = number ? `<p class="flip">剪线，新起头第 ${roundMark(number)} 段</p>` : '';
     return `${round}${element.note ? `<p class="element-note">${escapeHtml(element.note)}</p>` : ''}`;
   }
 

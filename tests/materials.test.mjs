@@ -53,10 +53,28 @@ test('an unknown size throws', () => {
   assert.throws(() => estimateThread(flower, { size: 30 }), /size/);
 });
 
-test('each round that starts new thread adds its own tails', () => {
-  const one = estimateThread({ elements: [ring('A', ['10']), bridge('B', ['20'])] });
+test('each round is its own thread: slack, tails and rounding up per round, then added', () => {
   const two = estimateThread({ elements: [ring('A', ['10']), { ...bridge('B', ['20']), round: 2 }] });
-  assert.equal(two.rounds, 2);
-  assert.equal(two.shuttleCm - one.shuttleCm, 20);
-  assert.equal(two.ballCm - one.ballCm, 20);
+  // round 1 shuttle: 10 * 1.15 + 20 = 31.5, up to 40; no ball.
+  // round 2 shuttle: 20 * 0.1 = 2, * 1.15 + 20 = 22.3, up to 30; ball: 20 * 1.15 + 20 = 43, up to 50.
+  assert.deepEqual(two, { shuttleCm: 70, ballCm: 50, shuttles: 1, rounds: 2, ballNeeded: true, totalStitches: 30, picots: 0 });
+});
+
+test('the leaf bookmark is rounded per round, not after adding the rounds up', () => {
+  const leaf = JSON.parse(readFileSync(join(root, 'patterns/leaf-bookmark.json'), 'utf8'));
+  const result = estimateThread(leaf, { size: 20 });
+  assert.equal(result.rounds, 4);
+  assert.equal(result.shuttleCm, 260);
+  assert.equal(result.ballCm, 390);
+});
+
+test('a round start inside a repeat starts a new round, with its own tails, in every group', () => {
+  const elements = [ring('A', ['10']), { ...ring('B', ['10']), round: 2 }];
+  const once = estimateThread({ elements, repeat: { elements: ['B'], defaultTimes: 1 } });
+  const thrice = estimateThread({ elements, repeat: { elements: ['B'], defaultTimes: 3 } });
+  assert.equal(once.rounds, 2);
+  assert.equal(thrice.rounds, 4);
+  // every round: 10 * 1.15 + 20 = 31.5, up to 40
+  assert.equal(thrice.shuttleCm, 160);
+  assert.equal(thrice.totalStitches, 40);
 });

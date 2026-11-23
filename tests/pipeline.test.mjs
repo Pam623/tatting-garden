@@ -151,3 +151,10 @@ test('lab content stays out of the public repo', () => {
   const tracked = spawnSync('git', ['ls-files', 'lab'], { cwd: root, encoding: 'utf8' });
   assert.equal(tracked.stdout, '');
 });
+
+test('a different round start is a difference', () => {
+  const rounds = (round) => doc(base().elements[0], ring('B', ['5', 'j:A.n', '5'], round ? { round } : {}));
+  differs(rounds(2), rounds(null), /B：分段不同，新起头第 2 段 和 不新起头/);
+  differs(rounds(2), rounds(3), /B：分段不同，新起头第 2 段 和 新起头第 3 段/);
+  assert.equal(compareTranscriptions(rounds(2), rounds(2)).match, true);
+});

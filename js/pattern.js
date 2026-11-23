@@ -168,6 +168,8 @@ export function expandRepeats(pattern, times) {
   const open = (pattern.repeat.open ?? []).map((ref) => ref.replace(/^[^.]+/, (id) => (
     inRepeat(indexById.get(id)) ? `${id}R${times}` : id
   )));
+  // Every round start worked is a new round, so later groups and what follows count on from it.
+  let nextRound = 2;
   return {
     ...pattern,
     repeat: { ...pattern.repeat, open },
@@ -182,14 +184,44 @@ export function expandRepeats(pattern, times) {
         const moved = index > last && target < first ? target : target + extra(index, pass);
         return String(token).replace(/^j:[^.]+/, `j:${nameOf(flat[moved] ?? flat[target])}`);
       });
-      return {
+      const expanded = {
         ...element,
         id: nameOf(entry),
         parts,
         place: steps ? movedPlace(element.place, shift.map((v) => v * steps)) : element.place,
       };
+      if (element.round !== undefined) expanded.round = nextRound++;
+      return expanded;
     }),
   };
+}
+
+// The elements in the order they are worked, with the repeat worked `times` times.
+// Only ids and order matter here, so nothing is moved or renamed.
+export function workedSequence(pattern, times = 1) {
+  const span = repeatSpan(pattern);
+  const { elements } = pattern;
+  if (!span || !(times > 1)) return [...elements];
+  const block = elements.slice(span.first, span.last + 1);
+  return [
+    ...elements.slice(0, span.first),
+    ...Array.from({ length: times }, () => block).flat(),
+    ...elements.slice(span.last + 1),
+  ];
+}
+
+// The round number an element starts in working mode, counting the round starts of earlier
+// groups: in group 2 a repeat holding one round start begins the round after group 1's.
+// After the repeat, pass is the number of groups worked. Null when the element starts no round.
+export function roundNumber(pattern, index, pass = 1) {
+  const element = pattern.elements[index];
+  if (element?.round === undefined) return null;
+  const span = repeatSpan(pattern);
+  const starts = (list) => list.filter((e) => e.round !== undefined).length;
+  const before = starts(pattern.elements.slice(0, index));
+  const perGroup = span ? starts(pattern.elements.slice(span.first, span.last + 1)) : 0;
+  const laterGroups = span && index >= span.first ? Math.max(pass, 1) - 1 : 0;
+  return 2 + before + perGroup * laterGroups;
 }
 
 // The ordinal of a join picot among those its element left, counted the way it was worked.
@@ -370,8 +402,11 @@ function checkStructure(pattern, read) {
     if (element.flip !== undefined && (typeof element.flip?.value !== 'boolean' || !SOURCES.includes(element.flip?.source))) {
       fail(`${element.id} 的翻面写法无效`, [element.id]);
     }
-    if (element.round !== undefined && !(Number.isInteger(element.round) && element.round >= 2 && index > 0)) {
-      fail(`${element.id} 的分段写法无效`, [element.id]);
+    if (element.round !== undefined) {
+      // Rounds start at ② and go up by one, in working order: no repeats, gaps or going back.
+      const expected = 2 + read.slice(0, index).filter((e) => e.round !== undefined).length;
+      if (!Number.isInteger(element.round) || index === 0) fail(`${element.id} 的分段写法无效`, [element.id]);
+      else if (element.round !== expected) fail(`${element.id} 的分段号应该是 ${expected}，写的是 ${element.round}`, [element.id]);
     }
     if (element.note !== undefined && (typeof element.note !== 'string' || !element.note.trim())) fail(`${element.id} 的提示无效`, [element.id]);
     if (!TYPES.includes(element.type)) fail(`${element.id} 的类型无效：${element.type}`, [element.id]);

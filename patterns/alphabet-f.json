@@ -1,0 +1,457 @@
+{
+  "schema": 2,
+  "craft": "梭编",
+  "difficulty": "进阶",
+  "tier": "sorted",
+  "rights": {
+    "kind": "public-domain",
+    "note": "1915 年出版的古书，已过版权期"
+  },
+  "id": "alphabet-f",
+  "title": "字母 F",
+  "source": "Priscilla Tatting Book No. 2（1915）第 31 页 Figure 75 Alphabet 的 F，照片是第 30 页图 75",
+  "summary": "和 E 一样，只是没有下面一横，底下是两个小环。",
+  "layout": {
+    "viewBox": [
+      -140,
+      -190,
+      280,
+      380
+    ]
+  },
+  "threadNote": "1 个梭子加线团，一笔编完不剪线。图上有「翻」的地方，编那一段之前先翻面。长线上标成接耳的几处，书里是编回来时直接接进那一针：编长线时在那里留一个极小的耳最好接。",
+  "finish": "最后一段短桥接回顶环，线头打结，藏好线尾",
+  "elements": [
+    {
+      "id": "A",
+      "type": "ring",
+      "parts": [
+        "2",
+        "p:stem",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "o",
+        "2",
+        "p:bar",
+        "2"
+      ],
+      "place": {
+        "base": [
+          -60,
+          -130
+        ],
+        "tip": [
+          -82,
+          -156
+        ],
+        "width": 22.6,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "B",
+      "type": "bridge",
+      "parts": [
+        "7?",
+        "p:t2?",
+        "9?",
+        "p:t1",
+        "7",
+        "p:small"
+      ],
+      "place": {
+        "from": [
+          -60,
+          -130
+        ],
+        "to": [
+          62,
+          -130
+        ],
+        "bulge": 3.4
+      }
+    },
+    {
+      "id": "C",
+      "type": "ring",
+      "parts": [
+        "2",
+        "o",
+        "2",
+        "j:B.small"
+      ],
+      "place": {
+        "base": [
+          62,
+          -130
+        ],
+        "tip": [
+          88,
+          -130
+        ],
+        "width": 10.5,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "D",
+      "type": "bridge",
+      "parts": [
+        "4",
+        "o",
+        "4",
+        "j:B.t1"
+      ],
+      "place": {
+        "from": [
+          62,
+          -130
+        ],
+        "to": [
+          24.9,
+          -131.4
+        ],
+        "bulge": -31.1
+      },
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      }
+    },
+    {
+      "id": "E",
+      "type": "bridge",
+      "parts": [
+        "o",
+        "4",
+        "o",
+        "4",
+        "j:B.t2"
+      ],
+      "place": {
+        "from": [
+          24.9,
+          -131.4
+        ],
+        "to": [
+          -22.9,
+          -131.4
+        ],
+        "bulge": -29.8
+      }
+    },
+    {
+      "id": "F",
+      "type": "bridge",
+      "parts": [
+        "4",
+        "o",
+        "4",
+        "j:A.bar"
+      ],
+      "place": {
+        "from": [
+          -22.9,
+          -131.4
+        ],
+        "to": [
+          -60,
+          -130
+        ],
+        "bulge": -29.8
+      }
+    },
+    {
+      "id": "G",
+      "type": "bridge",
+      "parts": [
+        "7?",
+        "p:b?",
+        "9?",
+        "p:mid+"
+      ],
+      "place": {
+        "from": [
+          -60,
+          -130
+        ],
+        "to": [
+          -60,
+          -14
+        ],
+        "bulge": -3.2
+      }
+    },
+    {
+      "id": "H",
+      "type": "bridge",
+      "parts": [
+        "5",
+        "p:m1+"
+      ],
+      "place": {
+        "from": [
+          -60,
+          -14
+        ],
+        "to": [
+          -12,
+          -14
+        ],
+        "bulge": 8
+      }
+    },
+    {
+      "id": "I",
+      "type": "bridge",
+      "parts": [
+        "3",
+        "o"
+      ],
+      "place": {
+        "from": [
+          -12,
+          -14
+        ],
+        "to": [
+          8,
+          -28
+        ],
+        "bulge": -13.2
+      }
+    },
+    {
+      "id": "J",
+      "type": "bridge",
+      "parts": [
+        "3",
+        "j:H.m1"
+      ],
+      "place": {
+        "from": [
+          8,
+          -28
+        ],
+        "to": [
+          -12,
+          -14
+        ],
+        "bulge": -12
+      }
+    },
+    {
+      "id": "K",
+      "type": "bridge",
+      "parts": [
+        "3",
+        "o"
+      ],
+      "place": {
+        "from": [
+          -12,
+          -14
+        ],
+        "to": [
+          8,
+          0
+        ],
+        "bulge": -10
+      }
+    },
+    {
+      "id": "L",
+      "type": "bridge",
+      "parts": [
+        "3",
+        "j:H.m1"
+      ],
+      "place": {
+        "from": [
+          8,
+          0
+        ],
+        "to": [
+          -12,
+          -14
+        ],
+        "bulge": -17.3
+      }
+    },
+    {
+      "id": "M",
+      "type": "bridge",
+      "parts": [
+        "5",
+        "j:G.mid"
+      ],
+      "place": {
+        "from": [
+          -12,
+          -14
+        ],
+        "to": [
+          -60,
+          -14
+        ],
+        "bulge": 11.3
+      }
+    },
+    {
+      "id": "N",
+      "type": "bridge",
+      "parts": [
+        "9?",
+        "p:a?",
+        "11?"
+      ],
+      "place": {
+        "from": [
+          -60,
+          -14
+        ],
+        "to": [
+          -60,
+          128
+        ],
+        "bulge": -1.8
+      }
+    },
+    {
+      "id": "O",
+      "type": "ring",
+      "parts": [
+        "3",
+        "o",
+        "3"
+      ],
+      "place": {
+        "base": [
+          -60,
+          128
+        ],
+        "tip": [
+          -78,
+          154
+        ],
+        "width": 18.4,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "P",
+      "type": "ring",
+      "parts": [
+        "3",
+        "o",
+        "3"
+      ],
+      "place": {
+        "base": [
+          -60,
+          128
+        ],
+        "tip": [
+          -46,
+          158
+        ],
+        "width": 15.7,
+        "dir": "cw"
+      }
+    },
+    {
+      "id": "Q",
+      "type": "bridge",
+      "parts": [
+        "4",
+        "o",
+        "4",
+        "o",
+        "4",
+        "j:N.a"
+      ],
+      "place": {
+        "from": [
+          -60,
+          128
+        ],
+        "to": [
+          -60.9,
+          49.9
+        ],
+        "bulge": 24.3
+      },
+      "flip": {
+        "value": true,
+        "source": "inferred"
+      }
+    },
+    {
+      "id": "R",
+      "type": "bridge",
+      "parts": [
+        "4",
+        "o",
+        "4",
+        "o",
+        "4",
+        "j:G.mid"
+      ],
+      "place": {
+        "from": [
+          -60.9,
+          49.9
+        ],
+        "to": [
+          -60,
+          -14
+        ],
+        "bulge": 26.8
+      }
+    },
+    {
+      "id": "S",
+      "type": "bridge",
+      "parts": [
+        "4",
+        "o",
+        "4",
+        "j:G.b"
+      ],
+      "place": {
+        "from": [
+          -60,
+          -14
+        ],
+        "to": [
+          -61.6,
+          -79.3
+        ],
+        "bulge": 27.1
+      }
+    },
+    {
+      "id": "T",
+      "type": "bridge",
+      "parts": [
+        "4",
+        "o",
+        "4",
+        "j:A.stem"
+      ],
+      "place": {
+        "from": [
+          -61.6,
+          -79.3
+        ],
+        "to": [
+          -60,
+          -130
+        ],
+        "bulge": 31.9
+      }
+    }
+  ]
+}

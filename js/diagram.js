@@ -127,6 +127,8 @@ export const TALL_OVERVIEW = 1.6;
 export const WINDOW_STRETCH = 1.2;
 // A frame flatter than this is treated as this flat: windows any thinner would show next to nothing.
 export const FLATTEST_FRAME = 0.3;
+// Never more windows than this, whatever the drawing: a backstop against a runaway cut.
+export const MAX_WINDOWS = 200;
 export function overviewWindows(pattern, { aspect = 1 } = {}) {
   const [minX, minY, width, height] = pattern.layout.viewBox;
   if (height <= width * TALL_OVERVIEW) return [];
@@ -150,28 +152,32 @@ export function overviewWindows(pattern, { aspect = 1 } = {}) {
   const spans = [];
   const inGap = [];
   let top = minY;
-  while (bottom - top > longest) {
-    const cut = gaps.filter(({ end, start }) => end - top >= shortest && end - top <= longest && start > top)
+  // Every pass ends a window strictly below its top and starts the next strictly below that top,
+  // by at least `step`, so the loop ends; MAX_WINDOWS is a backstop all the same.
+  const step = Math.max(target * 0.05, 1e-6 * height);
+  while (bottom - top > longest && spans.length < MAX_WINDOWS) {
+    const cut = gaps.filter(({ end, start }) => end - top >= shortest && end - top <= longest && start >= top + step && start <= end)
       .sort((a, b) => Math.abs(a.end - top - target) - Math.abs(b.end - top - target))[0];
     if (cut !== undefined) {
       spans.push([top, cut.end]);
       inGap.push(true);
       top = cut.start;
-    } else {
-      // An edge that cuts no label: in the usual range if possible, else a somewhat shorter window,
-      // else a longer one, as long as it takes to reach a clear height. The bottom of the chart is
-      // clear, so one is always found.
-      const end = clearNear(top + target, top + shortest, top + longest)
-        ?? clearNear(top + shortest, top + target * 0.3, top + shortest)
-        ?? clearNear(top + longest, top + longest, bottom);
-      spans.push([top, end]);
-      inGap.push(false);
-      // The next window starts a little above, at an edge that cuts nothing; at worst right at this end.
-      if (end >= bottom) break;
-      // Never back above this window's own top, so every window starts below the one before.
-      const lowest = Math.max(end - overlap, top + 0.5);
-      top = clearNear(lowest, lowest, end);
+      continue;
     }
+    // An edge that cuts no label: in the usual range if possible, else a somewhat shorter window,
+    // else a longer one, as long as it takes to reach a clear height. If none is clear before the
+    // bottom (a label can reach past it), the window runs to the bottom.
+    const end = clearNear(top + target, top + shortest, top + longest)
+      ?? clearNear(top + shortest, top + target * 0.3, top + shortest)
+      ?? clearNear(top + longest, top + longest, bottom)
+      ?? bottom;
+    spans.push([top, end]);
+    inGap.push(false);
+    if (end >= bottom) break;
+    // The next window starts a little above this end, at an edge that cuts nothing if there is one,
+    // never less than `step` below this window's top.
+    const lowest = Math.min(Math.max(end - overlap, top + step), end);
+    top = clearNear(lowest, lowest, end) ?? end;
   }
   if (!(spans.at(-1)?.[1] >= bottom)) spans.push([top, bottom]);
   top = spans.at(-1)[0];
@@ -180,7 +186,7 @@ export function overviewWindows(pattern, { aspect = 1 } = {}) {
   if (spans.length > 1 && bottom - top < shortest) {
     const start = spans.at(-2)[0];
     if (inGap.at(-1)) {
-      spans.at(-1)[0] = clearNear(Math.max(bottom - target, start), start, top);
+      spans.at(-1)[0] = clearNear(Math.max(bottom - target, start), start, top) ?? top;
     } else {
       spans.splice(-2, 2);
       if (bottom - start <= longest) spans.push([start, bottom]);
@@ -189,7 +195,7 @@ export function overviewWindows(pattern, { aspect = 1 } = {}) {
         const end = clearNear(middle + overlap / 2, start + shortest, bottom - shortest)
           ?? clearNear(middle, start + 1, bottom - 1);
         if (end === null) spans.push([start, bottom]);
-        else spans.push([start, end], [clearNear(end - overlap, end - overlap, end), bottom]);
+        else spans.push([start, end], [clearNear(end - overlap, Math.max(end - overlap, start + step), end) ?? end, bottom]);
       }
     }
   }

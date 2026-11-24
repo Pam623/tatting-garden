@@ -139,12 +139,13 @@ export function overviewWindows(pattern, { aspect = 1 } = {}) {
   const { gaps, marks } = chartBands(pattern);
   // A window edge that cuts no number, letter or arrow; the nearest one to y between low and high.
   const clear = (y) => marks.every(([from, to]) => y <= from || y >= to);
+  // The clear height nearest y between low and high, or null. Heights inside a label's band are not
+  // clear, so the nearest clear one is y itself, an end of the range, or the edge of a band.
+  const edges = marks.flat();
   const clearNear = (y, low, high) => {
-    for (let step = 0; step <= high - low; step += 0.5) {
-      const found = [y - step, y + step].find((c) => c >= low && c <= high && clear(c));
-      if (found !== undefined) return found;
-    }
-    return [high, low].find(clear) ?? Math.min(Math.max(y, low), high);
+    if (!(high >= low)) return null;
+    const candidates = [Math.min(Math.max(y, low), high), low, high, ...edges.filter((e) => e >= low && e <= high)];
+    return candidates.filter(clear).sort((a, b) => Math.abs(a - y) - Math.abs(b - y))[0] ?? null;
   };
   const spans = [];
   const inGap = [];
@@ -157,14 +158,23 @@ export function overviewWindows(pattern, { aspect = 1 } = {}) {
       inGap.push(true);
       top = cut.start;
     } else {
-      const end = clearNear(top + target, top + shortest, top + longest);
+      // An edge that cuts no label: in the usual range if possible, else a somewhat shorter window,
+      // else a longer one, as long as it takes to reach a clear height. The bottom of the chart is
+      // clear, so one is always found.
+      const end = clearNear(top + target, top + shortest, top + longest)
+        ?? clearNear(top + shortest, top + target * 0.3, top + shortest)
+        ?? clearNear(top + longest, top + longest, bottom);
       spans.push([top, end]);
       inGap.push(false);
       // The next window starts a little above, at an edge that cuts nothing; at worst right at this end.
-      top = clearNear(end - overlap, end - overlap, end);
+      if (end >= bottom) break;
+      // Never back above this window's own top, so every window starts below the one before.
+      const lowest = Math.max(end - overlap, top + 0.5);
+      top = clearNear(lowest, lowest, end);
     }
   }
-  spans.push([top, bottom]);
+  if (!(spans.at(-1)?.[1] >= bottom)) spans.push([top, bottom]);
+  top = spans.at(-1)[0];
   // A sliver at the end. After a cut in an empty band, the cut stays and the last window reaches up
   // into the one before to a full window's height; otherwise the last two share the rest evenly.
   if (spans.length > 1 && bottom - top < shortest) {
@@ -176,8 +186,10 @@ export function overviewWindows(pattern, { aspect = 1 } = {}) {
       if (bottom - start <= longest) spans.push([start, bottom]);
       else {
         const middle = (start + bottom) / 2;
-        const end = clearNear(middle + overlap / 2, middle, bottom - 1);
-        spans.push([start, end], [clearNear(end - overlap, end - overlap, end), bottom]);
+        const end = clearNear(middle + overlap / 2, start + shortest, bottom - shortest)
+          ?? clearNear(middle, start + 1, bottom - 1);
+        if (end === null) spans.push([start, bottom]);
+        else spans.push([start, end], [clearNear(end - overlap, end - overlap, end), bottom]);
       }
     }
   }

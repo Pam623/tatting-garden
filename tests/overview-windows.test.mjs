@@ -133,7 +133,7 @@ test('a very flat frame still gives windows that each start below the one before
     assert.ok(windows.length > 0 && windows.length < 40, `aspect ${aspect}: ${windows.length} windows`);
     windows.slice(1).forEach((box, i) => assert.ok(box[1] > windows[i][1], `aspect ${aspect}: window ${i + 2} does not move on`));
     const flattest = fishbone.layout.viewBox[2] * FLATTEST_FRAME;
-    windows.slice(0, -1).forEach((box) => assert.ok(box[3] >= flattest * 0.55 - 1e-6));
+    windows.slice(0, -1).forEach((box) => assert.ok(box[3] >= flattest * 0.3 - 1e-6));
   }
 });
 
@@ -185,7 +185,7 @@ test('no window edge cuts a number, letter or arrow on the fishbone, whatever th
   for (const aspect of [287 / 349, 275 / 334, 349 / 349, 678 / 478, 810 / 553]) {
     const edges = overviewWindows(fishbone, { aspect }).flatMap(([, y, , h]) => [y, y + h]);
     edges.forEach((edge) => boxes.forEach((box) => {
-      assert.ok(edge <= box.y - box.h * 0.75 || edge >= box.y + box.h * 0.75, `aspect ${aspect}: edge ${edge.toFixed(1)} cuts ${box.key}`);
+      assert.ok(edge <= box.y - box.h * 0.75 + 1e-6 || edge >= box.y + box.h * 0.75 - 1e-6, `aspect ${aspect}: edge ${edge.toFixed(1)} cuts ${box.key}`);
     }));
   }
 });
@@ -204,4 +204,47 @@ test('a sliver at the end keeps the cut in the empty band and reaches up into th
   });
   // And no window is a sliver.
   windows.forEach(([, , , h]) => assert.ok(h >= 55, `a window ${h.toFixed(1)} high; windows end at ${ends}`));
+});
+
+test('across frames from 0.3 to 1.6 times as tall as wide, no window edge of any windowed pattern cuts a label', async () => {
+  const { chartLabels, leftPicotSpots, readChartElements } = await import('../js/diagram.js');
+  for (const id of read('patterns/index.json')) {
+    const pattern = read(`patterns/${id}.json`);
+    if (!overviewWindows(pattern).length) continue;
+    const [minX, minY, width, height] = pattern.layout.viewBox;
+    const s = width / 370;
+    const elements = readChartElements(pattern);
+    const seen = new Set();
+    const firstOfGroup = (element) => {
+      if (element.group === undefined) return true;
+      if (seen.has(element.group)) return false;
+      seen.add(element.group);
+      return true;
+    };
+    const bands = [];
+    const box = (b, key) => bands.push({ from: b.y - b.h * 0.75, to: b.y + b.h * 0.75, key });
+    const arrow = (a, key) => bands.push({ from: a.y - 14 * s, to: a.y + 14 * s, key });
+    [firstOfGroup, () => true].forEach((shows) => {
+      const labels = chartLabels(elements, leftPicotSpots(elements, s), s, { minX, minY, width, height }, shows);
+      [labels.flip, labels.letter, labels.count].forEach((map) => map.forEach((b, key) => box(b, key)));
+      box(labels.start, '起点');
+      arrow(labels.arrow, 'start arrow');
+      labels.rounds.forEach(({ arrow: a, mark }, key) => {
+        arrow(a, `round arrow ${key}`);
+        box(mark, `round ${key}`);
+      });
+    });
+    for (let step = 30; step <= 160; step += 1) {
+      const aspect = step / 100;
+      const windows = overviewWindows(pattern, { aspect });
+      windows.forEach(([, y, , h], i) => {
+        if (i > 0) assert.ok(y > windows[i - 1][1], `${id} aspect ${aspect}: window ${i + 1} does not move on`);
+        [y, y + h].forEach((edge) => bands.forEach(({ from, to, key }) => {
+          assert.ok(edge <= from + 1e-6 || edge >= to - 1e-6, `${id} aspect ${aspect}: edge ${edge.toFixed(1)} cuts ${key}`);
+        }));
+      });
+      assert.equal(windows[0][1], minY);
+      assert.ok(Math.abs(windows.at(-1)[1] + windows.at(-1)[3] - (minY + height)) < 1e-6);
+    }
+  }
 });

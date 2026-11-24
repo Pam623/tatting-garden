@@ -248,3 +248,17 @@ test('across frames from 0.3 to 1.6 times as tall as wide, no window edge of any
     }
   }
 });
+
+test('on a desktop the sticky plate keeps room for the window buttons, so they stay on screen', () => {
+  const reserve = (selector) => Number(css.match(new RegExp(`\\n${selector.replace(/\./g, '\\.')} \\{ max-height: calc\\(100dvh - (\\d+)px\\); \\}`))?.[1]);
+  const plain = reserve('.pattern-plate .diagram');
+  const windowed = reserve('.pattern-plate.has-windows .diagram');
+  // The top gap (24px), the view switch above the chart (54px) and the paper's padding and edge (40px).
+  assert.ok(plain >= 24 + 54 + 40, `the chart leaves ${plain}px`);
+  // The buttons: 44px high, a 2px border and 8px above.
+  const buttons = Number(css.match(/\n\.chart-windows button \{[^}]*min-height: (\d+)px/)[1]);
+  assert.ok(windowed - plain >= buttons + 2 + 8, `windows add ${windowed - plain}px`);
+  // On a phone the chart keeps its share of the screen, which the windows are cut to.
+  const phoneRule = phoneCss.match(/\.pattern-plate\.has-windows \.diagram \{ max-height: (\d+)dvh; \}/);
+  assert.equal(Number(phoneRule?.[1]) / 100, chartShare);
+});

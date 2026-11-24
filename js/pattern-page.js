@@ -32,6 +32,8 @@ function originalSection(pattern) {
 export async function showPattern(id) {
   const pattern = await loadPattern(id);
   const problems = structureProblems(pattern);
+  // A tall chart is shown in windows, with a row of buttons under it that the chart makes room for.
+  const tall = !problems.length && overviewWindows(pattern).length > 0;
   if (problems.length) {
     showProblems(pattern, id, problems);
     return;
@@ -44,7 +46,7 @@ export async function showPattern(id) {
 
   app.innerHTML = `
     <div class="pattern">
-      <div class="pattern-plate">
+      <div class="pattern-plate${tall ? ' has-windows' : ''}">
         <figure class="paper" id="chart"></figure>
         <div class="chart-windows" id="chart-windows" role="group" aria-label="图解分屏看" hidden></div>
       </div>
@@ -129,7 +131,6 @@ export async function showPattern(id) {
   // A tall chart is shown a window at a time, so its numbers stay readable; null shows it whole.
   // The windows take the shape of the frame the chart is shown in, so they are worked out once
   // the chart is on the page, and again when the page changes size.
-  const tall = overviewWindows(pattern).length > 0;
   let windows = [];
   let windowAt = null;
   const windowBar = document.getElementById('chart-windows');

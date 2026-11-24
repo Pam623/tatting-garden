@@ -3,8 +3,13 @@ import { cleanTitle, renameDrawing, TITLE_MAX } from './drawings.js';
 import { escapeHtml, rememberPattern } from './shared.js';
 
 // After a rename, the chart inside root is announced by its new name too.
+// Whatever follows the name, like which window of a tall chart is on show, stays.
 export function relabelChart(root, title) {
-  root?.querySelector('svg.diagram')?.setAttribute('aria-label', `${title}图解`);
+  const chart = root?.querySelector('svg.diagram');
+  if (!chart) return;
+  const old = chart.getAttribute?.('aria-label') ?? '';
+  const at = old.lastIndexOf('图解');
+  chart.setAttribute('aria-label', `${title}图解${at >= 0 ? old.slice(at + 2) : ''}`);
 }
 
 // Fills slot with the form. done(pattern) runs after a save, done(null) after cancelling.

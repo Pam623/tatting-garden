@@ -103,7 +103,10 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .back:hover { color: var(--ink); }
 .pattern { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 48px; align-items: start; }
 .pattern-plate { position: sticky; top: 24px; }
-.pattern-plate .diagram { max-height: calc(100dvh - 90px); }
+/* The whole plate stays on screen while it sticks: the view switch above the chart (54px), the
+   paper's padding and edge (40px), the top gap and a little air below; and with windows, their buttons (54px). */
+.pattern-plate .diagram { max-height: calc(100dvh - 130px); }
+.pattern-plate.has-windows .diagram { max-height: calc(100dvh - 184px); }
 .pattern-title { font-size: clamp(2rem, 4vw, 2.8rem); margin-top: 8px; }
 .summary { margin-top: 18px; font-family: var(--serif); font-size: 1.1rem; font-variant-numeric: oldstyle-nums; }
 .lede { margin-top: 4px; color: var(--muted); }
@@ -291,6 +294,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   .pattern-plate { position: sticky; top: 0; z-index: 2; margin: -28px -16px 8px; background: var(--linen); padding: 8px 6px; }
   .pattern-plate .paper { padding: 6px; outline-offset: -4px; }
   .pattern-plate .diagram { height: 43dvh; max-height: 43dvh; }
+  .pattern-plate.has-windows .diagram { max-height: 43dvh; }
   .pattern-plate .chart-windows { margin-top: 6px; }
   .pattern-plate .chart-windows button { min-height: 36px; }
   .in-work .page { padding: 0; }
@@ -323,6 +327,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   .work-chart { padding: 6px; }
   .work-panel { max-height: 100dvh; border-top: 0; border-left: 1px solid var(--line); }
   .pattern-plate .diagram { height: 60dvh; max-height: 60dvh; }
+  .pattern-plate.has-windows .diagram { max-height: 60dvh; }
 }
 
 @media (prefers-reduced-motion: reduce) {

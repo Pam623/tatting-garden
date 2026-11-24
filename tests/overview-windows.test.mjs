@@ -261,4 +261,13 @@ test('on a desktop the sticky plate keeps room for the window buttons, so they s
   // On a phone the chart keeps its share of the screen, which the windows are cut to.
   const phoneRule = phoneCss.match(/\.pattern-plate\.has-windows \.diagram \{ max-height: (\d+)dvh; \}/);
   assert.equal(Number(phoneRule?.[1]) / 100, chartShare);
+  // A short landscape screen gives the chart its share only while the buttons still fit below it:
+  // both its height and its limit leave at least the windowed reserve.
+  const landscape = css.slice(css.indexOf('@media (max-width: 950px) and (orientation: landscape)'));
+  const rule = landscape.slice(0, landscape.indexOf('\n}')).match(/\.pattern-plate\.has-windows \.diagram \{([^}]*)\}/)?.[1] ?? '';
+  for (const property of ['height', 'max-height']) {
+    const value = rule.match(new RegExp(`(?:^|;)\\s*${property}: min\\((\\d+)dvh, calc\\(100dvh - (\\d+)px\\)\\);`));
+    assert.ok(value, `the landscape ${property} is not capped`);
+    assert.ok(Number(value[2]) >= windowed, `the landscape ${property} leaves ${value[2]}px`);
+  }
 });

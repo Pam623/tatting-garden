@@ -327,7 +327,8 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   .work-chart { padding: 6px; }
   .work-panel { max-height: 100dvh; border-top: 0; border-left: 1px solid var(--line); }
   .pattern-plate .diagram { height: 60dvh; max-height: 60dvh; }
-  .pattern-plate.has-windows .diagram { max-height: 60dvh; }
+  /* With windows the buttons need their row too, so the chart takes 60dvh only if that still leaves it. */
+  .pattern-plate.has-windows .diagram { height: min(60dvh, calc(100dvh - 184px)); max-height: min(60dvh, calc(100dvh - 184px)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

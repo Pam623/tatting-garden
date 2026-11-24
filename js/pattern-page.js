@@ -143,14 +143,29 @@ export async function showPattern(id) {
     // The windows moved: a highlighted row stays in view, otherwise the same window number does.
     windowAt = windowAfterRefit(pattern, windows, windowAt, shown);
   };
+  // The buttons are made again only when the number of windows changes; otherwise just which one is
+  // pressed changes, so a button picked with the keyboard keeps the focus.
+  let builtFor = 0;
   const drawWindowBar = () => {
     if (!windows.length) return;
     windowBar.hidden = false;
-    const button = (index, text, label, pressed) => `<button type="button" data-window="${index}" aria-pressed="${pressed}" aria-label="${label}">${text}</button>`;
-    windowBar.innerHTML = [
-      button(-1, '全图', '看全图', windowAt === null),
-      ...windows.map((_, i) => button(i, String(i + 1), `看第 ${i + 1} 屏，共 ${windows.length} 屏`, windowAt === i)),
-    ].join('');
+    if (builtFor !== windows.length) {
+      const focused = windowBar.contains?.(document.activeElement) ? document.activeElement.dataset.window : null;
+      const button = (index, text, label) => `<button type="button" data-window="${index}" aria-pressed="false" aria-label="${label}">${text}</button>`;
+      windowBar.innerHTML = [
+        button(-1, '全图', '看全图'),
+        ...windows.map((_, i) => button(i, String(i + 1), `看第 ${i + 1} 屏，共 ${windows.length} 屏`)),
+      ].join('');
+      builtFor = windows.length;
+      if (focused !== null) {
+        const again = windowBar.querySelector(`[data-window="${Math.min(Number(focused), windows.length - 1)}"]`);
+        again?.focus?.();
+      }
+    }
+    windowBar.querySelectorAll('[data-window]').forEach((button) => {
+      const index = Number(button.dataset.window);
+      button.setAttribute('aria-pressed', String(index < 0 ? windowAt === null : windowAt === index));
+    });
     // With many windows the row scrolls sideways; keep the one on show in reach.
     windowBar.querySelector('[aria-pressed="true"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   };

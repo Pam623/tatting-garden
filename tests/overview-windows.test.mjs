@@ -58,27 +58,27 @@ for (const [screenWidth, screenHeight] of PHONES) {
   });
 }
 
-test('in a frame about as tall as wide, the head window ends in the gap before the spine', () => {
-  const [head] = overviewWindows(fishbone, { aspect: 1 });
-  const bottom = head[1] + head[3];
+test('in a desktop frame, the head is whole in the first window and the spine starts whole in the second', () => {
+  const [head, next] = overviewWindows(fishbone, { aspect: 1.46 });
   const firstSpine = fishbone.elements.findIndex((e) => e.id === 'S1');
   fishbone.elements.forEach((element, index) => {
     const geometry = elementGeometry(element);
     const ys = Array.from({ length: 41 }, (_, i) => geometry.pointAt(i / 40).y);
-    if (index < firstSpine) assert.ok(Math.max(...ys) < bottom, `${element.id} crosses out of the head window`);
-    else assert.ok(Math.min(...ys) > bottom, `${element.id} reaches into the head window`);
+    if (index < firstSpine) assert.ok(Math.max(...ys) < head[1] + head[3], `${element.id} crosses out of the head window`);
+    else if (element.id === 'S1') assert.ok(Math.min(...ys) > next[1], 'S1 starts above the second window');
   });
 });
 
 const ring = (id, y, extra = {}) => ({ id, type: 'ring', parts: ['8'], place: { base: [50, y], tip: [50, y - 60], width: 40, dir: 'cw' }, ...extra });
-const twoMotifs = (second) => ({ layout: { viewBox: [0, -65, 100, 250] }, elements: [ring('A', 0, { parts: ['4', 'p:top', '4'] }), second] });
+const twoMotifs = (second) => ({ layout: { viewBox: [0, -62, 100, 232] }, elements: [ring('A', 0, { parts: ['4', 'p:top', '4'] }), second] });
 
-test('a tall chart of two motifs a window apart is cut in the empty band between them', () => {
-  // Ring B starts new thread, so nothing is drawn between y 0 and 120.
-  const windows = overviewWindows(twoMotifs(ring('B', 180, { round: 2 })));
-  assert.equal(windows.length, 2);
-  assert.equal(windows[0][1] + windows[0][3], 60);
-  assert.equal(windows[1][1], 60);
+test('a tall chart of two motifs is cut in the empty band between them, with no overlap there', () => {
+  // Ring B starts new thread, so nothing is drawn between ring A (y -60 to 0) and ring B (y 110 to 170).
+  const windows = overviewWindows(twoMotifs(ring('B', 170, { round: 2 })));
+  const cut = windows.slice(1).findIndex((box, i) => box[1] === windows[i][1] + windows[i][3]);
+  assert.ok(cut >= 0, 'no cut in an empty band');
+  const y = windows[cut + 1][1];
+  assert.ok(y > 0 && y < 110, `cut at ${y}`);
 });
 
 test('the thread between two rings and the line of a join count as drawn, so no cut goes through them', () => {
@@ -87,10 +87,10 @@ test('the thread between two rings and the line of a join count as drawn, so no 
     // Overlapping windows mean the cut found no empty band.
     return windows.slice(1).every((box, i) => box[1] < windows[i][1] + windows[i][3]);
   };
-  // Thread runs from ring A's base (y 0) to ring B's (y 180).
-  assert.ok(cutsThrough(twoMotifs(ring('B', 180))));
+  // Thread runs from ring A's base (y 0) to ring B's (y 170).
+  assert.ok(cutsThrough(twoMotifs(ring('B', 170))));
   // New thread, but B joins A's picot: the join's line crosses the band.
-  assert.ok(cutsThrough(twoMotifs(ring('B', 180, { round: 2, parts: ['4', 'j:A.top', '4'] }))));
+  assert.ok(cutsThrough(twoMotifs(ring('B', 170, { round: 2, parts: ['4', 'j:A.top', '4'] }))));
 });
 
 test('the last window is never a sliver: the last two share what is left', () => {
@@ -143,8 +143,9 @@ test('a picot standing out from its line counts as drawn, so no cut goes through
   const below = { id: 'B', type: 'bridge', parts: ['30'], place: { from: [10, 400], to: [360, 960], bulge: 0 }, round: 2 };
   const pattern = { layout: { viewBox: [0, -20, 370, 1000] }, elements: [top, below] };
   const [first] = overviewWindows(pattern);
-  // The empty band runs from the picot's tip (y 11) to the next bridge (y 400).
-  assert.equal(first[1] + first[3], (11 + 400) / 2);
+  // The empty band runs from the picot's tip (y 11), or a label below it, to the next bridge (y 400);
+  // without the picot the band would start at the line, y 0, and the cut fall at 200.
+  assert.ok(first[1] + first[3] >= (11 + 400) / 2 && first[1] + first[3] < 400, `cut at ${first[1] + first[3]}`);
 });
 
 test('after the windows are worked out again, a highlighted row decides which one shows', () => {
@@ -159,4 +160,48 @@ test('after the windows are worked out again, a highlighted row decides which on
   assert.equal(windowAfterRefit(fishbone, wide, 9, null), wide.length - 1);
   // Shown whole stays whole.
   assert.equal(windowAfterRefit(fishbone, flat, null, ids), null);
+});
+
+test('no window edge cuts a number, letter or arrow on the fishbone, whatever the frame', async () => {
+  const { chartLabels, leftPicotSpots, readChartElements } = await import('../js/diagram.js');
+  const [minX, minY, width, height] = fishbone.layout.viewBox;
+  const s = width / 370;
+  const elements = readChartElements(fishbone);
+  const seen = new Set();
+  const firstOfGroup = (element) => {
+    if (element.group === undefined) return true;
+    if (seen.has(element.group)) return false;
+    seen.add(element.group);
+    return true;
+  };
+  const boxes = [];
+  [firstOfGroup, () => true].forEach((shows) => {
+    const labels = chartLabels(elements, leftPicotSpots(elements, s), s, { minX, minY, width, height }, shows);
+    [labels.flip, labels.letter, labels.count].forEach((map) => map.forEach((box, key) => boxes.push({ ...box, key })));
+    boxes.push({ ...labels.start, key: '起点' });
+    labels.rounds.forEach(({ mark }, id) => boxes.push({ ...mark, key: `round ${id}` }));
+  });
+  // The frames of 375x667, 360x640 and 375x812 phones and of 1024x768 and 1280x900 desktops.
+  for (const aspect of [287 / 349, 275 / 334, 349 / 349, 678 / 478, 810 / 553]) {
+    const edges = overviewWindows(fishbone, { aspect }).flatMap(([, y, , h]) => [y, y + h]);
+    edges.forEach((edge) => boxes.forEach((box) => {
+      assert.ok(edge <= box.y - box.h * 0.75 || edge >= box.y + box.h * 0.75, `aspect ${aspect}: edge ${edge.toFixed(1)} cuts ${box.key}`);
+    }));
+  }
+});
+
+test('a sliver at the end keeps the cut in the empty band and reaches up into the window before', () => {
+  const small = (id, base, tip, round) => ({ id, type: 'ring', parts: ['8'], round, place: { base: [50, base], tip: [50, tip], width: 30, dir: 'cw' } });
+  const pattern = {
+    layout: { viewBox: [0, -65, 100, 295] },
+    elements: [small('A', 0, -60), small('B', 180, 120, 2), small('C', 220, 190, 3)],
+  };
+  const windows = overviewWindows(pattern);
+  const ends = windows.map(([, y, , h]) => y + h).map((e) => e.toFixed(1)).join(', ');
+  // Every ring is whole in some window: none is only ever seen split.
+  [[-60, 0], [120, 180], [190, 220]].forEach(([from, to]) => {
+    assert.ok(windows.some(([, y, , h]) => y <= from && y + h >= to), `a ring from ${from} to ${to} is split; windows end at ${ends}`);
+  });
+  // And no window is a sliver.
+  windows.forEach(([, , , h]) => assert.ok(h >= 55, `a window ${h.toFixed(1)} high; windows end at ${ends}`));
 });

@@ -124,7 +124,7 @@ export function drawingShare(view, drawing, frameWidth, frameHeight) {
 // a gap is near; otherwise windows overlap a little. A last window too short is shared with the one
 // before it. Returns [] when the chart is no taller than TALL_OVERVIEW times its width: it shows whole.
 export const TALL_OVERVIEW = 1.6;
-export const WINDOW_STRETCH = 1.25;
+export const WINDOW_STRETCH = 1.2;
 // A frame flatter than this is treated as this flat: windows any thinner would show next to nothing.
 export const FLATTEST_FRAME = 0.3;
 export function overviewWindows(pattern, { aspect = 1 } = {}) {
@@ -136,38 +136,68 @@ export function overviewWindows(pattern, { aspect = 1 } = {}) {
   // Less than a window, so each window starts below the one before.
   const overlap = Math.min(width * 0.08, target * 0.25);
   const bottom = minY + height;
-  const gaps = drawingGaps(pattern);
+  const { gaps, marks } = chartBands(pattern);
+  // A window edge that cuts no number, letter or arrow; the nearest one to y between low and high.
+  const clear = (y) => marks.every(([from, to]) => y <= from || y >= to);
+  const clearNear = (y, low, high) => {
+    for (let step = 0; step <= high - low; step += 0.5) {
+      const found = [y - step, y + step].find((c) => c >= low && c <= high && clear(c));
+      if (found !== undefined) return found;
+    }
+    return [high, low].find(clear) ?? Math.min(Math.max(y, low), high);
+  };
   const spans = [];
+  const inGap = [];
   let top = minY;
   while (bottom - top > longest) {
-    const cut = gaps.filter((y) => y - top >= shortest && y - top <= longest)
-      .sort((a, b) => Math.abs(a - top - target) - Math.abs(b - top - target))[0];
-    const end = cut ?? top + target;
-    spans.push([top, end]);
-    top = cut ?? end - overlap;
+    const cut = gaps.filter(({ end, start }) => end - top >= shortest && end - top <= longest && start > top)
+      .sort((a, b) => Math.abs(a.end - top - target) - Math.abs(b.end - top - target))[0];
+    if (cut !== undefined) {
+      spans.push([top, cut.end]);
+      inGap.push(true);
+      top = cut.start;
+    } else {
+      const end = clearNear(top + target, top + shortest, top + longest);
+      spans.push([top, end]);
+      inGap.push(false);
+      // The next window starts a little above, at an edge that cuts nothing; at worst right at this end.
+      top = clearNear(end - overlap, end - overlap, end);
+    }
   }
   spans.push([top, bottom]);
-  // A sliver at the end: the last two windows share the rest evenly instead.
+  // A sliver at the end. After a cut in an empty band, the cut stays and the last window reaches up
+  // into the one before to a full window's height; otherwise the last two share the rest evenly.
   if (spans.length > 1 && bottom - top < shortest) {
     const start = spans.at(-2)[0];
-    spans.splice(-2, 2);
-    if (bottom - start <= longest) spans.push([start, bottom]);
-    else {
-      const middle = (start + bottom) / 2;
-      spans.push([start, middle + overlap / 2], [middle - overlap / 2, bottom]);
+    if (inGap.at(-1)) {
+      spans.at(-1)[0] = clearNear(Math.max(bottom - target, start), start, top);
+    } else {
+      spans.splice(-2, 2);
+      if (bottom - start <= longest) spans.push([start, bottom]);
+      else {
+        const middle = (start + bottom) / 2;
+        const end = clearNear(middle + overlap / 2, middle, bottom - 1);
+        spans.push([start, end], [clearNear(end - overlap, end - overlap, end), bottom]);
+      }
     }
   }
   return spans.map(([from, to]) => [minX, from, width, to - from]);
 }
 
-// Heights where nothing at all is drawn across the chart, as the middle of each empty band.
-function drawingGaps(pattern) {
+// What the chart draws, as bands of height: `gaps` are the middles of bands where nothing at all is
+// drawn (lines, picots, thread, join lines, numbers, letters, arrows); `marks` are the bands the
+// numbers, letters and arrows take, which no window edge should cut. Labels are where the chart puts
+// them, as first shown and with every number shown. Worked out once per pattern.
+const bandCache = new WeakMap();
+function chartBands(pattern) {
+  if (bandCache.has(pattern)) return bandCache.get(pattern);
   const covered = [];
   const span = (ys) => covered.push([Math.min(...ys), Math.max(...ys)]);
   const read = pattern.elements.map((element) => ({ element, read: readElement(element), geometry: elementGeometry(element) }));
   const byId = new Map(read.map((entry) => [entry.element.id, entry]));
   const spot = (entry, stitches) => entry.geometry.pointAt(entry.read.stitches ? stitches / entry.read.stitches : 0);
-  const s = pattern.layout.viewBox[2] / BASE_SCALE;
+  const [minX, minY, width, height] = pattern.layout.viewBox;
+  const s = width / BASE_SCALE;
   read.forEach((entry, index) => {
     span(Array.from({ length: 61 }, (_, i) => entry.geometry.pointAt(i / 60).y));
     // Every picot stands out from its line: a decorative one as a loop, a join picot as a dot.
@@ -188,14 +218,61 @@ function drawingGaps(pattern) {
       if (picot) span([spot(entry, item.from).y, spot(target, picot.from).y]);
     });
   });
+  const marks = [];
+  // A label's box is a little tighter than its type, whose ascenders and descenders reach further:
+  // the box counts as drawn, and a window edge keeps clear of the type as well.
+  const mark = (box) => {
+    covered.push([box.y - box.h / 2, box.y + box.h / 2]);
+    marks.push([box.y - box.h * 0.75, box.y + box.h * 0.75]);
+  };
+  const arrowMark = (arrow) => {
+    covered.push([arrow.y - 14 * s, arrow.y + 14 * s]);
+    marks.push([arrow.y - 14 * s, arrow.y + 14 * s]);
+  };
+  const seen = new Set();
+  const firstOfGroup = (element) => {
+    if (element.group === undefined) return true;
+    if (seen.has(element.group)) return false;
+    seen.add(element.group);
+    return true;
+  };
+  const elements = readChartElements(pattern);
+  [firstOfGroup, () => true].forEach((shows) => {
+    const labels = chartLabels(elements, leftPicotSpots(elements, s), s, { minX, minY, width, height }, shows);
+    [labels.flip, labels.letter, labels.count].forEach((map) => map.forEach(mark));
+    if (labels.start) mark(labels.start);
+    if (labels.arrow) arrowMark(labels.arrow);
+    labels.rounds.forEach(({ arrow, mark: number }) => {
+      arrowMark(arrow);
+      mark(number);
+    });
+  });
   covered.sort((a, b) => a[0] - b[0]);
+  const clear = (y) => marks.every(([from, to]) => y <= from || y >= to);
   const gaps = [];
   let reach = covered[0][1];
   covered.slice(1).forEach(([low, high]) => {
-    if (low > reach) gaps.push((low + reach) / 2);
+    if (low > reach) {
+      // The height in the empty band nearest its middle that is clear of the type too. A band too
+      // narrow for that still parts what is above from what is below: the window above it ends at
+      // the first clear height below the band, the one below starts at the last clear height above.
+      const middle = (low + reach) / 2;
+      let best = null;
+      for (let y = reach; y <= low; y += 0.5) if (clear(y) && (best === null || Math.abs(y - middle) < Math.abs(best - middle))) best = y;
+      if (best !== null) gaps.push({ end: best, start: best });
+      else {
+        let end = low;
+        while (!clear(end) && end < high) end += 0.5;
+        let start = reach;
+        while (!clear(start) && start > minY) start -= 0.5;
+        if (clear(end) && clear(start)) gaps.push({ end, start });
+      }
+    }
     reach = Math.max(reach, high);
   });
-  return gaps;
+  const bands = { gaps, marks };
+  bandCache.set(pattern, bands);
+  return bands;
 }
 
 // Which window to show after the windows were worked out again for a new frame: the one holding

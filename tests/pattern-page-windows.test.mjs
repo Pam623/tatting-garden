@@ -17,8 +17,12 @@ const fire = (target, type, event = {}) => (handlers.get(target)?.[type] ?? []).
 function fakeElement() {
   let html = '';
   const element = {
+    writes: 0,
     get innerHTML() { return html; },
-    set innerHTML(value) { html = String(value); },
+    set innerHTML(value) {
+      html = String(value);
+      element.writes += 1;
+    },
     textContent: '',
     hidden: false,
     disabled: false,
@@ -114,4 +118,26 @@ test('back from the finished picture, the windows fit the frame as it is now', a
   await resize(349, 300);
   fire(bar, 'click', { target: { closest: () => ({ dataset: { mode: 'chart' } }) } });
   assert.ok(sameBox(shownBox(), windowsAt(349, 300)[1]), `${shownBox()} vs ${windowsAt(349, 300)[1]} / ${windowsAt(349, 300).length}`);
+});
+
+test('picking a window keeps its buttons, so the keyboard focus stays on the one pressed', async () => {
+  const bar = document.getElementById('chart-windows');
+  const writes = bar.writes;
+  pressWindow(2);
+  pressWindow(0);
+  assert.equal(bar.writes, writes);
+  // A new frame with a different number of windows makes the buttons again, and the focus
+  // goes back to the button for the same window.
+  const focused = [];
+  const ask = bar.querySelector;
+  bar.contains = () => true;
+  document.activeElement = { dataset: { window: '0' } };
+  bar.querySelector = (selector) => (selector === '[data-window="0"]' ? { focus: () => focused.push(selector) } : ask(selector));
+  const count = windowsAt(frame.width, frame.height).length;
+  await resize(349, 120);
+  assert.notEqual(windowsAt(349, 120).length, count);
+  assert.equal(bar.writes, writes + 1);
+  assert.deepEqual(focused, ['[data-window="0"]']);
+  bar.querySelector = ask;
+  delete document.activeElement;
 });

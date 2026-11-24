@@ -116,6 +116,71 @@ export function drawingShare(view, drawing, frameWidth, frameHeight) {
   return (width * height) / (frameWidth * frameHeight);
 }
 
+// A chart much taller than it is wide, shown whole in a frame about as tall as it is wide, shrinks
+// its numbers to specks. Such a chart is shown in windows instead: each the chart's full width and
+// about `aspect` times that tall, cut where the drawing has a gap if there is one near, so a part of
+// the piece stays in one window. Windows overlap a little where a cut has to go through the drawing.
+// Returns [] when the chart is no taller than TALL_OVERVIEW times its width: it is then shown whole.
+export const TALL_OVERVIEW = 1.6;
+export function overviewWindows(pattern, { aspect = 1 } = {}) {
+  const [minX, minY, width, height] = pattern.layout.viewBox;
+  if (height <= width * TALL_OVERVIEW) return [];
+  // Which heights the drawing covers, sampled along every line.
+  const covered = [];
+  pattern.elements.forEach((element) => {
+    const geometry = elementGeometry(element);
+    let low = Infinity;
+    let high = -Infinity;
+    for (let i = 0; i <= 60; i++) {
+      const p = geometry.pointAt(i / 60);
+      low = Math.min(low, p.y);
+      high = Math.max(high, p.y);
+    }
+    covered.push([low, high]);
+  });
+  covered.sort((a, b) => a[0] - b[0]);
+  const gaps = [];
+  let reach = covered[0][1];
+  covered.slice(1).forEach(([low, high]) => {
+    if (low > reach) gaps.push((low + reach) / 2);
+    reach = Math.max(reach, high);
+  });
+  const target = width * aspect;
+  const longest = width * (aspect + 0.3);
+  const shortest = width * (aspect - 0.45);
+  const overlap = width * 0.08;
+  const bottom = minY + height;
+  const windows = [];
+  let top = minY;
+  while (bottom - top > longest) {
+    const cut = gaps.filter((y) => y - top >= shortest && y - top <= longest)
+      .sort((a, b) => Math.abs(a - top - target) - Math.abs(b - top - target))[0];
+    const end = cut ?? top + target;
+    windows.push([minX, top, width, end - top]);
+    top = cut ?? end - overlap;
+  }
+  windows.push([minX, top, width, bottom - top]);
+  return windows;
+}
+
+// The window showing most of these elements' lines: where a highlighted row of the stitch table is.
+export function windowFor(pattern, windows, ids) {
+  const points = pattern.elements.filter((e) => ids.includes(e.id)).flatMap((element) => {
+    const geometry = elementGeometry(element);
+    return Array.from({ length: 21 }, (_, i) => geometry.pointAt(i / 20));
+  });
+  let best = 0;
+  let most = -1;
+  windows.forEach(([x, y, w, h], index) => {
+    const inside = points.filter((p) => p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h).length;
+    if (inside > most) {
+      most = inside;
+      best = index;
+    }
+  });
+  return best;
+}
+
 // Label sizes, in the units marks are designed at. Wider than the ink, so labels keep a little air.
 const LABEL_BOXES = {
   count: (text) => ({ w: 7.5 * text.length + 3, h: 13 }),
@@ -549,10 +614,12 @@ export function leftPicotSpots(elements, s) {
 //   counts       'all', or element ids that show their numbers; by default, with no
 //                current or highlight, the first element of each group (or ungrouped)
 //   viewBox      [x, y, width, height] to show instead of the pattern's own
+//   frame        [x, y, width, height]: the part of the chart the picture shows, while every mark
+//                stays sized and placed as on the whole chart (see overviewWindows)
 //   title        accessible name
 export function renderChart(pattern, options = {}) {
   const {
-    current = null, done = [], reached = 0, currentItem = null, highlight = null, counts = null, title = '', viewBox = null,
+    current = null, done = [], reached = 0, currentItem = null, highlight = null, counts = null, title = '', viewBox = null, frame = null,
   } = options;
   const [minX, minY, width, height] = viewBox ?? pattern.layout.viewBox;
   const s = width / BASE_SCALE;
@@ -671,5 +738,6 @@ export function renderChart(pattern, options = {}) {
     }
   });
 
-  return `<svg class="diagram" viewBox="${minX} ${minY} ${width} ${height}" style="--s:${s}" role="img" aria-label="${escapeXml(title)}">${threads}${cords}${links}${marks}</svg>`;
+  const shown = frame ? frame.map((v) => n(v)).join(' ') : `${minX} ${minY} ${width} ${height}`;
+  return `<svg class="diagram" viewBox="${shown}" style="--s:${s}" role="img" aria-label="${escapeXml(title)}">${threads}${cords}${links}${marks}</svg>`;
 }

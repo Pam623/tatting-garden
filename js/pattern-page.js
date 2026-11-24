@@ -10,7 +10,7 @@ import { originalUrl } from './saved.js';
 import { originalCaption } from './upload-file.js';
 import {
   app, escapeHtml, legendFor, loadPattern, materialsPanel, readProgress, readSetting, repeatRange,
-  saveProgress, saveSetting, showProblems, stitchTable, studio,
+  saveProgress, saveSetting, setCleanup, showProblems, stitchTable, studio,
 } from './shared.js';
 
 // Only saved patterns have this section, so built-in and public patterns look as before.
@@ -125,9 +125,21 @@ export async function showPattern(id) {
   let shown = null;
   let view = null;
   // A tall chart is shown a window at a time, so its numbers stay readable; null shows it whole.
-  const windows = overviewWindows(pattern);
-  let windowAt = windows.length ? 0 : null;
+  // The windows take the shape of the frame the chart is shown in, so they are worked out once
+  // the chart is on the page, and again when the page changes size.
+  const tall = overviewWindows(pattern).length > 0;
+  let windows = [];
+  let windowAt = null;
   const windowBar = document.getElementById('chart-windows');
+  const fitWindows = () => {
+    const svg = chart.querySelector('svg.diagram');
+    if (!tall || !svg) return;
+    const box = svg.getBoundingClientRect();
+    const most = parseFloat(getComputedStyle(svg).maxHeight);
+    const frameHeight = Number.isFinite(most) && most > 0 ? most : box.height;
+    windows = overviewWindows(pattern, { aspect: box.width > 0 && frameHeight > 0 ? frameHeight / box.width : 1 });
+    if (windowAt !== null) windowAt = Math.min(windowAt, windows.length - 1);
+  };
   const drawWindowBar = () => {
     if (!windows.length) return;
     windowBar.hidden = false;
@@ -136,6 +148,8 @@ export async function showPattern(id) {
       button(-1, '全图', '看全图', windowAt === null),
       ...windows.map((_, i) => button(i, String(i + 1), `看第 ${i + 1} 屏，共 ${windows.length} 屏`, windowAt === i)),
     ].join('');
+    // With many windows the row scrolls sideways; keep the one on show in reach.
+    windowBar.querySelector('[aria-pressed="true"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   };
   const draw = (ids, follow = true) => {
     shown = ids;
@@ -166,6 +180,25 @@ export async function showPattern(id) {
     });
   });
   draw(null);
+  if (tall) {
+    fitWindows();
+    windowAt = 0;
+    draw(null);
+    let pending = null;
+    const onResize = () => {
+      clearTimeout(pending);
+      pending = setTimeout(() => {
+        if (view?.isFinished()) return;
+        fitWindows();
+        draw(shown, false);
+      }, 150);
+    };
+    window.addEventListener('resize', onResize);
+    setCleanup(() => {
+      clearTimeout(pending);
+      window.removeEventListener('resize', onResize);
+    });
+  }
 
   const materials = document.getElementById('materials');
   let size = readSetting('size', 20);

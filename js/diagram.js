@@ -116,27 +116,67 @@ export function drawingShare(view, drawing, frameWidth, frameHeight) {
   return (width * height) / (frameWidth * frameHeight);
 }
 
-// A chart much taller than it is wide, shown whole in a frame about as tall as it is wide, shrinks
-// its numbers to specks. Such a chart is shown in windows instead: each the chart's full width and
-// about `aspect` times that tall, cut where the drawing has a gap if there is one near, so a part of
-// the piece stays in one window. Windows overlap a little where a cut has to go through the drawing.
-// Returns [] when the chart is no taller than TALL_OVERVIEW times its width: it is then shown whole.
+// A chart much taller than it is wide, shown whole in its frame, shrinks its numbers to specks.
+// Such a chart is shown in windows instead: each the chart's full width and about as tall as the
+// frame it is shown in (`aspect` is the frame's height over its width), never more than WINDOW_STRETCH
+// times that, so the numbers keep at least that share of their full-width size. A window is cut where
+// nothing is drawn, rings, bridges, the thread between rings and the lines of joins included, if such
+// a gap is near; otherwise windows overlap a little. A last window too short is shared with the one
+// before it. Returns [] when the chart is no taller than TALL_OVERVIEW times its width: it shows whole.
 export const TALL_OVERVIEW = 1.6;
+export const WINDOW_STRETCH = 1.25;
 export function overviewWindows(pattern, { aspect = 1 } = {}) {
   const [minX, minY, width, height] = pattern.layout.viewBox;
   if (height <= width * TALL_OVERVIEW) return [];
-  // Which heights the drawing covers, sampled along every line.
-  const covered = [];
-  pattern.elements.forEach((element) => {
-    const geometry = elementGeometry(element);
-    let low = Infinity;
-    let high = -Infinity;
-    for (let i = 0; i <= 60; i++) {
-      const p = geometry.pointAt(i / 60);
-      low = Math.min(low, p.y);
-      high = Math.max(high, p.y);
+  const target = width * aspect;
+  const longest = target * WINDOW_STRETCH;
+  const shortest = target * 0.55;
+  const overlap = width * 0.08;
+  const bottom = minY + height;
+  const gaps = drawingGaps(pattern);
+  const spans = [];
+  let top = minY;
+  while (bottom - top > longest) {
+    const cut = gaps.filter((y) => y - top >= shortest && y - top <= longest)
+      .sort((a, b) => Math.abs(a - top - target) - Math.abs(b - top - target))[0];
+    const end = cut ?? top + target;
+    spans.push([top, end]);
+    top = cut ?? end - overlap;
+  }
+  spans.push([top, bottom]);
+  // A sliver at the end: the last two windows share the rest evenly instead.
+  if (spans.length > 1 && bottom - top < shortest) {
+    const start = spans.at(-2)[0];
+    spans.splice(-2, 2);
+    if (bottom - start <= longest) spans.push([start, bottom]);
+    else {
+      const middle = (start + bottom) / 2;
+      spans.push([start, middle + overlap / 2], [middle - overlap / 2, bottom]);
     }
-    covered.push([low, high]);
+  }
+  return spans.map(([from, to]) => [minX, from, width, to - from]);
+}
+
+// Heights where nothing at all is drawn across the chart, as the middle of each empty band.
+function drawingGaps(pattern) {
+  const covered = [];
+  const span = (ys) => covered.push([Math.min(...ys), Math.max(...ys)]);
+  const read = pattern.elements.map((element) => ({ element, read: readElement(element), geometry: elementGeometry(element) }));
+  const byId = new Map(read.map((entry) => [entry.element.id, entry]));
+  const spot = (entry, stitches) => entry.geometry.pointAt(entry.read.stitches ? stitches / entry.read.stitches : 0);
+  read.forEach((entry, index) => {
+    span(Array.from({ length: 61 }, (_, i) => entry.geometry.pointAt(i / 60).y));
+    // The thread drawn from one ring's base to the next ring's.
+    const before = read[index - 1];
+    if (entry.element.type === 'ring' && before?.element.type === 'ring' && entry.element.round === undefined) {
+      span([entry.element.place.base[1], before.element.place.base[1]]);
+    }
+    // The line drawn from a join to the picot it joins.
+    entry.read.items.filter((item) => item.kind === 'join').forEach((item) => {
+      const target = byId.get(item.element);
+      const picot = target?.read.items.find((i) => i.kind === 'leave' && i.name === item.name);
+      if (picot) span([spot(entry, item.from).y, spot(target, picot.from).y]);
+    });
   });
   covered.sort((a, b) => a[0] - b[0]);
   const gaps = [];
@@ -145,22 +185,7 @@ export function overviewWindows(pattern, { aspect = 1 } = {}) {
     if (low > reach) gaps.push((low + reach) / 2);
     reach = Math.max(reach, high);
   });
-  const target = width * aspect;
-  const longest = width * (aspect + 0.3);
-  const shortest = width * (aspect - 0.45);
-  const overlap = width * 0.08;
-  const bottom = minY + height;
-  const windows = [];
-  let top = minY;
-  while (bottom - top > longest) {
-    const cut = gaps.filter((y) => y - top >= shortest && y - top <= longest)
-      .sort((a, b) => Math.abs(a - top - target) - Math.abs(b - top - target))[0];
-    const end = cut ?? top + target;
-    windows.push([minX, top, width, end - top]);
-    top = cut ?? end - overlap;
-  }
-  windows.push([minX, top, width, bottom - top]);
-  return windows;
+  return gaps;
 }
 
 // The window showing most of these elements' lines: where a highlighted row of the stitch table is.

@@ -125,13 +125,16 @@ export function drawingShare(view, drawing, frameWidth, frameHeight) {
 // before it. Returns [] when the chart is no taller than TALL_OVERVIEW times its width: it shows whole.
 export const TALL_OVERVIEW = 1.6;
 export const WINDOW_STRETCH = 1.25;
+// A frame flatter than this is treated as this flat: windows any thinner would show next to nothing.
+export const FLATTEST_FRAME = 0.3;
 export function overviewWindows(pattern, { aspect = 1 } = {}) {
   const [minX, minY, width, height] = pattern.layout.viewBox;
   if (height <= width * TALL_OVERVIEW) return [];
-  const target = width * aspect;
+  const target = width * (Number.isFinite(aspect) ? Math.max(aspect, FLATTEST_FRAME) : 1);
   const longest = target * WINDOW_STRETCH;
   const shortest = target * 0.55;
-  const overlap = width * 0.08;
+  // Less than a window, so each window starts below the one before.
+  const overlap = Math.min(width * 0.08, target * 0.25);
   const bottom = minY + height;
   const gaps = drawingGaps(pattern);
   const spans = [];
@@ -164,8 +167,15 @@ function drawingGaps(pattern) {
   const read = pattern.elements.map((element) => ({ element, read: readElement(element), geometry: elementGeometry(element) }));
   const byId = new Map(read.map((entry) => [entry.element.id, entry]));
   const spot = (entry, stitches) => entry.geometry.pointAt(entry.read.stitches ? stitches / entry.read.stitches : 0);
+  const s = pattern.layout.viewBox[2] / BASE_SCALE;
   read.forEach((entry, index) => {
     span(Array.from({ length: 61 }, (_, i) => entry.geometry.pointAt(i / 60).y));
+    // Every picot stands out from its line: a decorative one as a loop, a join picot as a dot.
+    entry.read.items.filter((item) => item.kind !== 'stitch').forEach((item) => {
+      const p = spot(entry, item.from);
+      const reach = (item.kind === 'deco' ? PICOT_LENGTH : PICOT_R + 3) * s;
+      span([p.y, p.y + p.out.y * reach, p.y - PICOT_WIDTH * s, p.y + PICOT_WIDTH * s]);
+    });
     // The thread drawn from one ring's base to the next ring's.
     const before = read[index - 1];
     if (entry.element.type === 'ring' && before?.element.type === 'ring' && entry.element.round === undefined) {
@@ -186,6 +196,14 @@ function drawingGaps(pattern) {
     reach = Math.max(reach, high);
   });
   return gaps;
+}
+
+// Which window to show after the windows were worked out again for a new frame: the one holding
+// the highlighted elements if there are any, otherwise the same place in the list, or whole (null).
+export function windowAfterRefit(pattern, windows, at, ids) {
+  if (at === null || !windows.length) return null;
+  if (ids?.length) return windowFor(pattern, windows, ids);
+  return Math.min(at, windows.length - 1);
 }
 
 // The window showing most of these elements' lines: where a highlighted row of the stitch table is.

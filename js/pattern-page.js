@@ -1,7 +1,9 @@
 import {
   clampProgress, hasStarted, progressPlace, structureProblems, summarize,
 } from './pattern.js';
-import { overviewWindows, renderChart, windowFor } from './diagram.js';
+import {
+  overviewWindows, renderChart, windowAfterRefit, windowFor,
+} from './diagram.js';
 import { isSavedDrawing } from './drawings.js';
 import { attachFinishedToggle } from './finished-toggle.js';
 import { THREAD_SIZES } from './materials.js';
@@ -138,7 +140,8 @@ export async function showPattern(id) {
     const most = parseFloat(getComputedStyle(svg).maxHeight);
     const frameHeight = Number.isFinite(most) && most > 0 ? most : box.height;
     windows = overviewWindows(pattern, { aspect: box.width > 0 && frameHeight > 0 ? frameHeight / box.width : 1 });
-    if (windowAt !== null) windowAt = Math.min(windowAt, windows.length - 1);
+    // The windows moved: a highlighted row stays in view, otherwise the same window number does.
+    windowAt = windowAfterRefit(pattern, windows, windowAt, shown);
   };
   const drawWindowBar = () => {
     if (!windows.length) return;
@@ -208,7 +211,15 @@ export async function showPattern(id) {
   const drawSummary = () => {
     summary.textContent = summarize(pattern, pattern.repeat ? { repeats } : {});
   };
-  view = attachFinishedToggle(chart, pattern, () => draw(shown), pattern.repeat ? { repeats: () => repeats } : {});
+  // Back from the finished picture the frame may have changed size meanwhile: the chart is put back,
+  // the windows fitted to the frame as it is now, and the chart drawn in them.
+  view = attachFinishedToggle(chart, pattern, () => {
+    draw(shown, false);
+    if (tall) {
+      fitWindows();
+      draw(shown, false);
+    }
+  }, pattern.repeat ? { repeats: () => repeats } : {});
   // The window buttons only move the chart, so they step aside while the finished picture shows.
   chart.parentElement.addEventListener('click', () => {
     windowBar.hidden = !windows.length || view.isFinished();

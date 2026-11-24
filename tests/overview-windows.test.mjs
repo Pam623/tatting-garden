@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  elementGeometry, overviewWindows, renderChart, TALL_OVERVIEW, windowFor,
+  elementGeometry, FLATTEST_FRAME, overviewWindows, renderChart, TALL_OVERVIEW, windowAfterRefit, windowFor,
 } from '../js/diagram.js';
 
 const read = (path) => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'));
@@ -125,4 +125,38 @@ test('the window buttons scroll sideways when there are many, so none is cut off
   assert.doesNotMatch(rule('.chart-windows'), /overflow: hidden/);
   assert.match(rule('.chart-windows button'), /flex: 1 0 auto/);
   assert.match(rule('.chart-windows button'), /min-width: \d+px/);
+});
+
+test('a very flat frame still gives windows that each start below the one before', () => {
+  for (const aspect of [0.07, 0.01, 0, -1, Number.NaN]) {
+    const windows = overviewWindows(fishbone, { aspect });
+    assert.ok(windows.length > 0 && windows.length < 40, `aspect ${aspect}: ${windows.length} windows`);
+    windows.slice(1).forEach((box, i) => assert.ok(box[1] > windows[i][1], `aspect ${aspect}: window ${i + 2} does not move on`));
+    const flattest = fishbone.layout.viewBox[2] * FLATTEST_FRAME;
+    windows.slice(0, -1).forEach((box) => assert.ok(box[3] >= flattest * 0.55 - 1e-6));
+  }
+});
+
+test('a picot standing out from its line counts as drawn, so no cut goes through it', () => {
+  // A bridge along y 0, worked right to left so its decorative picot hangs down 11 units.
+  const top = { id: 'A', type: 'bridge', parts: ['4', 'o', '4'], place: { from: [360, 0], to: [10, 0], bulge: 0 } };
+  const below = { id: 'B', type: 'bridge', parts: ['30'], place: { from: [10, 400], to: [360, 960], bulge: 0 }, round: 2 };
+  const pattern = { layout: { viewBox: [0, -20, 370, 1000] }, elements: [top, below] };
+  const [first] = overviewWindows(pattern);
+  // The empty band runs from the picot's tip (y 11) to the next bridge (y 400).
+  assert.equal(first[1] + first[3], (11 + 400) / 2);
+});
+
+test('after the windows are worked out again, a highlighted row decides which one shows', () => {
+  const ids = ['R3', 'R4', 'L4', 'L3'];
+  const wide = overviewWindows(fishbone, { aspect: 0.967 });
+  const flat = overviewWindows(fishbone, { aspect: 0.5 });
+  const before = windowFor(fishbone, wide, ids);
+  assert.equal(windowAfterRefit(fishbone, flat, before, ids), windowFor(fishbone, flat, ids));
+  assert.notEqual(windowFor(fishbone, flat, ids), before);
+  // With nothing highlighted the same window number stays, within the new count.
+  assert.equal(windowAfterRefit(fishbone, flat, 2, null), 2);
+  assert.equal(windowAfterRefit(fishbone, wide, 9, null), wide.length - 1);
+  // Shown whole stays whole.
+  assert.equal(windowAfterRefit(fishbone, flat, null, ids), null);
 });

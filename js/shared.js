@@ -117,7 +117,7 @@ export function materialsPanel(pattern, size, repeats) {
       <li>${thread.ballNeeded ? '1 个梭子 + 1 团线（或 2 个梭子）' : '1 个梭子'}</li>
       <li>梭子线约 ${metres(thread.shuttleCm)} 米${thread.ballNeeded ? `，线团约 ${metres(thread.ballCm)} 米` : ''}</li>
       ${thread.rounds > 1 ? `<li>上面是 ${thread.rounds} 段加起来的长度，已算上每段的线头</li>` : ''}
-      ${pattern.threadNote ? `<li>${escapeHtml(pattern.threadNote)}</li>` : ''}
+      ${[].concat(pattern.threadNote ?? []).map((note) => `<li>${escapeHtml(note)}</li>`).join('')}
     </ul>
     <div class="size-pick" role="radiogroup" aria-label="线的粗细">${sizes}</div>`;
 }

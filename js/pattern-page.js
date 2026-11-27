@@ -1,7 +1,9 @@
 import {
   clampProgress, hasStarted, progressPlace, structureProblems, summarize,
 } from './pattern.js';
-import { renderChart } from './diagram.js';
+import {
+  overviewWindows, renderChart, windowAfterRefit, windowFor,
+} from './diagram.js';
 import { isSavedDrawing } from './drawings.js';
 import { attachFinishedToggle } from './finished-toggle.js';
 import { THREAD_SIZES } from './materials.js';
@@ -10,7 +12,7 @@ import { originalUrl } from './saved.js';
 import { originalCaption } from './upload-file.js';
 import {
   app, escapeHtml, legendFor, loadPattern, materialsPanel, readProgress, readSetting, repeatRange,
-  saveProgress, saveSetting, showProblems, stitchTable, studio,
+  saveProgress, saveSetting, setCleanup, showProblems, stitchTable, studio,
 } from './shared.js';
 
 // Only saved patterns have this section, so built-in and public patterns look as before.
@@ -30,6 +32,8 @@ function originalSection(pattern) {
 export async function showPattern(id) {
   const pattern = await loadPattern(id);
   const problems = structureProblems(pattern);
+  // A tall chart is shown in windows, with a row of buttons under it that the chart makes room for.
+  const tall = !problems.length && overviewWindows(pattern).length > 0;
   if (problems.length) {
     showProblems(pattern, id, problems);
     return;
@@ -42,8 +46,9 @@ export async function showPattern(id) {
 
   app.innerHTML = `
     <div class="pattern">
-      <div class="pattern-plate">
+      <div class="pattern-plate${tall ? ' has-windows' : ''}">
         <figure class="paper" id="chart"></figure>
+        <div class="chart-windows" id="chart-windows" role="group" aria-label="图解分屏看" hidden></div>
       </div>
       <div class="pattern-side">
         <a class="back" href="#/">← 全部花样</a>
@@ -123,15 +128,68 @@ export async function showPattern(id) {
   const rows = [...document.querySelectorAll('.row')];
   let shown = null;
   let view = null;
-  const draw = (ids) => {
+  // A tall chart is shown a window at a time, so its numbers stay readable; null shows it whole.
+  // The windows take the shape of the frame the chart is shown in, so they are worked out once
+  // the chart is on the page, and again when the page changes size.
+  let windows = [];
+  let windowAt = null;
+  const windowBar = document.getElementById('chart-windows');
+  const fitWindows = () => {
+    const svg = chart.querySelector('svg.diagram');
+    if (!tall || !svg) return;
+    const box = svg.getBoundingClientRect();
+    const most = parseFloat(getComputedStyle(svg).maxHeight);
+    const frameHeight = Number.isFinite(most) && most > 0 ? most : box.height;
+    windows = overviewWindows(pattern, { aspect: box.width > 0 && frameHeight > 0 ? frameHeight / box.width : 1 });
+    // The windows moved: a highlighted row stays in view, otherwise the same window number does.
+    windowAt = windowAfterRefit(pattern, windows, windowAt, shown);
+  };
+  // The buttons are made again only when the number of windows changes; otherwise just which one is
+  // pressed changes, so a button picked with the keyboard keeps the focus.
+  let builtFor = 0;
+  const drawWindowBar = () => {
+    if (!windows.length) return;
+    windowBar.hidden = false;
+    if (builtFor !== windows.length) {
+      const focused = windowBar.contains?.(document.activeElement) ? document.activeElement.dataset.window : null;
+      const button = (index, text, label) => `<button type="button" data-window="${index}" aria-pressed="false" aria-label="${label}">${text}</button>`;
+      windowBar.innerHTML = [
+        button(-1, '全图', '看全图'),
+        ...windows.map((_, i) => button(i, String(i + 1), `看第 ${i + 1} 屏，共 ${windows.length} 屏`)),
+      ].join('');
+      builtFor = windows.length;
+      if (focused !== null) {
+        const again = windowBar.querySelector(`[data-window="${Math.min(Number(focused), windows.length - 1)}"]`);
+        again?.focus?.();
+      }
+    }
+    windowBar.querySelectorAll('[data-window]').forEach((button) => {
+      const index = Number(button.dataset.window);
+      button.setAttribute('aria-pressed', String(index < 0 ? windowAt === null : windowAt === index));
+    });
+    // With many windows the row scrolls sideways; keep the one on show in reach.
+    windowBar.querySelector('[aria-pressed="true"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  };
+  const draw = (ids, follow = true) => {
     shown = ids;
     if (view?.isFinished()) return;
+    // A highlighted row brings its window into view, unless a window was just picked.
+    if (follow && ids && windowAt !== null) windowAt = windowFor(pattern, windows, ids);
+    drawWindowBar();
     chart.innerHTML = renderChart(pattern, {
       highlight: ids,
       counts: ids ?? null,
-      title: `${pattern.title}图解`,
+      frame: windowAt === null ? null : windows[windowAt],
+      title: windowAt === null ? `${pattern.title}图解` : `${pattern.title}图解，第 ${windowAt + 1} 屏，共 ${windows.length} 屏`,
     });
   };
+  windowBar.addEventListener('click', (event) => {
+    const button = event.target.closest?.('[data-window]');
+    if (!button) return;
+    const index = Number(button.dataset.window);
+    windowAt = index < 0 ? null : index;
+    draw(shown, false);
+  });
   rows.forEach((row) => {
     row.addEventListener('click', () => {
       const pressing = row.getAttribute('aria-pressed') !== 'true';
@@ -141,6 +199,25 @@ export async function showPattern(id) {
     });
   });
   draw(null);
+  if (tall) {
+    fitWindows();
+    windowAt = 0;
+    draw(null);
+    let pending = null;
+    const onResize = () => {
+      clearTimeout(pending);
+      pending = setTimeout(() => {
+        if (view?.isFinished()) return;
+        fitWindows();
+        draw(shown, false);
+      }, 150);
+    };
+    window.addEventListener('resize', onResize);
+    setCleanup(() => {
+      clearTimeout(pending);
+      window.removeEventListener('resize', onResize);
+    });
+  }
 
   const materials = document.getElementById('materials');
   let size = readSetting('size', 20);
@@ -150,7 +227,19 @@ export async function showPattern(id) {
   const drawSummary = () => {
     summary.textContent = summarize(pattern, pattern.repeat ? { repeats } : {});
   };
-  view = attachFinishedToggle(chart, pattern, () => draw(shown), pattern.repeat ? { repeats: () => repeats } : {});
+  // Back from the finished picture the frame may have changed size meanwhile: the chart is put back,
+  // the windows fitted to the frame as it is now, and the chart drawn in them.
+  view = attachFinishedToggle(chart, pattern, () => {
+    draw(shown, false);
+    if (tall) {
+      fitWindows();
+      draw(shown, false);
+    }
+  }, pattern.repeat ? { repeats: () => repeats } : {});
+  // The window buttons only move the chart, so they step aside while the finished picture shows.
+  chart.parentElement.addEventListener('click', () => {
+    windowBar.hidden = !windows.length || view.isFinished();
+  });
   const drawMaterials = () => {
     materials.innerHTML = materialsPanel(pattern, size, repeats);
     materials.querySelectorAll('input[name="size"]').forEach((input) => {

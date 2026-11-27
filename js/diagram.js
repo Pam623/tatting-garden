@@ -116,6 +116,209 @@ export function drawingShare(view, drawing, frameWidth, frameHeight) {
   return (width * height) / (frameWidth * frameHeight);
 }
 
+// A chart much taller than it is wide, shown whole in its frame, shrinks its numbers to specks.
+// Such a chart is shown in windows instead: each the chart's full width and about as tall as the
+// frame it is shown in (`aspect` is the frame's height over its width), never more than WINDOW_STRETCH
+// times that, so the numbers keep at least that share of their full-width size. A window is cut where
+// nothing is drawn, rings, bridges, the thread between rings and the lines of joins included, if such
+// a gap is near; otherwise windows overlap a little. A last window too short is shared with the one
+// before it. Returns [] when the chart is no taller than TALL_OVERVIEW times its width: it shows whole.
+export const TALL_OVERVIEW = 1.6;
+export const WINDOW_STRETCH = 1.2;
+// A frame flatter than this is treated as this flat: windows any thinner would show next to nothing.
+export const FLATTEST_FRAME = 0.3;
+// Never more windows than this, whatever the drawing: a backstop against a runaway cut.
+export const MAX_WINDOWS = 200;
+export function overviewWindows(pattern, { aspect = 1 } = {}) {
+  const [minX, minY, width, height] = pattern.layout.viewBox;
+  if (height <= width * TALL_OVERVIEW) return [];
+  const target = width * (Number.isFinite(aspect) ? Math.max(aspect, FLATTEST_FRAME) : 1);
+  const longest = target * WINDOW_STRETCH;
+  const shortest = target * 0.55;
+  // Less than a window, so each window starts below the one before.
+  const overlap = Math.min(width * 0.08, target * 0.25);
+  const bottom = minY + height;
+  const { gaps, marks } = chartBands(pattern);
+  // A window edge that cuts no number, letter or arrow; the nearest one to y between low and high.
+  const clear = (y) => marks.every(([from, to]) => y <= from || y >= to);
+  // The clear height nearest y between low and high, or null. Heights inside a label's band are not
+  // clear, so the nearest clear one is y itself, an end of the range, or the edge of a band.
+  const edges = marks.flat();
+  const clearNear = (y, low, high) => {
+    if (!(high >= low)) return null;
+    const candidates = [Math.min(Math.max(y, low), high), low, high, ...edges.filter((e) => e >= low && e <= high)];
+    return candidates.filter(clear).sort((a, b) => Math.abs(a - y) - Math.abs(b - y))[0] ?? null;
+  };
+  const spans = [];
+  const inGap = [];
+  let top = minY;
+  // Every pass ends a window strictly below its top and starts the next strictly below that top,
+  // by at least `step`, so the loop ends; MAX_WINDOWS is a backstop all the same.
+  const step = Math.max(target * 0.05, 1e-6 * height);
+  while (bottom - top > longest && spans.length < MAX_WINDOWS) {
+    const cut = gaps.filter(({ end, start }) => end - top >= shortest && end - top <= longest && start >= top + step && start <= end)
+      .sort((a, b) => Math.abs(a.end - top - target) - Math.abs(b.end - top - target))[0];
+    if (cut !== undefined) {
+      spans.push([top, cut.end]);
+      inGap.push(true);
+      top = cut.start;
+      continue;
+    }
+    // An edge that cuts no label: in the usual range if possible, else a somewhat shorter window,
+    // else a longer one, as long as it takes to reach a clear height. If none is clear before the
+    // bottom (a label can reach past it), the window runs to the bottom.
+    const end = clearNear(top + target, top + shortest, top + longest)
+      ?? clearNear(top + shortest, top + target * 0.3, top + shortest)
+      ?? clearNear(top + longest, top + longest, bottom)
+      ?? bottom;
+    spans.push([top, end]);
+    inGap.push(false);
+    if (end >= bottom) break;
+    // The next window starts a little above this end, at an edge that cuts nothing if there is one,
+    // never less than `step` below this window's top.
+    const lowest = Math.min(Math.max(end - overlap, top + step), end);
+    top = clearNear(lowest, lowest, end) ?? end;
+  }
+  if (!(spans.at(-1)?.[1] >= bottom)) spans.push([top, bottom]);
+  top = spans.at(-1)[0];
+  // A sliver at the end. After a cut in an empty band, the cut stays and the last window reaches up
+  // into the one before to a full window's height; otherwise the last two share the rest evenly.
+  if (spans.length > 1 && bottom - top < shortest) {
+    const start = spans.at(-2)[0];
+    if (inGap.at(-1)) {
+      spans.at(-1)[0] = clearNear(Math.max(bottom - target, start), start, top) ?? top;
+    } else {
+      spans.splice(-2, 2);
+      if (bottom - start <= longest) spans.push([start, bottom]);
+      else {
+        const middle = (start + bottom) / 2;
+        const end = clearNear(middle + overlap / 2, start + shortest, bottom - shortest)
+          ?? clearNear(middle, start + 1, bottom - 1);
+        if (end === null) spans.push([start, bottom]);
+        else spans.push([start, end], [clearNear(end - overlap, Math.max(end - overlap, start + step), end) ?? end, bottom]);
+      }
+    }
+  }
+  return spans.map(([from, to]) => [minX, from, width, to - from]);
+}
+
+// What the chart draws, as bands of height: `gaps` are the middles of bands where nothing at all is
+// drawn (lines, picots, thread, join lines, numbers, letters, arrows); `marks` are the bands the
+// numbers, letters and arrows take, which no window edge should cut. Labels are where the chart puts
+// them, as first shown and with every number shown. Worked out once per pattern.
+const bandCache = new WeakMap();
+function chartBands(pattern) {
+  if (bandCache.has(pattern)) return bandCache.get(pattern);
+  const covered = [];
+  const span = (ys) => covered.push([Math.min(...ys), Math.max(...ys)]);
+  const read = pattern.elements.map((element) => ({ element, read: readElement(element), geometry: elementGeometry(element) }));
+  const byId = new Map(read.map((entry) => [entry.element.id, entry]));
+  const spot = (entry, stitches) => entry.geometry.pointAt(entry.read.stitches ? stitches / entry.read.stitches : 0);
+  const [minX, minY, width, height] = pattern.layout.viewBox;
+  const s = width / BASE_SCALE;
+  read.forEach((entry, index) => {
+    span(Array.from({ length: 61 }, (_, i) => entry.geometry.pointAt(i / 60).y));
+    // Every picot stands out from its line: a decorative one as a loop, a join picot as a dot.
+    entry.read.items.filter((item) => item.kind !== 'stitch').forEach((item) => {
+      const p = spot(entry, item.from);
+      const reach = (item.kind === 'deco' ? PICOT_LENGTH : PICOT_R + 3) * s;
+      span([p.y, p.y + p.out.y * reach, p.y - PICOT_WIDTH * s, p.y + PICOT_WIDTH * s]);
+    });
+    // The thread drawn from one ring's base to the next ring's.
+    const before = read[index - 1];
+    if (entry.element.type === 'ring' && before?.element.type === 'ring' && entry.element.round === undefined) {
+      span([entry.element.place.base[1], before.element.place.base[1]]);
+    }
+    // The line drawn from a join to the picot it joins.
+    entry.read.items.filter((item) => item.kind === 'join').forEach((item) => {
+      const target = byId.get(item.element);
+      const picot = target?.read.items.find((i) => i.kind === 'leave' && i.name === item.name);
+      if (picot) span([spot(entry, item.from).y, spot(target, picot.from).y]);
+    });
+  });
+  const marks = [];
+  // A label's box is a little tighter than its type, whose ascenders and descenders reach further:
+  // the box counts as drawn, and a window edge keeps clear of the type as well.
+  const mark = (box) => {
+    covered.push([box.y - box.h / 2, box.y + box.h / 2]);
+    marks.push([box.y - box.h * 0.75, box.y + box.h * 0.75]);
+  };
+  const arrowMark = (arrow) => {
+    covered.push([arrow.y - 14 * s, arrow.y + 14 * s]);
+    marks.push([arrow.y - 14 * s, arrow.y + 14 * s]);
+  };
+  const seen = new Set();
+  const firstOfGroup = (element) => {
+    if (element.group === undefined) return true;
+    if (seen.has(element.group)) return false;
+    seen.add(element.group);
+    return true;
+  };
+  const elements = readChartElements(pattern);
+  [firstOfGroup, () => true].forEach((shows) => {
+    const labels = chartLabels(elements, leftPicotSpots(elements, s), s, { minX, minY, width, height }, shows);
+    [labels.flip, labels.letter, labels.count].forEach((map) => map.forEach(mark));
+    if (labels.start) mark(labels.start);
+    if (labels.arrow) arrowMark(labels.arrow);
+    labels.rounds.forEach(({ arrow, mark: number }) => {
+      arrowMark(arrow);
+      mark(number);
+    });
+  });
+  covered.sort((a, b) => a[0] - b[0]);
+  const clear = (y) => marks.every(([from, to]) => y <= from || y >= to);
+  const gaps = [];
+  let reach = covered[0][1];
+  covered.slice(1).forEach(([low, high]) => {
+    if (low > reach) {
+      // The height in the empty band nearest its middle that is clear of the type too. A band too
+      // narrow for that still parts what is above from what is below: the window above it ends at
+      // the first clear height below the band, the one below starts at the last clear height above.
+      const middle = (low + reach) / 2;
+      let best = null;
+      for (let y = reach; y <= low; y += 0.5) if (clear(y) && (best === null || Math.abs(y - middle) < Math.abs(best - middle))) best = y;
+      if (best !== null) gaps.push({ end: best, start: best });
+      else {
+        let end = low;
+        while (!clear(end) && end < high) end += 0.5;
+        let start = reach;
+        while (!clear(start) && start > minY) start -= 0.5;
+        if (clear(end) && clear(start)) gaps.push({ end, start });
+      }
+    }
+    reach = Math.max(reach, high);
+  });
+  const bands = { gaps, marks };
+  bandCache.set(pattern, bands);
+  return bands;
+}
+
+// Which window to show after the windows were worked out again for a new frame: the one holding
+// the highlighted elements if there are any, otherwise the same place in the list, or whole (null).
+export function windowAfterRefit(pattern, windows, at, ids) {
+  if (at === null || !windows.length) return null;
+  if (ids?.length) return windowFor(pattern, windows, ids);
+  return Math.min(at, windows.length - 1);
+}
+
+// The window showing most of these elements' lines: where a highlighted row of the stitch table is.
+export function windowFor(pattern, windows, ids) {
+  const points = pattern.elements.filter((e) => ids.includes(e.id)).flatMap((element) => {
+    const geometry = elementGeometry(element);
+    return Array.from({ length: 21 }, (_, i) => geometry.pointAt(i / 20));
+  });
+  let best = 0;
+  let most = -1;
+  windows.forEach(([x, y, w, h], index) => {
+    const inside = points.filter((p) => p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h).length;
+    if (inside > most) {
+      most = inside;
+      best = index;
+    }
+  });
+  return best;
+}
+
 // Label sizes, in the units marks are designed at. Wider than the ink, so labels keep a little air.
 const LABEL_BOXES = {
   count: (text) => ({ w: 7.5 * text.length + 3, h: 13 }),
@@ -549,10 +752,12 @@ export function leftPicotSpots(elements, s) {
 //   counts       'all', or element ids that show their numbers; by default, with no
 //                current or highlight, the first element of each group (or ungrouped)
 //   viewBox      [x, y, width, height] to show instead of the pattern's own
+//   frame        [x, y, width, height]: the part of the chart the picture shows, while every mark
+//                stays sized and placed as on the whole chart (see overviewWindows)
 //   title        accessible name
 export function renderChart(pattern, options = {}) {
   const {
-    current = null, done = [], reached = 0, currentItem = null, highlight = null, counts = null, title = '', viewBox = null,
+    current = null, done = [], reached = 0, currentItem = null, highlight = null, counts = null, title = '', viewBox = null, frame = null,
   } = options;
   const [minX, minY, width, height] = viewBox ?? pattern.layout.viewBox;
   const s = width / BASE_SCALE;
@@ -671,5 +876,6 @@ export function renderChart(pattern, options = {}) {
     }
   });
 
-  return `<svg class="diagram" viewBox="${minX} ${minY} ${width} ${height}" style="--s:${s}" role="img" aria-label="${escapeXml(title)}">${threads}${cords}${links}${marks}</svg>`;
+  const shown = frame ? frame.map((v) => n(v)).join(' ') : `${minX} ${minY} ${width} ${height}`;
+  return `<svg class="diagram" viewBox="${shown}" style="--s:${s}" role="img" aria-label="${escapeXml(title)}">${threads}${cords}${links}${marks}</svg>`;
 }

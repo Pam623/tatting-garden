@@ -22,6 +22,13 @@ test('a renamed drawing chart is announced by its new name', () => {
   assert.equal(label, '给妈妈的蝴蝶图解');
 });
 
+test('a renamed tall chart keeps saying which window is on show', () => {
+  let label = '手绘长条图解，第 2 屏，共 4 屏';
+  const chart = { getAttribute: () => label, setAttribute: (name, value) => { if (name === 'aria-label') label = value; } };
+  relabelChart({ querySelector: () => chart }, '图解练习');
+  assert.equal(label, '图解练习图解，第 2 屏，共 4 屏');
+});
+
 test('relabelling with no chart on show does nothing', () => {
   assert.doesNotThrow(() => relabelChart({ querySelector: () => null }, '爱心'));
   assert.doesNotThrow(() => relabelChart(null, '爱心'));
